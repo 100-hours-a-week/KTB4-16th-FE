@@ -1,9 +1,9 @@
-name: Frontend CI feature
+name: Frontend CI develop
 
 on:
-  push:
+  pull_request:
     branches:
-      - feature
+      - develop
       
 
 jobs:
@@ -35,3 +35,7 @@ jobs:
       # Phase 2: Lint (ESlint)
       - name: Run ESlint
         run: npm run lint
+
+      # Phase 3: TypeScript 타입 오류 검사
+      - name: Typecheck
+        run: npm run typecheck
