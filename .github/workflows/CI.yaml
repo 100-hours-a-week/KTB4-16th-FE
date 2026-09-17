@@ -5,24 +5,36 @@ on:
     branches:
       - main
       
+# 버전 작업 동시에 실행되지 않게 
+concurrency:
+  group: frontend-main-release
+  cancel-in-progress: false
 
 jobs:
   ci:
     name: Frontend CI
     runs-on: ubuntu-latest
 
+    # 워크플로우 권한 정의
+    permissions:
+      contents: write      # Git 태그, Release 생성
+      id-token: write      # GCP Workload Identity와 통신하기 위한 OIDC 토큰 발행 권한
+
+    env:
+      IMAGE_BASE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.PROJECT_REPOSITORY }}/${{ secrets.IMAGE_NAME }}
+
     steps:
       # 1. 코드 체크아웃
       - name: Checkout code
         uses: actions/checkout@v7
-        
-      # 2. Node.js  (캐싱 포함)
+        with:
+            fetch-depth: 0
+
+      # 2. Node.js 
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       # 3. 의존성 설치    
       - name: Install dependencies
@@ -44,4 +56,35 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Phase 5: Docker Build 준비
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Phase 6: OIDC를 이용한 서비스 계정 인증
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+
+      # Phase 7: gcloud 명령어 사용 준비
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        
+
+      # Phase 8: Docker가 GCP 인증 정보를 사용하도록 연결
+      - name: Configure Docker authentication
+        run: |
+            gcloud auth configure-docker "${{ secrets.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      # Phase 9: 버전 계산 -> image build, push -> Git 태그, Release 생성
+      - name: Release frontend image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes \
+            --package=semantic-release@25 \
+            --package=@semantic-release/exec@7 \
+            semantic-release
 
