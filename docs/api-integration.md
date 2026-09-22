@@ -38,6 +38,7 @@ Vite 공식 문서는 `VITE_` 접두사가 붙은 환경변수가 클라이언�
 - JavaScript에서 읽거나 복사하지 않는다.
 - 프론트 상태와 브라우저 저장소에 넣지 않는다.
 - refresh와 logout 요청에서는 Cookie 전송을 위해 `credentials: 'include'`를 사용한다.
+- 로컬처럼 프론트와 API의 origin이 다르면 CSRF 발급, Cookie가 필요한 모든 상태 변경 요청, refresh, logout에 `credentials: 'include'`를 사용한다.
 
 ## 4. CSRF
 
