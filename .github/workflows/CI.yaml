@@ -42,7 +42,7 @@ jobs:
 
       # Phase 1: Prettier
       - name: Run prettier 
-        run: npm run Prettier
+        run: npm run prettier
 
       # Phase 2: Lint (ESlint)
       - name: Run ESlint
