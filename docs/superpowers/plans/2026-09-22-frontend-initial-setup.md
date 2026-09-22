@@ -34,6 +34,7 @@
 ### Task 1: 실행 가능한 React TypeScript 기반 구성
 
 **Files:**
+
 - Create: `.env.example`
 - Create: `.gitignore`
 - Create: `.prettierignore`
@@ -53,6 +54,7 @@
 - Create: `vite.config.ts`
 
 **Interfaces:**
+
 - Consumes: Node.js 24, npm registry packages, Vite의 `import.meta.env`
 - Produces: `env.apiBaseUrl: string`, `App(): JSX.Element`, CI가 호출할 npm scripts
 
@@ -199,6 +201,7 @@ git commit -m "chore: React TypeScript 초기 환경 구성 #112"
 ### Task 2: 사람·AI 협업 문서 작성
 
 **Files:**
+
 - Create: `AGENTS.md`
 - Create: `RULE.md`
 - Create: `README.md`
@@ -206,6 +209,7 @@ git commit -m "chore: React TypeScript 초기 환경 구성 #112"
 - Create: `docs/api-integration.md`
 
 **Interfaces:**
+
 - Consumes: Task 1의 npm scripts와 `env.apiBaseUrl`, 설계 문서의 계층 규칙
 - Produces: AI 작업 규칙, 사람·AI 공통 협업 규칙, 신규 참여자 실행 가이드, 기능 배치 기준, API 통합 계약
 
@@ -289,11 +293,13 @@ git commit -m "docs: 프론트엔드 협업 및 구조 규칙 작성 #112"
 ### Task 3: develop CI 정합화 및 최종 검증
 
 **Files:**
+
 - Modify: `.github/workflows/CI.yaml:31`
 - Verify: `package.json`
 - Verify: repository tracked files
 
 **Interfaces:**
+
 - Consumes: Task 1의 `prettier`, `lint`, `typecheck` scripts
 - Produces: `develop` PR에서 실행 가능한 최소 CI 계약
 
