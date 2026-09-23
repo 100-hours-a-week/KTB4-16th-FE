@@ -1,0 +1,215 @@
+:root {
+  --mulo-bg-lav: #faf6ff;
+  --mulo-panel: #fff;
+  --mulo-line: #ece3f7;
+  --mulo-line-strong: #dccbf0;
+  --mulo-lilac-500: #a78bde;
+  --mulo-lilac-700: #7a5cbe;
+  --mulo-lilac-100: #efe7fa;
+  --mulo-peach-500: #ff9e6d;
+  --mulo-peach-300: #ffc9a6;
+  --mulo-peach-100: #ffeee1;
+  --mulo-mint-500: #5fc4a6;
+  --mulo-mint-100: #e4f7f0;
+  --mulo-gold-500: #e8b54b;
+  --mulo-ink-900: #332b4a;
+  --mulo-ink-600: #6c6285;
+  --mulo-ink-400: #9a90b3;
+}
+
+.home-page {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--mulo-bg-lav);
+  box-shadow: 0 0 34px rgb(122 92 190 / 8%);
+}
+
+.home-page-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding-top: max(18px, env(safe-area-inset-top));
+}
+
+.home-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 18px 10px;
+}
+
+.home-topbar h1 {
+  margin: 0;
+  color: var(--mulo-lilac-500);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 18px;
+}
+
+.home-weather-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--mulo-peach-300);
+  border-radius: 999px;
+  background: var(--mulo-peach-100);
+  color: var(--mulo-ink-600);
+  font-size: 11px;
+}
+
+.home-weather-chip strong {
+  color: var(--mulo-ink-900);
+}
+
+.home-memory-search svg {
+  width: 15px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.home-memory-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 18px 10px;
+  padding: 11px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--mulo-ink-900);
+  box-shadow: 0 6px 16px rgb(51 43 74 / 25%);
+  color: #fff;
+  text-align: left;
+}
+
+.home-memory-search span {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.home-memory-search em {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--mulo-gold-500);
+  color: var(--mulo-ink-900);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.home-shortcuts {
+  display: grid;
+  gap: 8px;
+  margin: 0 18px;
+}
+
+.home-shortcut-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 15px;
+  border: 1px solid var(--mulo-line-strong);
+  border-radius: 16px;
+  background: linear-gradient(120deg, #fff, var(--mulo-lilac-100));
+  box-shadow: 0 4px 14px rgb(122 92 190 / 10%);
+  color: var(--mulo-ink-900);
+  text-align: left;
+}
+
+.home-shortcut-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--mulo-lilac-500), var(--mulo-mint-500));
+  font-size: 15px;
+}
+
+.home-shortcut-card > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.home-shortcut-card strong {
+  font-size: 12px;
+}
+
+.home-shortcut-card small {
+  color: var(--mulo-ink-600);
+  font-size: 10px;
+}
+
+.home-create-action {
+  margin: 10px 18px 0;
+}
+
+.home-create-action button {
+  width: 100%;
+  padding: 13px;
+  border: 0;
+  border-radius: 13px;
+  background: linear-gradient(120deg, var(--mulo-lilac-500), var(--mulo-lilac-700));
+  box-shadow: 0 10px 18px -8px rgb(122 92 190 / 42%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.home-bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  padding: 9px 6px calc(13px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--mulo-line);
+  background: var(--mulo-panel);
+}
+
+.home-bottom-nav button {
+  display: grid;
+  gap: 4px;
+  min-width: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--mulo-lilac-500);
+  line-height: 1;
+}
+
+.home-bottom-nav svg {
+  width: 19px;
+  height: 19px;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.home-bottom-nav button span {
+  font-size: 9.5px;
+}
+
+.home-bottom-nav button.is-active {
+  color: var(--mulo-lilac-700);
+}
+
+@media (min-width: 481px) {
+  .home-page {
+    min-height: min(800px, 100vh);
+    margin-top: 24px;
+    margin-bottom: 24px;
+    border: 1px solid var(--mulo-line-strong);
+    border-radius: 28px;
+  }
+}

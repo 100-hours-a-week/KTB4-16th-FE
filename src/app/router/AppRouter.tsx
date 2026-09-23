@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 
 import { useSession } from '../../entities/session/model/useSession';
-import { HomePlaceholderPage } from '../../pages/home/HomePlaceholderPage';
+import { HomePage } from '../../pages/home/ui/HomePage';
 import { LoginPage } from '../../pages/login/LoginPage';
 import { SignupPage } from '../../pages/signup/SignupPage';
 
@@ -11,10 +11,7 @@ export function AppRouter() {
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={isAuthenticated ? <HomePlaceholderPage /> : <Navigate to="/login" replace />}
-      />
+      <Route path="/" element={isAuthenticated ? <HomePage /> : <Navigate to="/login" replace />} />
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}

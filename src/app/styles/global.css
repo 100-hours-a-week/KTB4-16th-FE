@@ -21,12 +21,11 @@ html,
 body,
 #root {
   min-width: 320px;
-  min-height: 100%;
+  min-height: 100vh;
   margin: 0;
 }
 
 body {
-  min-height: 100vh;
   background:
     radial-gradient(circle at 15% 5%, rgb(255 158 109 / 10%), transparent 42%),
     radial-gradient(circle at 85% 95%, rgb(95 196 166 / 12%), transparent 42%), #faf6ff;
@@ -37,13 +36,9 @@ input {
   font: inherit;
 }
 
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
-}
-
 button {
   border: 0;
+  cursor: pointer;
 }
 
 .sr-only {
@@ -68,16 +63,14 @@ a:hover {
   color: #4e3b80;
 }
 
-.auth-page,
-.home-page {
+.auth-page {
   display: grid;
   min-height: 100vh;
   place-items: center;
   padding: 24px;
 }
 
-.auth-card,
-.home-card {
+.auth-card {
   width: min(100%, 420px);
   padding: 38px 34px 36px;
   border: 1px solid #ece3f7;
@@ -92,15 +85,12 @@ a:hover {
 }
 
 .auth-brand h1,
-.home-card h1,
 .auth-brand p,
-.home-card p,
 .eyebrow {
   margin: 0;
 }
 
-.auth-brand h1,
-.home-card h1 {
+.auth-brand h1 {
   color: #a78bde;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 2.35rem;
@@ -109,8 +99,7 @@ a:hover {
   line-height: 1;
 }
 
-.auth-brand > p:last-child,
-.home-card > p:not(.eyebrow) {
+.auth-brand > p:last-child {
   margin-top: 8px;
   color: #9a90b3;
   font-size: 0.78rem;
@@ -203,15 +192,13 @@ a:hover {
   margin: 0;
 }
 
-.primary-button,
-.home-card button {
+.primary-button {
   min-height: 48px;
   padding: 12px 18px;
   border-radius: 14px;
   background: linear-gradient(120deg, #a78bde, #8f6fda);
   box-shadow: 0 12px 22px -8px rgb(122 92 190 / 45%);
   color: #ffffff;
-  cursor: pointer;
   font-weight: 800;
   transition:
     transform 160ms ease,
@@ -219,14 +206,12 @@ a:hover {
     opacity 160ms ease;
 }
 
-.primary-button:hover:not(:disabled),
-.home-card button:hover {
+.primary-button:hover:not(:disabled) {
   box-shadow: 0 15px 30px rgb(107 88 148 / 28%);
   transform: translateY(-1px);
 }
 
 .primary-button:focus-visible,
-.home-card button:focus-visible,
 a:focus-visible {
   outline: 3px solid rgb(90 72 132 / 38%);
   outline-offset: 3px;
@@ -272,24 +257,13 @@ a:focus-visible {
   text-align: center;
 }
 
-.home-card {
-  text-align: center;
-}
-
-.home-card button {
-  width: 100%;
-  margin-top: 28px;
-}
-
 @media (max-width: 480px) {
-  .auth-page,
-  .home-page {
+  .auth-page {
     align-items: stretch;
     padding: 0;
   }
 
-  .auth-card,
-  .home-card {
+  .auth-card {
     width: 100%;
     min-height: 100vh;
     padding: 52px 22px 36px;
@@ -299,8 +273,7 @@ a:focus-visible {
     box-shadow: none;
   }
 
-  .auth-brand h1,
-  .home-card h1 {
+  .auth-brand h1 {
     font-size: 2.1rem;
   }
 
