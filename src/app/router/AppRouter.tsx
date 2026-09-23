@@ -1,17 +1,17 @@
 import { Navigate, Route, Routes } from 'react-router';
 
-import { useSession } from '../../entities/session/model/useSession';
 import { HomePage } from '../../pages/home/ui/HomePage';
 import { LoginPage } from '../../pages/login/LoginPage';
 import { SignupPage } from '../../pages/signup/SignupPage';
+import { useSession } from '../../entities/session/model/useSession';
 
-/** 인증 여부에 따라 공개 인증 화면과 보호된 홈 화면을 분기한다. */
+/** 홈은 공개하고 로그인 상태의 인증 화면 재진입만 홈으로 돌려보낸다. */
 export function AppRouter() {
   const { isAuthenticated } = useSession();
 
   return (
     <Routes>
-      <Route path="/" element={isAuthenticated ? <HomePage /> : <Navigate to="/login" replace />} />
+      <Route path="/" element={<HomePage />} />
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}

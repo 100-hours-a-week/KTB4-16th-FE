@@ -31,10 +31,16 @@ function renderRoute(path: string) {
 }
 
 describe('AppRouter', () => {
-  it.each(['/', '/unknown'])('sends an anonymous visitor from %s to login', (path) => {
-    renderRoute(path);
+  it('shows home to an anonymous visitor', () => {
+    renderRoute('/');
 
-    expect(screen.getByRole('heading', { name: '로그인' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+  });
+
+  it('sends an unknown path to the public home page', () => {
+    renderRoute('/unknown');
+
+    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
   it.each(['/login', '/signup'])('sends an authenticated visitor from %s to home', async (path) => {
