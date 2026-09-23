@@ -36,6 +36,37 @@ describe('fetchJson', () => {
     } satisfies Partial<ApiError>);
   });
 
+  it('normalizes the backend FieldError array by field name', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            code: 'DUPLICATE_RESOURCE',
+            message: '이미 사용 중인 정보가 있습니다.',
+            errors: [
+              { field: 'email', code: 'EMAIL_DUPLICATED', message: '이미 사용 중인 이메일입니다.' },
+              {
+                field: 'nickname',
+                code: 'NICKNAME_DUPLICATED',
+                message: '이미 사용 중인 닉네임입니다.',
+              },
+            ],
+          }),
+          { status: 409, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+
+    await expect(fetchJson('/users/signup')).rejects.toMatchObject({
+      status: 409,
+      fieldErrors: {
+        email: '이미 사용 중인 이메일입니다.',
+        nickname: '이미 사용 중인 닉네임입니다.',
+      },
+    });
+  });
+
   it.each([[''], ['Gateway failure']])('normalizes non-JSON failure body %s', async (body) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 502 })));
 

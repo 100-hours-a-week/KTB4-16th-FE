@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCsrfToken } from '../../../shared/api/csrf';
+import { ApiError } from '../../../shared/api/apiError';
 import { fetchJson } from '../../../shared/api/fetchJson';
 import { login, signup } from './authApi';
 
@@ -33,6 +34,18 @@ describe('authApi', () => {
     expect(fetchJson).not.toHaveBeenCalled();
   });
 
+  it('rejects a login response without an access token', async () => {
+    vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
+    vi.mocked(fetchJson).mockResolvedValue({ message: '로그인 성공' });
+
+    await expect(
+      login({ email: 'user@example.com', password: 'Password1!' }),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'INVALID_RESPONSE',
+    } satisfies Partial<ApiError>);
+  });
+
   it('omits passwordConfirm from signup body', async () => {
     vi.mocked(fetchJson).mockResolvedValue({ message: '가입 완료' });
 
@@ -55,5 +68,18 @@ describe('authApi', () => {
         }),
       }),
     );
+  });
+
+  it('rejects a signup response without a message', async () => {
+    vi.mocked(fetchJson).mockResolvedValue({});
+
+    await expect(
+      signup({
+        nickname: '뮬로',
+        email: 'user@example.com',
+        password: 'Password1!',
+        passwordConfirm: 'Password1!',
+      }),
+    ).rejects.toMatchObject({ status: 502, code: 'INVALID_RESPONSE' } satisfies Partial<ApiError>);
   });
 });

@@ -14,6 +14,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** 서버의 필드 오류 객체에서 화면에 표시할 문자열만 추출한다. */
 function parseFieldErrors(value: unknown): Readonly<Record<string, string>> {
+  if (Array.isArray(value)) {
+    return Object.fromEntries(
+      value.flatMap((error) => {
+        if (
+          isRecord(error) &&
+          typeof error.field === 'string' &&
+          typeof error.message === 'string'
+        ) {
+          return [[error.field, error.message]];
+        }
+
+        return [];
+      }),
+    );
+  }
+
   if (!isRecord(value)) {
     return {};
   }
