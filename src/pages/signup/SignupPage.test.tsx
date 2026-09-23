@@ -41,6 +41,26 @@ async function fillValidSignupForm(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => vi.clearAllMocks());
 
 describe('SignupPage', () => {
+  it('shows mockup helpers and changes them to success feedback for valid input', async () => {
+    const user = userEvent.setup();
+    renderSignupPage();
+
+    expect(screen.getByLabelText('닉네임')).toHaveAttribute('placeholder', '닉네임 입력');
+    expect(screen.getByLabelText('비밀번호')).toHaveAccessibleDescription(
+      '영문 대소문자, 숫자, 특수문자를 포함해 8~16자로 입력해주세요.',
+    );
+
+    await user.type(screen.getByLabelText('닉네임'), '뮤로');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
+
+    expect(screen.getByLabelText('닉네임')).toHaveAccessibleDescription(
+      '사용할 수 있는 닉네임입니다.',
+    );
+    expect(screen.getByLabelText('비밀번호')).toHaveAccessibleDescription(
+      '사용할 수 있는 비밀번호입니다.',
+    );
+  });
+
   it('shows all client field errors without calling the API', async () => {
     const user = userEvent.setup();
     renderSignupPage();
@@ -49,7 +69,7 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText('이메일'), 'invalid');
     await user.type(screen.getByLabelText('비밀번호'), 'weak');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'different');
-    await user.click(screen.getByRole('button', { name: '회원가입' }));
+    await user.click(screen.getByRole('button', { name: '가입 완료' }));
 
     expect(screen.getByLabelText('닉네임')).toHaveAccessibleDescription();
     expect(screen.getByLabelText('이메일')).toHaveAccessibleDescription();
@@ -64,7 +84,7 @@ describe('SignupPage', () => {
     renderSignupPage();
     await fillValidSignupForm(user);
 
-    await user.click(screen.getByRole('button', { name: '회원가입' }));
+    await user.click(screen.getByRole('button', { name: '가입 완료' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(
       '가입이 완료되었습니다. 로그인해 주세요.',
@@ -81,7 +101,7 @@ describe('SignupPage', () => {
     renderSignupPage();
     await fillValidSignupForm(user);
 
-    await user.click(screen.getByRole('button', { name: '회원가입' }));
+    await user.click(screen.getByRole('button', { name: '가입 완료' }));
 
     expect(await screen.findByLabelText('이메일')).toHaveAccessibleDescription(
       '이미 사용 중인 형식입니다.',
@@ -99,7 +119,7 @@ describe('SignupPage', () => {
     renderSignupPage();
     await fillValidSignupForm(user);
 
-    await user.click(screen.getByRole('button', { name: '회원가입' }));
+    await user.click(screen.getByRole('button', { name: '가입 완료' }));
 
     expect(await screen.findByLabelText('닉네임')).toHaveAccessibleDescription(
       '이미 사용 중인 닉네임입니다.',
@@ -117,7 +137,7 @@ describe('SignupPage', () => {
     renderSignupPage();
     await fillValidSignupForm(user);
 
-    await user.click(screen.getByRole('button', { name: '회원가입' }));
+    await user.click(screen.getByRole('button', { name: '가입 완료' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.',
@@ -130,7 +150,7 @@ describe('SignupPage', () => {
     renderSignupPage();
     await fillValidSignupForm(user);
 
-    const submitButton = screen.getByRole('button', { name: '회원가입' });
+    const submitButton = screen.getByRole('button', { name: '가입 완료' });
     await user.dblClick(submitButton);
 
     expect(signup).toHaveBeenCalledTimes(1);

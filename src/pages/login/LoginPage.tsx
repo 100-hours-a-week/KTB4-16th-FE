@@ -86,11 +86,13 @@ export function LoginPage() {
 
   return (
     <main className="auth-page">
-      <section className="auth-card" aria-labelledby="login-title">
-        <div className="auth-heading">
-          <p className="eyebrow">Welcome back</p>
-          <h1 id="login-title">로그인</h1>
-          <p>계정으로 MULO를 시작해 보세요.</p>
+      <section className="auth-card auth-card--login" aria-labelledby="login-title">
+        <h2 id="login-title" className="sr-only">
+          로그인
+        </h2>
+        <div className="auth-brand">
+          <h1>mulo</h1>
+          <p>장소에 음악을 걸어두는 앱</p>
         </div>
 
         {signupMessage ? <p role="status">{signupMessage}</p> : null}
@@ -103,6 +105,7 @@ export function LoginPage() {
             value={values.email}
             onChange={handleChange('email')}
             error={fieldErrors.email}
+            placeholder="example@mulo.com"
             autoComplete="email"
           />
           <AuthFormField
@@ -112,6 +115,7 @@ export function LoginPage() {
             value={values.password}
             onChange={handleChange('password')}
             error={fieldErrors.password}
+            placeholder="비밀번호 입력"
             autoComplete="current-password"
           />
 
@@ -124,7 +128,7 @@ export function LoginPage() {
         </form>
 
         <p className="auth-switch">
-          처음이신가요? <Link to="/signup">회원가입</Link>
+          아직 계정이 없으신가요? <Link to="/signup">회원가입</Link>
         </p>
       </section>
     </main>

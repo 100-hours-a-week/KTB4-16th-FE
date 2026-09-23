@@ -40,6 +40,15 @@ async function fillValidLoginForm(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => vi.clearAllMocks());
 
 describe('LoginPage', () => {
+  it('uses the mockup brand copy and field placeholders', () => {
+    renderLoginPage();
+
+    expect(screen.getByRole('heading', { name: 'mulo' })).toBeInTheDocument();
+    expect(screen.getByText('장소에 음악을 걸어두는 앱')).toBeInTheDocument();
+    expect(screen.getByLabelText('이메일')).toHaveAttribute('placeholder', 'example@mulo.com');
+    expect(screen.getByLabelText('비밀번호')).toHaveAttribute('placeholder', '비밀번호 입력');
+  });
+
   it('shows both client errors without calling the API', async () => {
     const user = userEvent.setup();
     renderLoginPage();

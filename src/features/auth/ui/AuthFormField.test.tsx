@@ -39,4 +39,42 @@ describe('AuthFormField', () => {
       'false',
     );
   });
+
+  it('connects persistent helper text to its input', () => {
+    render(
+      <AuthFormField
+        id="password"
+        label="비밀번호"
+        type="password"
+        value=""
+        onChange={() => undefined}
+        helperText="영문 대소문자, 숫자, 특수문자를 포함해 8~16자로 입력해주세요."
+        autoComplete="new-password"
+      />,
+    );
+
+    expect(screen.getByLabelText('비밀번호')).toHaveAccessibleDescription(
+      '영문 대소문자, 숫자, 특수문자를 포함해 8~16자로 입력해주세요.',
+    );
+  });
+
+  it('shows an error instead of helper and success feedback', () => {
+    render(
+      <AuthFormField
+        id="nickname"
+        label="닉네임"
+        type="text"
+        value="!"
+        onChange={() => undefined}
+        helperText="2~10자로 입력해주세요."
+        successText="사용할 수 있는 닉네임입니다."
+        error="2~10자로 입력해주세요."
+        autoComplete="nickname"
+      />,
+    );
+
+    const input = screen.getByLabelText('닉네임');
+    expect(input).toHaveAccessibleDescription('2~10자로 입력해주세요.');
+    expect(screen.queryByText('사용할 수 있는 닉네임입니다.')).not.toBeInTheDocument();
+  });
 });

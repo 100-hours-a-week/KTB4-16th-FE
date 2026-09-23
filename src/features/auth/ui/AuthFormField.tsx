@@ -11,10 +11,14 @@ interface AuthFormFieldProps {
   value: string;
   onChange: ChangeEventHandler<HTMLInputElement>;
   error?: string;
+  helperText?: string;
+  successText?: string;
+  placeholder?: string;
+  maxLength?: number;
   autoComplete: HTMLInputAutoCompleteAttribute;
 }
 
-/** 인증 폼의 label, input, 오류 설명을 접근성 속성으로 연결한다. */
+/** 인증 폼의 label, input, 상태 안내를 접근성 속성으로 연결한다. */
 export function AuthFormField({
   id,
   label,
@@ -22,9 +26,15 @@ export function AuthFormField({
   value,
   onChange,
   error,
+  helperText,
+  successText,
+  placeholder,
+  maxLength,
   autoComplete,
 }: AuthFormFieldProps) {
-  const errorId = `${id}-error`;
+  const message = error ?? successText ?? helperText;
+  const messageId = `${id}-message`;
+  const messageTone = error ? 'error' : successText ? 'success' : 'helper';
 
   return (
     <div className="auth-field">
@@ -36,12 +46,14 @@ export function AuthFormField({
         value={value}
         onChange={onChange}
         autoComplete={autoComplete}
+        placeholder={placeholder}
+        maxLength={maxLength}
         aria-invalid={Boolean(error)}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={message ? messageId : undefined}
       />
-      {error ? (
-        <p id={errorId} className="field-error">
-          {error}
+      {message ? (
+        <p id={messageId} className={`field-message field-message--${messageTone}`}>
+          {message}
         </p>
       ) : null}
     </div>

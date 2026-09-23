@@ -52,10 +52,12 @@ export function SignupPage() {
   const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const liveErrors = validateSignup(values);
 
   /** 지정한 필드만 갱신해 입력별 상태 책임을 유지한다. */
   const handleChange = (field: keyof SignupValues) => (event: ChangeEvent<HTMLInputElement>) => {
     setValues((current) => ({ ...current, [field]: event.target.value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
   };
 
   /** 검증을 통과한 가입 요청을 한 번만 전송하고 결과를 화면 상태로 반영한다. */
@@ -95,12 +97,14 @@ export function SignupPage() {
 
   return (
     <main className="auth-page">
-      <section className="auth-card" aria-labelledby="signup-title">
-        <div className="auth-heading">
-          <p className="eyebrow">Join MULO</p>
+      <section className="auth-card auth-card--signup" aria-labelledby="signup-title">
+        <header className="auth-topbar">
+          <Link className="back-button" to="/login" aria-label="로그인으로 돌아가기">
+            <span aria-hidden="true">‹</span>
+          </Link>
           <h1 id="signup-title">회원가입</h1>
-          <p>새 계정을 만들고 함께 시작해 보세요.</p>
-        </div>
+          <span className="topbar-spacer" aria-hidden="true" />
+        </header>
 
         <form className="auth-form" noValidate onSubmit={handleSubmit}>
           <AuthFormField
@@ -109,7 +113,16 @@ export function SignupPage() {
             type="text"
             value={values.nickname}
             onChange={handleChange('nickname')}
-            error={fieldErrors.nickname}
+            error={
+              fieldErrors.nickname ??
+              (values.nickname && liveErrors.nickname ? '2~10자로 입력해주세요.' : undefined)
+            }
+            helperText="2~10자로 입력해주세요."
+            successText={
+              values.nickname && !liveErrors.nickname ? '사용할 수 있는 닉네임입니다.' : undefined
+            }
+            placeholder="닉네임 입력"
+            maxLength={10}
             autoComplete="nickname"
           />
           <AuthFormField
@@ -118,7 +131,14 @@ export function SignupPage() {
             type="email"
             value={values.email}
             onChange={handleChange('email')}
-            error={fieldErrors.email}
+            error={
+              fieldErrors.email ??
+              (values.email && liveErrors.email
+                ? '올바른 이메일 형식으로 입력해주세요.'
+                : undefined)
+            }
+            placeholder="example@mulo.com"
+            maxLength={254}
             autoComplete="email"
           />
           <AuthFormField
@@ -127,7 +147,18 @@ export function SignupPage() {
             type="password"
             value={values.password}
             onChange={handleChange('password')}
-            error={fieldErrors.password}
+            error={
+              fieldErrors.password ??
+              (values.password && liveErrors.password
+                ? '영문 대소문자, 숫자, 특수문자를 포함해 8~16자로 입력해주세요.'
+                : undefined)
+            }
+            helperText="영문 대소문자, 숫자, 특수문자를 포함해 8~16자로 입력해주세요."
+            successText={
+              values.password && !liveErrors.password ? '사용할 수 있는 비밀번호입니다.' : undefined
+            }
+            placeholder="비밀번호 입력"
+            maxLength={16}
             autoComplete="new-password"
           />
           <AuthFormField
@@ -136,7 +167,14 @@ export function SignupPage() {
             type="password"
             value={values.passwordConfirm}
             onChange={handleChange('passwordConfirm')}
-            error={fieldErrors.passwordConfirm}
+            error={
+              fieldErrors.passwordConfirm ??
+              (values.passwordConfirm && liveErrors.passwordConfirm
+                ? '비밀번호가 일치하지 않습니다.'
+                : undefined)
+            }
+            placeholder="비밀번호 재입력"
+            maxLength={16}
             autoComplete="new-password"
           />
 
@@ -144,13 +182,9 @@ export function SignupPage() {
           {isSubmitting ? <p role="status">가입 정보를 확인하고 있습니다.</p> : null}
 
           <button className="primary-button" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? '가입 중…' : '회원가입'}
+            {isSubmitting ? '가입 중…' : '가입 완료'}
           </button>
         </form>
-
-        <p className="auth-switch">
-          이미 계정이 있나요? <Link to="/login">로그인</Link>
-        </p>
       </section>
     </main>
   );
