@@ -7,8 +7,8 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  color: #1f2937;
-  background: #ffffff;
+  color: #2f2a3b;
+  background: #f6f1fb;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -25,20 +25,236 @@ body,
   margin: 0;
 }
 
-.app-shell {
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 14%, rgb(228 249 240 / 85%), transparent 32%),
+    radial-gradient(circle at 88% 18%, rgb(255 226 216 / 78%), transparent 34%),
+    linear-gradient(145deg, #f8f3ff 0%, #fdf8f3 55%, #f1fbf7 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  border: 0;
+}
+
+a {
+  color: #66539b;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: #4e3b80;
+}
+
+.auth-page,
+.home-page {
   display: grid;
   min-height: 100vh;
-  place-content: center;
+  place-items: center;
   padding: 24px;
+}
+
+.auth-card,
+.home-card {
+  width: min(100%, 440px);
+  padding: 40px;
+  border: 1px solid rgb(255 255 255 / 78%);
+  border-radius: 28px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 24px 70px rgb(87 65 114 / 16%);
+  backdrop-filter: blur(18px);
+}
+
+.auth-heading {
+  margin-bottom: 28px;
   text-align: center;
 }
 
-.app-shell h1,
-.app-shell p {
+.auth-heading h1,
+.home-card h1,
+.auth-heading p,
+.home-card p,
+.eyebrow {
   margin: 0;
 }
 
-.app-shell p {
+.auth-heading h1,
+.home-card h1 {
   margin-top: 8px;
-  color: #6b7280;
+  color: #2d2638;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+.auth-heading > p:last-child,
+.home-card > p:not(.eyebrow) {
+  margin-top: 12px;
+  color: #756d7e;
+  line-height: 1.65;
+}
+
+.eyebrow {
+  color: #7f6aae;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.auth-form {
+  display: grid;
+  gap: 18px;
+}
+
+.auth-field {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-field label {
+  color: #4a4254;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.auth-field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 1px solid #dcd4e5;
+  border-radius: 14px;
+  outline: none;
+  background: rgb(255 255 255 / 86%);
+  color: #2f2a3b;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.auth-field input:hover {
+  border-color: #b9aacb;
+}
+
+.auth-field input:focus-visible {
+  border-color: #836db2;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgb(131 109 178 / 18%);
+}
+
+.auth-field input[aria-invalid='true'] {
+  border-color: #c85d74;
+}
+
+.field-error,
+[role='alert'] {
+  margin: 0;
+  color: #a33f56;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+[role='status'] {
+  margin: 0 0 18px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: #edf8f3;
+  color: #316955;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.auth-form [role='status'] {
+  margin: 0;
+}
+
+.primary-button,
+.home-card button {
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c68a7, #6f9e8c);
+  box-shadow: 0 12px 25px rgb(107 88 148 / 22%);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.primary-button:hover:not(:disabled),
+.home-card button:hover {
+  box-shadow: 0 15px 30px rgb(107 88 148 / 28%);
+  transform: translateY(-1px);
+}
+
+.primary-button:focus-visible,
+.home-card button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgb(90 72 132 / 38%);
+  outline-offset: 3px;
+}
+
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.auth-switch {
+  margin: 26px 0 0;
+  color: #756d7e;
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.home-card {
+  text-align: center;
+}
+
+.home-card button {
+  width: 100%;
+  margin-top: 28px;
+}
+
+@media (max-width: 480px) {
+  .auth-page,
+  .home-page {
+    align-items: start;
+    padding: 18px;
+  }
+
+  .auth-card,
+  .home-card {
+    margin-top: 24px;
+    padding: 28px 22px;
+    border-radius: 22px;
+  }
+
+  .auth-heading h1,
+  .home-card h1 {
+    font-size: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

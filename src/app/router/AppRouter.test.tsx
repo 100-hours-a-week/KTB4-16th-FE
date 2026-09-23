@@ -43,7 +43,9 @@ describe('AppRouter', () => {
 
     await user.click(screen.getByRole('button', { name: '테스트 로그인' }));
 
-    expect(screen.getByRole('heading', { name: 'MULO에 오신 것을 환영합니다' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'MULO에 오신 것을 환영합니다' }),
+    ).toBeInTheDocument();
   });
 
   it('returns to login after logging out from home', async () => {

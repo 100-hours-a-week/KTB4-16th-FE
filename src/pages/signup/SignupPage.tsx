@@ -54,10 +54,9 @@ export function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   /** 지정한 필드만 갱신해 입력별 상태 책임을 유지한다. */
-  const handleChange =
-    (field: keyof SignupValues) => (event: ChangeEvent<HTMLInputElement>) => {
-      setValues((current) => ({ ...current, [field]: event.target.value }));
-    };
+  const handleChange = (field: keyof SignupValues) => (event: ChangeEvent<HTMLInputElement>) => {
+    setValues((current) => ({ ...current, [field]: event.target.value }));
+  };
 
   /** 검증을 통과한 가입 요청을 한 번만 전송하고 결과를 화면 상태로 반영한다. */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

@@ -50,10 +50,9 @@ export function LoginPage() {
   const signupMessage = getSignupMessage(location.state);
 
   /** 지정한 로그인 필드만 갱신하며 비밀번호 원문을 그대로 보존한다. */
-  const handleChange =
-    (field: keyof LoginValues) => (event: ChangeEvent<HTMLInputElement>) => {
-      setValues((current) => ({ ...current, [field]: event.target.value }));
-    };
+  const handleChange = (field: keyof LoginValues) => (event: ChangeEvent<HTMLInputElement>) => {
+    setValues((current) => ({ ...current, [field]: event.target.value }));
+  };
 
   /** 검증된 로그인 요청을 전송하고 성공 토큰을 메모리 세션에 연결한다. */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

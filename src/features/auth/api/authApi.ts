@@ -1,11 +1,6 @@
 import { getCsrfToken } from '../../../shared/api/csrf';
 import { fetchJson } from '../../../shared/api/fetchJson';
-import type {
-  LoginResponse,
-  LoginValues,
-  SignupResponse,
-  SignupValues,
-} from '../model/auth.types';
+import type { LoginResponse, LoginValues, SignupResponse, SignupValues } from '../model/auth.types';
 
 /** CSRF 토큰을 포함해 로그인하고 access token 응답을 반환한다. */
 export async function login(values: LoginValues): Promise<LoginResponse> {

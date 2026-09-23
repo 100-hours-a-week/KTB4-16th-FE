@@ -51,6 +51,8 @@ describe('SessionProvider', () => {
   });
 
   it('reports a clear error when used outside its provider', () => {
-    expect(() => render(<SessionProbe />)).toThrow('useSession은 SessionProvider 안에서 사용해야 합니다.');
+    expect(() => render(<SessionProbe />)).toThrow(
+      'useSession은 SessionProvider 안에서 사용해야 합니다.',
+    );
   });
 });

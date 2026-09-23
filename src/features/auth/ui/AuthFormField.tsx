@@ -1,4 +1,8 @@
-import type { ChangeEventHandler, HTMLInputAutoCompleteAttribute, HTMLInputTypeAttribute } from 'react';
+import type {
+  ChangeEventHandler,
+  HTMLInputAutoCompleteAttribute,
+  HTMLInputTypeAttribute,
+} from 'react';
 
 interface AuthFormFieldProps {
   id: string;

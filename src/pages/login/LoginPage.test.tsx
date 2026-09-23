@@ -66,13 +66,24 @@ describe('LoginPage', () => {
 
     await user.click(screen.getByRole('button', { name: '로그인' }));
 
-    expect(await screen.findByRole('heading', { name: '홈 세션: access-token' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: '홈 세션: access-token' }),
+    ).toBeInTheDocument();
   });
 
   it.each([
-    [new ApiError(401, '인증 실패', 'INVALID_CREDENTIALS'), '이메일 또는 비밀번호가 일치하지 않습니다.'],
-    [new ApiError(403, 'CSRF 실패', 'CSRF_TOKEN_MISSING'), '보안 정보를 확인하지 못했습니다. 다시 시도해 주세요.'],
-    [new ApiError(0, '연결 실패', 'NETWORK_ERROR'), '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'],
+    [
+      new ApiError(401, '인증 실패', 'INVALID_CREDENTIALS'),
+      '이메일 또는 비밀번호가 일치하지 않습니다.',
+    ],
+    [
+      new ApiError(403, 'CSRF 실패', 'CSRF_TOKEN_MISSING'),
+      '보안 정보를 확인하지 못했습니다. 다시 시도해 주세요.',
+    ],
+    [
+      new ApiError(0, '연결 실패', 'NETWORK_ERROR'),
+      '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+    ],
     [new ApiError(500, '서버 실패'), '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'],
   ])('shows the mapped API error for %s', async (error, message) => {
     const user = userEvent.setup();

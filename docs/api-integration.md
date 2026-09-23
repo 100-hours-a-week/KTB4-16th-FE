@@ -42,7 +42,7 @@ Vite 공식 문서는 `VITE_` 접두사가 붙은 환경변수가 클라이언�
 
 ## 4. CSRF
 
-앱 시작 시 백엔드 계약에 따라 다음 요청으로 CSRF Cookie를 준비한다.
+현재 로그인 구현은 로그인 POST 직전에 다음 요청으로 CSRF Cookie를 준비한다.
 
 ```http
 GET /api/csrf
@@ -55,10 +55,20 @@ X-XSRF-TOKEN: <cookie-value>
 ```
 
 - `POST`, `PATCH`, `DELETE`는 명세의 예외를 제외하고 CSRF 처리를 적용한다.
+- `POST /api/users/signup`은 백엔드 보안 설정의 CSRF 예외이므로 선행 CSRF 요청과 헤더를 사용하지 않는다.
+- `POST /api/auth/login`은 `GET /api/csrf` 후 `XSRF-TOKEN` Cookie 값을 `X-XSRF-TOKEN` 헤더로 전달한다.
+- CSRF 발급과 로그인 요청은 모두 `credentials: 'include'`를 사용한다.
 - `GET` 요청에는 CSRF 헤더를 추가하지 않는다.
 - `403 CSRF_TOKEN_INVALID`가 발생한 상태 변경 요청을 자동 반복하지 않는다.
 
-## 5. 401과 토큰 재발급
+## 5. 현재 인증 구현 범위
+
+- 로그인 성공 응답의 `accessToken`은 `SessionProvider`의 React 메모리 상태에만 저장한다.
+- 회원가입 성공 시 `/login`으로 이동하고 완료 안내를 route state로 전달한다.
+- 브라우저 새로고침으로 Provider가 다시 생성되면 access token이 사라지고 로그인 화면으로 돌아간다.
+- refresh token 재발급과 로그인 세션 복구는 후속 범위이며 현재 자동 수행하지 않는다.
+
+## 6. 401과 토큰 재발급
 
 ```text
 보호 API 401
@@ -72,7 +82,7 @@ X-XSRF-TOKEN: <cookie-value>
 - 원 요청 자동 재시도는 최대 한 번이다.
 - 상태 변경 요청은 멱등성이 확인되지 않으면 CSRF 오류나 네트워크 오류만으로 자동 반복하지 않는다.
 
-## 6. 요청 작성
+## 7. 요청 작성
 
 - query parameter는 `URLSearchParams` 또는 검증된 클라이언트의 `params` 기능으로 인코딩한다.
 - URL 문자열에 사용자 입력을 직접 이어 붙이지 않는다.
@@ -90,7 +100,7 @@ const query = new URLSearchParams({
 });
 ```
 
-## 7. 오류 처리
+## 8. 오류 처리
 
 - HTTP 상태와 OpenAPI 오류 코드를 함께 확인한다.
 - 사용자 메시지와 개발자 진단 정보를 분리한다.
@@ -98,7 +108,7 @@ const query = new URLSearchParams({
 - 네트워크 오류와 서버의 명시적 오류 응답을 구분한다.
 - 자동 재시도 여부는 method의 멱등성과 기능 계약을 기준으로 정한다.
 
-## 8. 구현 전 확인 목록
+## 9. 구현 전 확인 목록
 
 - [ ] 최신 OpenAPI 경로와 schema를 확인했다.
 - [ ] 인증 필요 여부를 확인했다.
