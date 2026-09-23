@@ -5,6 +5,7 @@ export interface SessionContextValue {
   isAuthenticated: boolean;
   setAccessToken: (token: string) => void;
   clearSession: () => void;
+  fetchAuthenticatedJson: <T>(path: string, init?: RequestInit) => Promise<T>;
 }
 
 export const SessionContext = createContext<SessionContextValue | null>(null);

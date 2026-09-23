@@ -57,6 +57,7 @@ X-XSRF-TOKEN: <cookie-value>
 - `POST`, `PATCH`, `DELETE`는 명세의 예외를 제외하고 CSRF 처리를 적용한다.
 - `POST /api/users/signup`은 백엔드 보안 설정의 CSRF 예외이므로 선행 CSRF 요청과 헤더를 사용하지 않는다.
 - `POST /api/auth/login`은 `GET /api/csrf` 후 `XSRF-TOKEN` Cookie 값을 `X-XSRF-TOKEN` 헤더로 전달한다.
+- `POST /api/auth/refresh`도 CSRF 검증 대상이므로 `GET /api/csrf` 후 `X-XSRF-TOKEN` 헤더를 전달한다.
 - CSRF 발급과 로그인 요청은 모두 `credentials: 'include'`를 사용한다.
 - `GET` 요청에는 CSRF 헤더를 추가하지 않는다.
 - `403 CSRF_TOKEN_INVALID`가 발생한 상태 변경 요청을 자동 반복하지 않는다.
@@ -65,8 +66,9 @@ X-XSRF-TOKEN: <cookie-value>
 
 - 로그인 성공 응답의 `accessToken`은 `SessionProvider`의 React 메모리 상태에만 저장한다.
 - 회원가입 성공 시 `/login`으로 이동하고 완료 안내를 route state로 전달한다.
-- 브라우저 새로고침으로 Provider가 다시 생성되면 access token이 사라지고 로그인 화면으로 돌아간다.
-- refresh token 재발급과 로그인 세션 복구는 후속 범위이며 현재 자동 수행하지 않는다.
+- 브라우저 새로고침으로 Provider가 다시 생성되면 access token은 사라진다. 공개 홈은 그대로 접근할 수 있고, 이후 보호 API의 401 응답에서 refresh Cookie를 사용해 세션을 복구할 수 있다.
+- 보호 API는 `useSession()`이 제공하는 `fetchAuthenticatedJson`을 사용한다. 이 Context 함수는 `src/shared/api/authenticatedFetchJson.ts`의 공통 클라이언트를 사용하며 현재 메모리 access token을 `Authorization: Bearer <accessToken>` 헤더로 추가한다.
+- 로그인·회원가입·refresh와 공개 API는 `fetchAuthenticatedJson`을 사용하지 않는다.
 
 ## 6. 401과 토큰 재발급
 
@@ -74,12 +76,13 @@ X-XSRF-TOKEN: <cookie-value>
 보호 API 401
   -> POST /api/auth/refresh 한 번
   -> 성공: Access Token 교체 후 원 요청 한 번 재시도
-  -> 실패: 메모리 인증 상태 제거 후 로그인 흐름으로 이동
+  -> 실패: 메모리 인증 상태 제거 후 보호 화면 정책에 따라 처리
 ```
 
 - refresh 요청 자체의 401은 다시 refresh하지 않는다.
 - 동시에 여러 요청이 401을 받으면 하나의 refresh Promise를 공유한다.
 - 원 요청 자동 재시도는 최대 한 번이다.
+- refresh 실패 또는 응답 형식 오류 시 `SessionProvider`의 메모리 access token을 제거한다. 공개 화면으로의 강제 이동은 하지 않으며, 보호 화면은 각 화면의 접근 정책에 따라 처리한다.
 - 상태 변경 요청은 멱등성이 확인되지 않으면 CSRF 오류나 네트워크 오류만으로 자동 반복하지 않는다.
 
 ## 7. 요청 작성
