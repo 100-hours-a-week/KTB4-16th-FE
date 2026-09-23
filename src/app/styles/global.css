@@ -7,8 +7,8 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  color: #1f2937;
-  background: #ffffff;
+  color: #332b4a;
+  background: #faf6ff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -21,24 +21,21 @@ html,
 body,
 #root {
   min-width: 320px;
-  min-height: 100%;
-  margin: 0;
-}
-
-.app-shell {
-  display: grid;
   min-height: 100vh;
-  place-content: center;
-  padding: 24px;
-  text-align: center;
-}
-
-.app-shell h1,
-.app-shell p {
   margin: 0;
 }
 
-.app-shell p {
-  margin-top: 8px;
-  color: #6b7280;
+body {
+  background:
+    radial-gradient(circle at 15% 5%, rgb(255 158 109 / 10%), transparent 42%),
+    radial-gradient(circle at 85% 95%, rgb(95 196 166 / 12%), transparent 42%), #faf6ff;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
 }
