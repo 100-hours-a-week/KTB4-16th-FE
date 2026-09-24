@@ -1,11 +1,15 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { getMyMarkers } from '../api/getMyMarkers';
+import { getMyPlaceRecords, type MyPlaceRecord } from '../api/getMyPlaceRecords';
 import { getPopularMarkers } from '../api/getPopularMarkers';
 import { useSession } from '../../../entities/session/model/useSession';
 import { env } from '../../../shared/config/env';
+import { MyLocksSheet } from './MyLocksSheet';
 import {
+  type KakaoCluster,
+  type KakaoCustomOverlay,
   type KakaoMarker,
   type KakaoMarkerClusterer,
   type KakaoMaps,
@@ -16,6 +20,7 @@ import './homeMap.css';
 type MapMode = 'popular' | 'mine';
 type MapLoadState = 'idle' | 'ready' | 'error';
 type MarkersLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
+type MyLocksLoadState = 'loading' | 'ready' | 'empty' | 'error';
 export type MapCenter = {
   latitude: number;
   longitude: number;
@@ -76,6 +81,24 @@ const MUSIC_NOTE_PIN_SVG = `
   </svg>
 `;
 
+const SELECTED_MUSIC_NOTE_PIN_SVG = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="46" height="56" viewBox="0 0 42 52">
+    <defs>
+      <filter id="selected-pin-glow" x="-40%" y="-35%" width="180%" height="180%">
+        <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#a78bde" flood-opacity=".62"/>
+        <feDropShadow dx="0" dy="2" stdDeviation="1.8" flood-color="#7a5cbe" flood-opacity=".28"/>
+      </filter>
+    </defs>
+    <path d="${MULO_PIN_PATH}" fill="#a78bde" stroke="#fff" stroke-width="4" filter="url(#selected-pin-glow)"/>
+    <path d="${MULO_PIN_PATH}" fill="#a78bde" stroke="#fff" stroke-width="2"/>
+    <g transform="translate(-1.5 0)">
+      <path d="M19 28V15l10-3v12.8M19 15l10-3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <ellipse cx="16.3" cy="28.1" rx="3.5" ry="2.7" fill="#fff"/>
+      <ellipse cx="26.3" cy="24.9" rx="3.5" ry="2.7" fill="#fff"/>
+    </g>
+  </svg>
+`;
+
 const CLUSTER_PIN_SVG = `
   <svg xmlns="http://www.w3.org/2000/svg" width="42" height="52" viewBox="0 0 42 52">
     <defs>
@@ -87,12 +110,25 @@ const CLUSTER_PIN_SVG = `
   </svg>
 `;
 
+const SELECTED_CLUSTER_HALO_CONTENT = `
+  <span class="home-map-selected-cluster-halo" aria-hidden="true"></span>
+`;
+
 /** 기본 Marker와 Cluster 색상을 맞추기 위한 MULO 음악 노트 핀 이미지를 생성한다. */
 function createMusicNoteMarkerImage(kakao: KakaoMaps) {
   const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(MUSIC_NOTE_PIN_SVG)}`;
 
   return new kakao.maps.MarkerImage(source, new kakao.maps.Size(42, 52), {
     offset: new kakao.maps.Point(21, 50),
+  });
+}
+
+/** 선택된 Marker가 같은 좌표 anchor를 유지한 채 강조되도록 이미지를 만든다. */
+function createSelectedMusicNoteMarkerImage(kakao: KakaoMaps) {
+  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(SELECTED_MUSIC_NOTE_PIN_SVG)}`;
+
+  return new kakao.maps.MarkerImage(source, new kakao.maps.Size(46, 56), {
+    offset: new kakao.maps.Point(23, 54),
   });
 }
 
@@ -111,14 +147,110 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const initialCenterPromiseRef = useRef<Promise<MapCenter> | null>(null);
   const mapModeRef = useRef<MapMode>('popular');
   const refreshMarkersRef = useRef<(() => void) | null>(null);
+  const openMyLocksSheetRef = useRef<(placeIds: number[]) => void>(() => undefined);
+  const closeMyLocksSheetRef = useRef<() => void>(() => undefined);
+  const clearMapSelectionRef = useRef<() => void>(() => undefined);
+  const myLocksRequestControllerRef = useRef<AbortController | null>(null);
+  const myLocksRequestIdRef = useRef(0);
   const [mapMode, setMapMode] = useState<MapMode>('popular');
   const [mapLoadState, setMapLoadState] = useState<MapLoadState>('idle');
   const [markersLoadState, setMarkersLoadState] = useState<MarkersLoadState>('idle');
+  const [selectedPlaceIds, setSelectedPlaceIds] = useState<number[]>([]);
+  const [myLocksRecords, setMyLocksRecords] = useState<MyPlaceRecord[]>([]);
+  const [myLocksLoadState, setMyLocksLoadState] = useState<MyLocksLoadState>('loading');
+  const [nextMyLocksCursor, setNextMyLocksCursor] = useState<string | null>(null);
+  const [isMyLocksSheetOpen, setIsMyLocksSheetOpen] = useState(false);
+  const [isMyLocksSheetVisible, setIsMyLocksSheetVisible] = useState(false);
+  const [isLoadingNextPage, setIsLoadingNextPage] = useState(false);
 
   useEffect(() => {
     mapModeRef.current = mapMode;
     refreshMarkersRef.current?.();
   }, [mapMode]);
+
+  useEffect(
+    () => () => {
+      myLocksRequestControllerRef.current?.abort();
+    },
+    [],
+  );
+
+  /** 선택한 Place의 첫 페이지 또는 다음 Cursor 페이지를 최신 요청만 반영해 조회한다. */
+  const loadMyLocks = useCallback(
+    async (placeIds: number[], cursor: string | null, append: boolean) => {
+      myLocksRequestControllerRef.current?.abort();
+      const requestController = new AbortController();
+      const requestId = myLocksRequestIdRef.current + 1;
+      myLocksRequestIdRef.current = requestId;
+      myLocksRequestControllerRef.current = requestController;
+
+      if (append) {
+        setIsLoadingNextPage(true);
+      } else {
+        setMyLocksLoadState('loading');
+      }
+
+      try {
+        const page = await getMyPlaceRecords(
+          placeIds,
+          cursor,
+          fetchAuthenticatedJson,
+          requestController.signal,
+        );
+
+        if (requestController.signal.aborted || requestId !== myLocksRequestIdRef.current) {
+          return;
+        }
+
+        setMyLocksRecords((currentRecords) =>
+          append ? [...currentRecords, ...page.records] : page.records,
+        );
+        setNextMyLocksCursor(page.nextCursor);
+        setMyLocksLoadState(page.records.length === 0 && !append ? 'empty' : 'ready');
+      } catch {
+        if (!requestController.signal.aborted && requestId === myLocksRequestIdRef.current) {
+          setMyLocksLoadState('error');
+        }
+      } finally {
+        if (requestId === myLocksRequestIdRef.current) {
+          myLocksRequestControllerRef.current = null;
+          setIsLoadingNextPage(false);
+        }
+      }
+    },
+    [fetchAuthenticatedJson],
+  );
+
+  /** Marker 또는 Cluster가 선택한 Place IDs로 목록 sheet의 첫 페이지를 연다. */
+  const openMyLocksSheet = useCallback(
+    (placeIds: number[]) => {
+      const uniquePlaceIds = [...new Set(placeIds)];
+
+      if (uniquePlaceIds.length === 0 || mapModeRef.current !== 'mine') {
+        return;
+      }
+
+      setSelectedPlaceIds(uniquePlaceIds);
+      setMyLocksRecords([]);
+      setNextMyLocksCursor(null);
+      setIsMyLocksSheetVisible(true);
+      requestAnimationFrame(() => setIsMyLocksSheetOpen(true));
+      void loadMyLocks(uniquePlaceIds, null, false);
+    },
+    [loadMyLocks],
+  );
+
+  const closeMyLocksSheet = useCallback(() => {
+    myLocksRequestControllerRef.current?.abort();
+    myLocksRequestControllerRef.current = null;
+    myLocksRequestIdRef.current += 1;
+    setIsMyLocksSheetOpen(false);
+    clearMapSelectionRef.current();
+    setSelectedPlaceIds([]);
+    setMyLocksRecords([]);
+    setNextMyLocksCursor(null);
+    setIsLoadingNextPage(false);
+  }, []);
 
   useEffect(() => {
     const mapElement = mapContainerRef.current;
@@ -133,12 +265,36 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     let markerClusterer: KakaoMarkerClusterer | undefined;
     let activeRequestController: AbortController | undefined;
     let removeIdleListener: (() => void) | undefined;
+    let removeMapClickListener: (() => void) | undefined;
+    let removeClusterClickListener: (() => void) | undefined;
+    let removeMarkerClickListeners: (() => void)[] = [];
+    const markerPlaceIds = new Map<KakaoMarker, number>();
+    let selectedMarker: KakaoMarker | undefined;
+    let selectedClusterOverlay: KakaoCustomOverlay | undefined;
+    let selectedClusterMarker: KakaoCustomOverlay | undefined;
+    let resetSelectedMarkerImage: ((marker: KakaoMarker) => void) | undefined;
 
     /** 현재 viewport의 Cluster와 선택된 지도 모드의 Marker를 모두 제거한다. */
     function removeMapMarkers() {
+      clearMapSelection();
       markerClusterer?.clear();
+      removeMarkerClickListeners.forEach((removeListener) => removeListener());
+      removeMarkerClickListeners = [];
+      markerPlaceIds.clear();
       markers.forEach((marker) => marker.setMap(null));
       markers = [];
+    }
+
+    /** 현재 Marker 또는 Cluster의 강조 표시를 하나만 유지한다. */
+    function clearMapSelection() {
+      if (selectedMarker) {
+        resetSelectedMarkerImage?.(selectedMarker);
+        selectedMarker = undefined;
+      }
+      selectedClusterOverlay?.setMap(null);
+      selectedClusterOverlay = undefined;
+      selectedClusterMarker?.setZIndex(0);
+      selectedClusterMarker = undefined;
     }
 
     /** fetch 취소로 발생한 오류는 사용자에게 조회 실패로 표시하지 않는다. */
@@ -171,6 +327,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           map,
           averageCenter: true,
           minLevel: 6,
+          disableClickZoom: true,
           styles: [
             {
               width: '42px',
@@ -189,11 +346,17 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         });
         markerClusterer = currentMarkerClusterer;
         const musicNoteMarkerImage = createMusicNoteMarkerImage(kakao);
+        const selectedMusicNoteMarkerImage = createSelectedMusicNoteMarkerImage(kakao);
+        resetSelectedMarkerImage = (marker) => marker.setImage(musicNoteMarkerImage);
+        clearMapSelectionRef.current = clearMapSelection;
         setMapLoadState('ready');
 
         /** 현재 모드와 viewport에 맞는 Place 목록을 조회해 Marker와 Cluster를 교체한다. */
         async function refreshMapMarkers() {
           activeRequestController?.abort();
+          if (mapModeRef.current === 'mine') {
+            closeMyLocksSheetRef.current();
+          }
           removeMapMarkers();
 
           const requestController = new AbortController();
@@ -226,13 +389,29 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
               return;
             }
 
-            markers = mapMarkers.map(
-              (marker) =>
-                new kakao.maps.Marker({
-                  position: new kakao.maps.LatLng(marker.latitude, marker.longitude),
-                  image: musicNoteMarkerImage,
-                }),
-            );
+            markers = mapMarkers.map((marker) => {
+              const kakaoMarker = new kakao.maps.Marker({
+                position: new kakao.maps.LatLng(marker.latitude, marker.longitude),
+                image: musicNoteMarkerImage,
+                clickable: true,
+              });
+              markerPlaceIds.set(kakaoMarker, marker.placeId);
+              const handleMarkerClick = () => {
+                if (mapModeRef.current !== 'mine') {
+                  return;
+                }
+                clearMapSelection();
+                selectedMarker = kakaoMarker;
+                selectedMarker.setImage(selectedMusicNoteMarkerImage);
+                openMyLocksSheetRef.current([marker.placeId]);
+              };
+              kakao.maps.event.addListener(kakaoMarker, 'click', handleMarkerClick);
+              removeMarkerClickListeners.push(() => {
+                kakao.maps.event.removeListener(kakaoMarker, 'click', handleMarkerClick);
+              });
+
+              return kakaoMarker;
+            });
             currentMarkerClusterer.addMarkers(markers);
             setMarkersLoadState(mapMarkers.length === 0 ? 'empty' : 'ready');
           } catch (error: unknown) {
@@ -255,8 +434,50 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           void refreshMapMarkers();
         };
 
+        const handleClusterClick = (cluster: KakaoCluster) => {
+          if (mapModeRef.current !== 'mine') {
+            return;
+          }
+
+          clearMapSelection();
+          selectedClusterMarker = cluster.getClusterMarker();
+          selectedClusterMarker.setZIndex(3);
+          selectedClusterOverlay = new kakao.maps.CustomOverlay({
+            map,
+            position: cluster.getCenter(),
+            content: SELECTED_CLUSTER_HALO_CONTENT,
+            xAnchor: 0.5,
+            yAnchor: 0.5,
+            zIndex: 2,
+          });
+
+          openMyLocksSheetRef.current(
+            cluster.getMarkers().flatMap((marker) => {
+              const placeId = markerPlaceIds.get(marker);
+              return placeId === undefined ? [] : [placeId];
+            }),
+          );
+        };
+        kakao.maps.event.addListener(currentMarkerClusterer, 'clusterclick', handleClusterClick);
+        removeClusterClickListener = () => {
+          kakao.maps.event.removeListener(
+            currentMarkerClusterer,
+            'clusterclick',
+            handleClusterClick,
+          );
+        };
+
         const handleMapIdle = () => {
           void refreshMapMarkers();
+        };
+
+        const handleMapClick = () => {
+          closeMyLocksSheetRef.current();
+        };
+
+        kakao.maps.event.addListener(map, 'click', handleMapClick);
+        removeMapClickListener = () => {
+          kakao.maps.event.removeListener(map, 'click', handleMapClick);
         };
 
         kakao.maps.event.addListener(map, 'idle', handleMapIdle);
@@ -278,10 +499,13 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       isMounted = false;
       activeRequestController?.abort();
       removeIdleListener?.();
+      removeMapClickListener?.();
+      removeClusterClickListener?.();
       if (refreshMarkersRef.current) {
         refreshMarkersRef.current = null;
       }
       removeMapMarkers();
+      clearMapSelectionRef.current = () => undefined;
     };
   }, [fetchAuthenticatedJson, onInitialCenterResolved]);
 
@@ -293,7 +517,25 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       return;
     }
 
+    if (nextMapMode === 'popular') {
+      closeMyLocksSheet();
+    }
+
     setMapMode(nextMapMode);
+  }
+
+  useEffect(() => {
+    openMyLocksSheetRef.current = openMyLocksSheet;
+  }, [openMyLocksSheet]);
+
+  useEffect(() => {
+    closeMyLocksSheetRef.current = closeMyLocksSheet;
+  }, [closeMyLocksSheet]);
+
+  function finishClosingMyLocksSheet() {
+    if (!isMyLocksSheetOpen) {
+      setIsMyLocksSheetVisible(false);
+    }
   }
 
   return (
@@ -349,6 +591,23 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           </div>
         ) : null}
         {children}
+        {isMyLocksSheetVisible ? (
+          <MyLocksSheet
+            isOpen={isMyLocksSheetOpen}
+            placeCount={selectedPlaceIds.length}
+            records={myLocksRecords}
+            loadState={myLocksLoadState}
+            hasNextPage={nextMyLocksCursor !== null}
+            isLoadingNextPage={isLoadingNextPage}
+            onLoadNextPage={() => {
+              if (nextMyLocksCursor !== null) {
+                void loadMyLocks(selectedPlaceIds, nextMyLocksCursor, true);
+              }
+            }}
+            onClose={closeMyLocksSheet}
+            onExited={finishClosingMyLocksSheet}
+          />
+        ) : null}
       </div>
     </section>
   );

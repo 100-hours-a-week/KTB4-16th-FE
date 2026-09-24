@@ -59,6 +59,19 @@
   inset: 0;
 }
 
+.home-map-selected-cluster-halo {
+  display: block;
+  width: 54px;
+  height: 64px;
+  border: 3px solid rgb(255 255 255 / 92%);
+  border-radius: 50%;
+  background: transparent;
+  box-shadow:
+    0 0 0 4px rgb(167 139 222 / 38%),
+    0 6px 14px rgb(90 72 132 / 28%);
+  pointer-events: none;
+}
+
 .home-map-notice {
   z-index: 1;
   display: grid;
