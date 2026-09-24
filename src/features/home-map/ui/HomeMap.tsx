@@ -1,6 +1,9 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 
+import { getMyMarkers } from '../api/getMyMarkers';
 import { getPopularMarkers } from '../api/getPopularMarkers';
+import { useSession } from '../../../entities/session/model/useSession';
 import { env } from '../../../shared/config/env';
 import {
   type KakaoMarker,
@@ -12,7 +15,7 @@ import './homeMap.css';
 
 type MapMode = 'popular' | 'mine';
 type MapLoadState = 'idle' | 'ready' | 'error';
-type PopularMarkersLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
+type MarkersLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 export type MapCenter = {
   latitude: number;
   longitude: number;
@@ -102,12 +105,20 @@ function createClusterPinBackground() {
 
 /** 홈의 지도 표시 기반과 목업의 지도 모드 선택 UI를 제공한다. */
 export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
+  const navigate = useNavigate();
+  const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const initialCenterPromiseRef = useRef<Promise<MapCenter> | null>(null);
+  const mapModeRef = useRef<MapMode>('popular');
+  const refreshMarkersRef = useRef<(() => void) | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>('popular');
   const [mapLoadState, setMapLoadState] = useState<MapLoadState>('idle');
-  const [popularMarkersLoadState, setPopularMarkersLoadState] =
-    useState<PopularMarkersLoadState>('idle');
+  const [markersLoadState, setMarkersLoadState] = useState<MarkersLoadState>('idle');
+
+  useEffect(() => {
+    mapModeRef.current = mapMode;
+    refreshMarkersRef.current?.();
+  }, [mapMode]);
 
   useEffect(() => {
     const mapElement = mapContainerRef.current;
@@ -123,8 +134,8 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     let activeRequestController: AbortController | undefined;
     let removeIdleListener: (() => void) | undefined;
 
-    /** 현재 viewport의 Cluster와 인기 자물쇠 Marker를 모두 제거한다. */
-    function removePopularMarkers() {
+    /** 현재 viewport의 Cluster와 선택된 지도 모드의 Marker를 모두 제거한다. */
+    function removeMapMarkers() {
       markerClusterer?.clear();
       markers.forEach((marker) => marker.setMap(null));
       markers = [];
@@ -180,39 +191,42 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         const musicNoteMarkerImage = createMusicNoteMarkerImage(kakao);
         setMapLoadState('ready');
 
-        /** 현재 viewport의 인기 자물쇠를 조회하고 기본 Marker로 교체한다. */
-        async function refreshPopularMarkers() {
+        /** 현재 모드와 viewport에 맞는 Place 목록을 조회해 Marker와 Cluster를 교체한다. */
+        async function refreshMapMarkers() {
           activeRequestController?.abort();
-          removePopularMarkers();
+          removeMapMarkers();
 
           const requestController = new AbortController();
           activeRequestController = requestController;
+          const requestedMode = mapModeRef.current;
           const bounds = map.getBounds();
           const southwest = bounds.getSouthWest();
           const northeast = bounds.getNorthEast();
+          const mapBounds = {
+            swLat: southwest.getLat(),
+            swLng: southwest.getLng(),
+            neLat: northeast.getLat(),
+            neLng: northeast.getLng(),
+          };
 
-          setPopularMarkersLoadState('loading');
+          setMarkersLoadState('loading');
 
           try {
-            const popularMarkers = await getPopularMarkers(
-              {
-                swLat: southwest.getLat(),
-                swLng: southwest.getLng(),
-                neLat: northeast.getLat(),
-                neLng: northeast.getLng(),
-              },
-              requestController.signal,
-            );
+            const mapMarkers =
+              requestedMode === 'popular'
+                ? await getPopularMarkers(mapBounds, requestController.signal)
+                : await getMyMarkers(mapBounds, fetchAuthenticatedJson, requestController.signal);
 
             if (
               !isMounted ||
               requestController.signal.aborted ||
-              activeRequestController !== requestController
+              activeRequestController !== requestController ||
+              mapModeRef.current !== requestedMode
             ) {
               return;
             }
 
-            markers = popularMarkers.map(
+            markers = mapMarkers.map(
               (marker) =>
                 new kakao.maps.Marker({
                   position: new kakao.maps.LatLng(marker.latitude, marker.longitude),
@@ -220,7 +234,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
                 }),
             );
             currentMarkerClusterer.addMarkers(markers);
-            setPopularMarkersLoadState(popularMarkers.length === 0 ? 'empty' : 'ready');
+            setMarkersLoadState(mapMarkers.length === 0 ? 'empty' : 'ready');
           } catch (error: unknown) {
             if (
               isMounted &&
@@ -228,7 +242,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
               !requestController.signal.aborted &&
               !isAbortError(error)
             ) {
-              setPopularMarkersLoadState('error');
+              setMarkersLoadState('error');
             }
           } finally {
             if (activeRequestController === requestController) {
@@ -237,8 +251,12 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           }
         }
 
+        refreshMarkersRef.current = () => {
+          void refreshMapMarkers();
+        };
+
         const handleMapIdle = () => {
-          void refreshPopularMarkers();
+          void refreshMapMarkers();
         };
 
         kakao.maps.event.addListener(map, 'idle', handleMapIdle);
@@ -246,7 +264,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           kakao.maps.event.removeListener(map, 'idle', handleMapIdle);
         };
 
-        await refreshPopularMarkers();
+        await refreshMapMarkers();
       } catch {
         if (isMounted) {
           setMapLoadState('error');
@@ -260,11 +278,23 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       isMounted = false;
       activeRequestController?.abort();
       removeIdleListener?.();
-      removePopularMarkers();
+      if (refreshMarkersRef.current) {
+        refreshMarkersRef.current = null;
+      }
+      removeMapMarkers();
     };
-  }, [onInitialCenterResolved]);
+  }, [fetchAuthenticatedJson, onInitialCenterResolved]);
 
   const isMissingMapAppKey = !env.kakaoMapAppKey;
+
+  function handleMapModeChange(nextMapMode: MapMode) {
+    if (nextMapMode === 'mine' && !isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    setMapMode(nextMapMode);
+  }
 
   return (
     <section className="home-map-section" aria-label="자물쇠 지도">
@@ -272,14 +302,14 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         <button
           className={mapMode === 'popular' ? 'is-active is-popular' : ''}
           type="button"
-          onClick={() => setMapMode('popular')}
+          onClick={() => handleMapModeChange('popular')}
         >
           🔥 인기 자물쇠
         </button>
         <button
           className={mapMode === 'mine' ? 'is-active is-mine' : ''}
           type="button"
-          onClick={() => setMapMode('mine')}
+          onClick={() => handleMapModeChange('mine')}
         >
           🔒 내 자물쇠 보기
         </button>
@@ -301,10 +331,14 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
             <p>카카오 JavaScript 앱 키와 등록 도메인을 확인한 뒤 다시 시도해주세요.</p>
           </div>
         ) : null}
-        {mapLoadState === 'ready' && popularMarkersLoadState === 'error' ? (
+        {mapLoadState === 'ready' && markersLoadState === 'error' ? (
           <div className="home-map-notice" role="alert">
             <span aria-hidden="true">⚠️</span>
-            <strong>인기 자물쇠를 불러오지 못했어요</strong>
+            <strong>
+              {mapMode === 'popular'
+                ? '인기 자물쇠를 불러오지 못했어요'
+                : '내 자물쇠를 불러오지 못했어요'}
+            </strong>
             <p>잠시 후 다시 시도해주세요.</p>
           </div>
         ) : null}
