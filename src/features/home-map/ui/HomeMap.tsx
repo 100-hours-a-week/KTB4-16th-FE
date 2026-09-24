@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { getPopularMarkers } from '../api/getPopularMarkers';
 import { env } from '../../../shared/config/env';
@@ -13,9 +13,14 @@ import './homeMap.css';
 type MapMode = 'popular' | 'mine';
 type MapLoadState = 'idle' | 'ready' | 'error';
 type PopularMarkersLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
-type MapCenter = {
+export type MapCenter = {
   latitude: number;
   longitude: number;
+};
+
+type HomeMapProps = {
+  children?: ReactNode;
+  onInitialCenterResolved?: (center: MapCenter) => void;
 };
 
 const DEFAULT_CENTER: MapCenter = {
@@ -96,8 +101,9 @@ function createClusterPinBackground() {
 }
 
 /** 홈의 지도 표시 기반과 목업의 지도 모드 선택 UI를 제공한다. */
-export function HomeMap() {
+export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const initialCenterPromiseRef = useRef<Promise<MapCenter> | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>('popular');
   const [mapLoadState, setMapLoadState] = useState<MapLoadState>('idle');
   const [popularMarkersLoadState, setPopularMarkersLoadState] =
@@ -132,11 +138,15 @@ export function HomeMap() {
     /** 현재 위치 또는 fallback 중심 좌표를 기준으로 지도를 생성한다. */
     async function initializeMap() {
       try {
-        const initialCenter = await getInitialMapCenter();
+        const initialCenterPromise = initialCenterPromiseRef.current ?? getInitialMapCenter();
+        initialCenterPromiseRef.current = initialCenterPromise;
+        const initialCenter = await initialCenterPromise;
 
         if (!isMounted) {
           return;
         }
+
+        onInitialCenterResolved?.(initialCenter);
 
         const kakao = await loadKakaoMapSdk(env.kakaoMapAppKey);
 
@@ -252,7 +262,7 @@ export function HomeMap() {
       removeIdleListener?.();
       removePopularMarkers();
     };
-  }, []);
+  }, [onInitialCenterResolved]);
 
   const isMissingMapAppKey = !env.kakaoMapAppKey;
 
@@ -304,6 +314,7 @@ export function HomeMap() {
             <strong>지도를 불러오는 중이에요</strong>
           </div>
         ) : null}
+        {children}
       </div>
     </section>
   );

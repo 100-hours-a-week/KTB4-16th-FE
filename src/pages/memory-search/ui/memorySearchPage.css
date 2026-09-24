@@ -1,0 +1,128 @@
+.memory-search-content {
+  display: flex;
+  flex-direction: column;
+}
+.memory-search-header {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.memory-search-header h1 {
+  text-align: center;
+}
+.memory-search-back-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #efe7fa;
+  color: #332b4a;
+  font-size: 22px;
+  line-height: 1;
+  text-decoration: none;
+}
+.memory-search-header-spacer {
+  width: 30px;
+  height: 30px;
+}
+.memory-search-results {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 11px;
+  padding-bottom: 14px;
+}
+.memory-search-empty {
+  margin: 18px 0;
+  color: #9a90b3;
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+.memory-query {
+  align-self: flex-end;
+  max-width: 80%;
+  margin: 0;
+  padding: 10px 13px;
+  border-radius: 16px 16px 4px 16px;
+  background: #a78bde;
+  color: #fff;
+  font-size: 12px;
+}
+.memory-answer {
+  max-width: 88%;
+  padding: 11px 13px;
+  border: 1px solid #ece3f7;
+  border-radius: 16px 16px 16px 4px;
+  background: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.memory-result-card {
+  display: flex;
+  gap: 9px;
+  margin-top: 8px;
+  padding: 9px;
+  border-radius: 12px;
+  background: #efe7fa;
+}
+.memory-result-cover {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #a78bde, #5fc4a6);
+}
+.memory-result-card > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.memory-result-card strong {
+  font-size: 11.5px;
+}
+.memory-result-card small {
+  color: #6c6285;
+  font-size: 10px;
+}
+.memory-search-form {
+  display: flex;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #ece3f7;
+}
+.memory-search-form input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #dccbf0;
+  border-radius: 999px;
+  outline: none;
+  background: #efe7fa;
+  color: #332b4a;
+  font-size: 12px;
+  padding: 9px 13px;
+}
+.memory-search-form input:focus {
+  border-color: #a78bde;
+}
+.memory-search-form button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #a78bde;
+  color: #fff;
+}
+.memory-search-form button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.memory-search-form svg {
+  width: 14px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2.2;
+}
