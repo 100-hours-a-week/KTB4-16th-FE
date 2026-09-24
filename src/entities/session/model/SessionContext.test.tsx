@@ -3,8 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { env } from '../../../shared/config/env';
 import { SessionProvider } from './SessionProvider';
 import { useSession } from './useSession';
+
+const createApiUrl = (path: string) => `${env.apiBaseUrl}${path}`;
 
 /** 세션 공개 인터페이스를 사용자 동작으로 관찰한다. */
 function SessionProbe() {
@@ -89,7 +92,7 @@ describe('SessionProvider', () => {
     await user.click(screen.getByRole('button', { name: 'login' }));
 
     await user.click(screen.getByRole('button', { name: '보호 요청' }));
-    expect(fetchMock).toHaveBeenCalledWith('/api/users/me', {
+    expect(fetchMock).toHaveBeenCalledWith(createApiUrl('/users/me'), {
       headers: new Headers({ Authorization: 'Bearer token' }),
     });
   });
