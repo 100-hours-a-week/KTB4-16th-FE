@@ -178,7 +178,7 @@ a:hover {
   color: #398f75;
 }
 
-[role='status'] {
+.auth-card [role='status'] {
   margin: 0 0 18px;
   padding: 11px 13px;
   border-radius: 12px;

@@ -7,12 +7,14 @@ type KakaoMarkerOptions = {
   position: KakaoLatLng;
   map?: KakaoMap;
   image?: KakaoMarkerImage;
+  clickable?: boolean;
 };
 
 type KakaoMarkerClustererOptions = {
   map: KakaoMap;
   averageCenter?: boolean;
   minLevel?: number;
+  disableClickZoom?: boolean;
   styles?: KakaoMarkerClustererStyle[];
 };
 
@@ -54,6 +56,18 @@ export type KakaoMap = {
 
 export type KakaoMarker = {
   setMap: (map: KakaoMap | null) => void;
+  setImage: (image: KakaoMarkerImage) => void;
+};
+
+export type KakaoCluster = {
+  getMarkers: () => KakaoMarker[];
+  getCenter: () => KakaoLatLng;
+  getClusterMarker: () => KakaoCustomOverlay;
+};
+
+export type KakaoCustomOverlay = {
+  setMap: (map: KakaoMap | null) => void;
+  setZIndex: (zIndex: number) => void;
 };
 
 export type KakaoMarkerClusterer = {
@@ -74,10 +88,36 @@ export type KakaoMaps = {
     ) => KakaoMarkerImage;
     Map: new (container: HTMLElement, options: KakaoMapOptions) => KakaoMap;
     Marker: new (options: KakaoMarkerOptions) => KakaoMarker;
+    CustomOverlay: new (options: {
+      map?: KakaoMap;
+      position: KakaoLatLng;
+      content: string;
+      xAnchor?: number;
+      yAnchor?: number;
+      zIndex?: number;
+    }) => KakaoCustomOverlay;
     MarkerClusterer: new (options: KakaoMarkerClustererOptions) => KakaoMarkerClusterer;
     event: {
-      addListener: (target: KakaoMap, eventName: 'idle', handler: () => void) => void;
-      removeListener: (target: KakaoMap, eventName: 'idle', handler: () => void) => void;
+      addListener: {
+        (target: KakaoMap, eventName: 'idle', handler: () => void): void;
+        (target: KakaoMap, eventName: 'click', handler: () => void): void;
+        (target: KakaoMarker, eventName: 'click', handler: () => void): void;
+        (
+          target: KakaoMarkerClusterer,
+          eventName: 'clusterclick',
+          handler: (cluster: KakaoCluster) => void,
+        ): void;
+      };
+      removeListener: {
+        (target: KakaoMap, eventName: 'idle', handler: () => void): void;
+        (target: KakaoMap, eventName: 'click', handler: () => void): void;
+        (target: KakaoMarker, eventName: 'click', handler: () => void): void;
+        (
+          target: KakaoMarkerClusterer,
+          eventName: 'clusterclick',
+          handler: (cluster: KakaoCluster) => void,
+        ): void;
+      };
     };
   };
 };

@@ -1,0 +1,40 @@
+.main-bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  padding: 9px 6px calc(13px + env(safe-area-inset-bottom));
+  border-top: 1px solid #ece3f7;
+  background: #fff;
+}
+
+.main-bottom-nav-link {
+  display: grid;
+  gap: 4px;
+  min-width: 48px;
+  color: #a78bde;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+}
+
+.main-bottom-nav-link svg {
+  width: 19px;
+  height: 19px;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.main-bottom-nav-link span {
+  font-size: 9.5px;
+}
+.main-bottom-nav-link.is-active {
+  color: #7a5cbe;
+}
+.main-bottom-nav-link:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 32%);
+  outline-offset: 3px;
+  border-radius: 6px;
+}

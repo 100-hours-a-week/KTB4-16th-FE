@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { env } from '../config/env';
 import { getCsrfToken } from './csrf';
+
+const createApiUrl = (path: string) => `${env.apiBaseUrl}${path}`;
 
 afterEach(() => {
   document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/';
@@ -16,7 +19,7 @@ describe('getCsrfToken', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(getCsrfToken()).resolves.toBe('token+value');
-    expect(fetchMock).toHaveBeenCalledWith('/api/csrf', { credentials: 'include' });
+    expect(fetchMock).toHaveBeenCalledWith(createApiUrl('/csrf'), { credentials: 'include' });
   });
 
   it('fails before login when the cookie is missing', async () => {

@@ -1,0 +1,167 @@
+.lock-create-content {
+  padding-bottom: 28px;
+}
+.lock-create-header {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.lock-create-header h1 {
+  text-align: center;
+}
+.lock-create-back {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #efe7fa;
+  color: #332b4a;
+  font-size: 22px;
+  line-height: 1;
+}
+.lock-create-header-spacer {
+  width: 30px;
+  height: 30px;
+}
+.lock-create-draft {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border: 1px solid #e8b54b;
+  border-radius: 12px;
+  background: #fcf1da;
+  color: #8a6412;
+  font-size: 11px;
+}
+.lock-create-context {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.lock-create-card {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding: 16px;
+}
+.lock-create-card small {
+  color: #ff9e6d;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+.lock-create-card strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.lock-create-card > span {
+  color: #9a90b3;
+  font-size: 11px;
+}
+.lock-create-photo {
+  display: grid;
+  height: 110px;
+  place-content: center;
+  gap: 5px;
+  border: 1.5px dashed #dccbf0;
+  border-radius: 14px;
+  background: #efe7fa;
+  color: #6c6285;
+  font-size: 11.5px;
+  text-align: center;
+}
+.lock-create-photo > span {
+  color: #a78bde;
+  font-size: 24px;
+}
+.lock-create-photo input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.lock-create-ai {
+  width: 100%;
+  margin-top: 3px;
+  padding: 11px;
+  border: 1.5px solid #a78bde;
+  border-radius: 12px;
+  background: #efe7fa;
+  color: #a78bde;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.lock-create-ai:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.lock-create-song {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid #dccbf0;
+  border-radius: 12px;
+  background: #efe7fa;
+  color: #9a90b3;
+}
+.lock-create-song input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #332b4a;
+  font-size: 12.5px;
+}
+.lock-create-mood {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lock-create-mood span {
+  width: 38px;
+  font-size: 26px;
+  text-align: center;
+}
+.lock-create-mood input {
+  width: 100%;
+  accent-color: #a78bde;
+}
+.lock-create-card textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: none;
+  border: 1px solid #dccbf0;
+  border-radius: 12px;
+  outline: 0;
+  background: #efe7fa;
+  color: #332b4a;
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 12.5px;
+}
+.lock-create-count {
+  text-align: right;
+  color: #9a90b3;
+  font-size: 10px;
+}
+.lock-create-save {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #a78bde, #8f6fda);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+.lock-create-save:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.lock-create-autosave {
+  margin: 8px 0 0;
+  color: #9a90b3;
+  font-size: 10px;
+  text-align: center;
+}

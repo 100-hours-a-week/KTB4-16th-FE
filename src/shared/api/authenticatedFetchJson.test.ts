@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { env } from '../config/env';
 import { createAuthenticatedApi } from './authenticatedFetchJson';
+
+const createApiUrl = (path: string) => `${env.apiBaseUrl}${path}`;
 
 afterEach(() => {
   document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/';
@@ -39,7 +42,7 @@ describe('fetchAuthenticatedJson', () => {
       message: 'ok',
     });
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/users/me', {
+    expect(fetchMock).toHaveBeenCalledWith(createApiUrl('/users/me'), {
       headers: new Headers({ Authorization: 'Bearer access-token' }),
     });
   });
@@ -63,16 +66,16 @@ describe('fetchAuthenticatedJson', () => {
     });
 
     expect(session.setAccessToken).toHaveBeenCalledWith('new-access-token');
-    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/users/me', {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, createApiUrl('/users/me'), {
       headers: new Headers({ Authorization: 'Bearer expired-token' }),
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/csrf', { credentials: 'include' });
-    expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/auth/refresh', {
+    expect(fetchMock).toHaveBeenNthCalledWith(2, createApiUrl('/csrf'), { credentials: 'include' });
+    expect(fetchMock).toHaveBeenNthCalledWith(3, createApiUrl('/auth/refresh'), {
       method: 'POST',
       credentials: 'include',
       headers: { 'X-XSRF-TOKEN': 'csrf-token' },
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(4, '/api/users/me', {
+    expect(fetchMock).toHaveBeenNthCalledWith(4, createApiUrl('/users/me'), {
       headers: new Headers({ Authorization: 'Bearer new-access-token' }),
     });
   });
@@ -129,7 +132,9 @@ describe('fetchAuthenticatedJson', () => {
 
     await expect(fetchAuthenticatedJson('/users/me')).rejects.toMatchObject({ status: 401 });
 
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/refresh')).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === createApiUrl('/auth/refresh')),
+    ).toHaveLength(1);
   });
 
   it('clears the session without refreshing when the CSRF Cookie is missing', async () => {
@@ -147,7 +152,9 @@ describe('fetchAuthenticatedJson', () => {
     });
 
     expect(session.clearSession).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/refresh')).toHaveLength(0);
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === createApiUrl('/auth/refresh')),
+    ).toHaveLength(0);
   });
 
   it('shares one refresh request when protected requests receive 401 together', async () => {
@@ -180,7 +187,9 @@ describe('fetchAuthenticatedJson', () => {
       { message: '첫 요청' },
       { message: '둘째 요청' },
     ]);
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/refresh')).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === createApiUrl('/auth/refresh')),
+    ).toHaveLength(1);
   });
 
   it('retries a delayed 401 with the newer token without starting a second refresh', async () => {
@@ -210,8 +219,10 @@ describe('fetchAuthenticatedJson', () => {
     resolveDelayedUnauthorized?.(new Response('{"message":"만료됨"}', { status: 401 }));
 
     await expect(delayedRequest).resolves.toEqual({ message: '첫 요청' });
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/refresh')).toHaveLength(1);
-    expect(fetchMock).toHaveBeenLastCalledWith('/api/users/first', {
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === createApiUrl('/auth/refresh')),
+    ).toHaveLength(1);
+    expect(fetchMock).toHaveBeenLastCalledWith(createApiUrl('/users/first'), {
       headers: new Headers({ Authorization: 'Bearer new-access-token' }),
     });
   });
