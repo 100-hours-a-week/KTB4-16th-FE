@@ -1,0 +1,31 @@
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dashboard-create {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffc9a6, #ff9e6d);
+  box-shadow: 0 6px 14px -4px rgb(255 158 109 / 50%);
+  color: #fff;
+  font-size: 21px;
+  line-height: 1;
+}
+.dashboard-pin {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #a78bde;
+}
+.dashboard-cover {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #a7e3d0, #ffc9a6);
+}

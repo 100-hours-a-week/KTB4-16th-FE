@@ -1,0 +1,143 @@
+.dashboard-regions,
+.dashboard-record-list {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-region {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+  color: #332b4a;
+  text-align: left;
+}
+
+.dashboard-region > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.dashboard-region strong,
+.dashboard-detail h2,
+.dashboard-record strong {
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.dashboard-region small,
+.dashboard-detail-heading span,
+.dashboard-record small {
+  color: #6c6285;
+  font-size: 11px;
+}
+
+.dashboard-chevron {
+  color: #a78bde;
+  font-size: 23px;
+  line-height: 1;
+}
+
+.dashboard-status,
+.dashboard-more-error {
+  margin: 0;
+  padding: 18px 14px;
+  border: 1px dashed #dccbf0;
+  border-radius: 16px;
+  background: #fff;
+  color: #6c6285;
+  font-size: 13px;
+  text-align: center;
+}
+
+.dashboard-status.is-error,
+.dashboard-more-error {
+  border-color: #efc1c8;
+  color: #a94d61;
+}
+
+.dashboard-status-group {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.dashboard-retry,
+.dashboard-close,
+.dashboard-more {
+  border: 1px solid #d7c4ee;
+  border-radius: 999px;
+  background: #fff;
+  color: #7655ae;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-retry,
+.dashboard-close {
+  padding: 8px 12px;
+}
+
+.dashboard-detail {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 2px 0;
+}
+
+.dashboard-detail-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.dashboard-eyebrow {
+  margin: 0;
+  color: #a78bde;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dashboard-detail h2 {
+  margin: 0;
+  color: #332b4a;
+  font-size: 20px;
+}
+
+.dashboard-record {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid #ece3f7;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.dashboard-record > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.dashboard-record strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-more {
+  padding: 10px 14px;
+}
+
+.dashboard-more:disabled {
+  opacity: 0.6;
+}

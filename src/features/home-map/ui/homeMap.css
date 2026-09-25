@@ -1,0 +1,105 @@
+.home-map-section {
+  display: flex;
+  min-height: 282px;
+  flex: 1;
+  flex-direction: column;
+}
+
+.home-map-toggle {
+  display: flex;
+  gap: 4px;
+  margin: 6px 18px 8px;
+  padding: 4px;
+  border: 1px solid var(--mulo-line-strong);
+  border-radius: 999px;
+  background: var(--mulo-lilac-100);
+}
+
+.home-map-toggle button {
+  flex: 1;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px;
+  background: transparent;
+  color: var(--mulo-ink-600);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.home-map-toggle button.is-active {
+  background: #fff;
+  box-shadow: 0 3px 10px rgb(122 92 190 / 18%);
+}
+
+.home-map-toggle button.is-popular {
+  color: var(--mulo-lilac-500);
+}
+
+.home-map-toggle button.is-mine {
+  color: var(--mulo-mint-500);
+}
+
+.home-map-canvas {
+  position: relative;
+  display: flex;
+  min-height: 220px;
+  flex: 1;
+  margin: 0 14px 14px;
+  overflow: hidden;
+  border: 1px solid var(--mulo-line-strong);
+  border-radius: 20px;
+  background:
+    repeating-linear-gradient(0deg, rgb(167 139 222 / 8%) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, rgb(167 139 222 / 8%) 0 1px, transparent 1px 34px),
+    linear-gradient(160deg, #f3edfc, #fceff9);
+}
+
+.home-map-instance {
+  position: absolute;
+  inset: 0;
+}
+
+.home-map-selected-cluster-halo {
+  display: block;
+  width: 54px;
+  height: 64px;
+  border: 3px solid rgb(255 255 255 / 92%);
+  border-radius: 50%;
+  background: transparent;
+  box-shadow:
+    0 0 0 4px rgb(167 139 222 / 38%),
+    0 6px 14px rgb(90 72 132 / 28%);
+  pointer-events: none;
+}
+
+.home-map-notice {
+  z-index: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  width: min(245px, calc(100% - 32px));
+  margin: auto;
+  padding: 16px;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 8px 20px rgb(122 92 190 / 12%);
+  color: var(--mulo-ink-600);
+  text-align: center;
+}
+
+.home-map-notice span {
+  margin-bottom: 5px;
+  font-size: 20px;
+}
+
+.home-map-notice strong {
+  color: var(--mulo-ink-900);
+  font-size: 12px;
+}
+
+.home-map-notice p {
+  margin: 5px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
+}
