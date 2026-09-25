@@ -125,7 +125,7 @@ type AuthenticatedRequest = <T>(path: string, init?: RequestInit) => Promise<T>;
 
 1. 자물쇠 작성 화면에서 사용자가 곡명·아티스트를 입력한다.
 2. 공백만 입력한 경우 요청하지 않는다.
-3. `GET /api/music/search?query=...`를 `URLSearchParams`로 인코딩해 요청한다.
+3. `GET /api/music/search?q=...`를 `URLSearchParams`로 인코딩해 요청한다.
 4. 결과 목록에서 한 곡을 선택하면 작성 폼의 음악 입력값만 채운다.
 5. 검색 결과 없음, rate limit, 네트워크 오류를 구분해 표시한다.
 
