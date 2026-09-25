@@ -1,8 +1,8 @@
-name: Backend CD
+name: Frontend CD
 
 on:
   workflow_run:
-    workflows: ["main CI with backend"]
+    workflows: ["Frontend CI main"]
     types: [completed]
   workflow_dispatch:
 
@@ -42,32 +42,16 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - run: |
-          cat > backend.env <<ENVEOF
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}
-          KMA_SERVICE_KEY=${{ secrets.KMA_SERVICE_KEY }}
-          SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
-          SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}
-          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
-          GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
-          ENVEOF
-
-      - run: |
-          gcloud compute scp backend.env "${{ steps.standby.outputs.vm }}:~/app/backend.env" \
-            --zone="${{ env.ZONE }}" --tunnel-through-iap
-
           gcloud compute ssh "${{ steps.standby.outputs.vm }}" --zone="${{ env.ZONE }}" --tunnel-through-iap --command="
             cd ~/app &&
             export IMAGE_TAG=${{ steps.image.outputs.tag }} &&
-            docker compose pull backend &&
-            docker compose up -d backend
+            docker compose pull frontend &&
+            docker compose up -d frontend
           "
 
       - run: |
           gcloud compute ssh "${{ steps.standby.outputs.vm }}" --zone="${{ env.ZONE }}" --tunnel-through-iap --command="
-            curl -fsS http://localhost:8080/actuator/health
+            curl -fsS http://localhost:3000
           "
 
       - run: |
