@@ -25,11 +25,30 @@
   color: #9a90b3;
   font-size: 11.5px;
 }
+.my-profile > [role='status'] {
+  margin: 0;
+  color: #6c6285;
+  font-size: 12px;
+}
+.my-profile-error {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.my-profile-error button {
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: #efe7fa;
+  color: #66539b;
+  font-size: 11px;
+  font-weight: 700;
+}
 .my-menu-group {
   margin-bottom: 12px;
   overflow: hidden;
 }
-.my-menu-group button {
+.my-menu-group button,
+.my-menu-group a {
   display: flex;
   width: 100%;
   align-items: center;
@@ -41,14 +60,41 @@
   font-size: 13px;
   font-weight: 500;
   text-align: left;
+  text-decoration: none;
 }
-.my-menu-group button:last-child {
+.my-menu-group button:last-child,
+.my-menu-group a:last-child {
   border-bottom: 0;
 }
-.my-menu-group button > span:last-child {
+.my-menu-group button > span:last-child,
+.my-menu-group a > span:last-child {
   color: #9a90b3;
   font-size: 16px;
 }
 .my-menu-group button.is-danger {
   color: #e4674b;
+}
+
+.settings-back-link {
+  font-size: 12px;
+  text-decoration: none;
+}
+.profile-change-card {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+.profile-change-card > [role='status'] {
+  margin: 0;
+  color: #6c6285;
+  font-size: 12px;
+}
+.profile-change-current {
+  margin: 0;
+  color: #6c6285;
+  font-size: 12px;
+}
+.profile-change-form {
+  display: grid;
+  gap: 16px;
 }

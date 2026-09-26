@@ -6,6 +6,8 @@ import { GroupPage } from '../../pages/group/ui/GroupPage';
 import { LoginPage } from '../../pages/login/LoginPage';
 import { LockCreatePage } from '../../pages/lock-create/ui/LockCreatePage';
 import { MyPage } from '../../pages/mypage/ui/MyPage';
+import { NicknameChangePage } from '../../pages/mypage/ui/NicknameChangePage';
+import { PasswordChangePage } from '../../pages/mypage/ui/PasswordChangePage';
 import { MemorySearchPage } from '../../pages/memory-search/ui/MemorySearchPage';
 import { ReportPage } from '../../pages/report/ui/ReportPage';
 import { ReportDetailPage } from '../../pages/report/ui/ReportDetailPage';
@@ -38,6 +40,14 @@ export function AppRouter() {
       <Route
         path="/mypage"
         element={isAuthenticated ? <MyPage /> : <Navigate to="/login" replace />}
+      />
+      <Route
+        path="/mypage/nickname"
+        element={isAuthenticated ? <NicknameChangePage /> : <Navigate to="/login" replace />}
+      />
+      <Route
+        path="/mypage/password"
+        element={isAuthenticated ? <PasswordChangePage /> : <Navigate to="/login" replace />}
       />
       <Route
         path="/memory-search"

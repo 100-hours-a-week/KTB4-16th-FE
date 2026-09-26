@@ -51,4 +51,13 @@ describe('AppRouter', () => {
 
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
+
+  it.each(['/mypage', '/mypage/nickname', '/mypage/password'])(
+    'sends an anonymous visitor from %s to login',
+    (path) => {
+      renderRoute(path);
+
+      expect(screen.getByRole('heading', { name: '로그인' })).toBeInTheDocument();
+    },
+  );
 });
