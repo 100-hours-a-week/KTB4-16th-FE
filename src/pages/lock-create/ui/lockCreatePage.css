@@ -25,15 +25,6 @@
   width: 30px;
   height: 30px;
 }
-.lock-create-draft {
-  margin: 0 0 12px;
-  padding: 9px 12px;
-  border: 1px solid #e8b54b;
-  border-radius: 12px;
-  background: #fcf1da;
-  color: #8a6412;
-  font-size: 11px;
-}
 .lock-create-context {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -60,8 +51,10 @@
   font-size: 11px;
 }
 .lock-create-photo {
+  position: relative;
   display: grid;
   height: 110px;
+  overflow: hidden;
   place-content: center;
   gap: 5px;
   border: 1.5px dashed #dccbf0;
@@ -74,6 +67,16 @@
 .lock-create-photo > span {
   color: #a78bde;
   font-size: 24px;
+}
+.lock-create-photo img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 12px;
 }
 .lock-create-photo input {
   position: absolute;
@@ -113,6 +116,56 @@
   background: transparent;
   color: #332b4a;
   font-size: 12.5px;
+}
+.lock-create-music-search {
+  display: grid;
+  gap: 7px;
+}
+.lock-create-selected-music {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #dccbf0;
+  border-radius: 12px;
+  background: #f8f4fd;
+}
+.lock-create-selected-music > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.lock-create-selected-music small {
+  color: #8f6fda;
+  font-size: 9px;
+  font-weight: 700;
+}
+.lock-create-selected-music strong,
+.lock-create-selected-music span span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lock-create-selected-music strong {
+  font-size: 12.5px;
+}
+.lock-create-selected-music span span {
+  color: #6c6285;
+  font-size: 10.5px;
+}
+.lock-create-selected-cover {
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #c9b7ec, #a7e3d0);
+}
+.lock-create-selected-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .lock-create-mood {
   display: flex;
@@ -159,9 +212,52 @@
   cursor: default;
   opacity: 0.45;
 }
-.lock-create-autosave {
-  margin: 8px 0 0;
-  color: #9a90b3;
-  font-size: 10px;
-  text-align: center;
+.lock-create-map {
+  height: 190px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #efe7fa;
+}
+.lock-create-upload {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #a78bde;
+  border-radius: 12px;
+  background: #fff;
+  color: #6f50aa;
+  font-size: 12px;
+  font-weight: 700;
+}
+.lock-create-error {
+  margin: 0;
+  color: #b64d4d;
+  font-size: 11px;
+}
+.lock-create-music-results {
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.lock-create-music-results button {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 1px solid #dccbf0;
+  border-radius: 10px;
+  background: #fff;
+  color: #332b4a;
+  text-align: left;
+}
+.lock-create-music-results button.selected {
+  border-color: #8f6fda;
+  background: #efe7fa;
+}
+.lock-create-music-results span {
+  color: #6c6285;
+  font-size: 11px;
 }
