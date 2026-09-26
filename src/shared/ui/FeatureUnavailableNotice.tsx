@@ -8,7 +8,7 @@ interface FeatureUnavailableNoticeProps {
   homeLabel?: string;
 }
 
-/** API가 아직 제공되지 않은 기능과 홈 복귀 경로를 명확히 안내한다. */
+/** API 연동 전 구현 예정 기능과 홈 복귀 경로를 명확히 안내한다. */
 export function FeatureUnavailableNotice({
   title,
   description,
@@ -17,7 +17,7 @@ export function FeatureUnavailableNotice({
   return (
     <section className="feature-unavailable-notice">
       <h2>{title}</h2>
-      <p role="status">미구현 기능입니다. {description}</p>
+      <p role="status">구현 예정 기능입니다. {description}</p>
       <Link to="/">{homeLabel}</Link>
     </section>
   );

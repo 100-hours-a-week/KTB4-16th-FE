@@ -39,6 +39,6 @@ describe('LockCreatePage', () => {
 
     expect(screen.getByText('선택한 음악: 밤편지 — 아이유')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '🔒 자물쇠 저장하기' })).toBeDisabled();
-    expect(screen.getByText('자물쇠 저장 기능은 미구현입니다.')).toBeInTheDocument();
+    expect(screen.getByText('자물쇠 저장 기능은 구현 예정입니다.')).toBeInTheDocument();
   });
 });

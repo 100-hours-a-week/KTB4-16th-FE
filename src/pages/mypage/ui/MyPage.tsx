@@ -127,7 +127,7 @@ function MenuGroup({
   );
 }
 
-/** 메뉴 항목이 실제 경로인지 미구현 동작인지에 맞는 제어 요소를 렌더링한다. */
+/** 메뉴 항목이 실제 경로인지 구현 예정 동작인지에 맞는 제어 요소를 렌더링한다. */
 function MenuItem({ danger, item }: { danger: boolean; item: AccountMenuItem | string }) {
   if (typeof item !== 'string') {
     return (
@@ -140,7 +140,7 @@ function MenuItem({ danger, item }: { danger: boolean; item: AccountMenuItem | s
 
   return (
     <button
-      aria-label={`${item} 미구현`}
+      aria-label={`${item} 구현 예정`}
       className={danger && item === '회원탈퇴' ? 'is-danger' : ''}
       disabled
       type="button"
