@@ -35,6 +35,7 @@ export function MusicSearchField({ request, onSelect }: MusicSearchFieldProps) {
   /** 검색어를 검증해 API를 요청하고 결과·오류 상태를 갱신한다. */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSearching) return;
     setResults(null);
     setErrorMessage(null);
 
