@@ -1,12 +1,23 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { useSession } from '../../../entities/session/model/useSession';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
+import type { MusicSearchResult } from '../../../features/music-search/model/musicSearch.types';
+import { MusicSearchField } from '../../../features/music-search/ui/MusicSearchField';
 import '../../pageShell.css';
 import './lockCreatePage.css';
 
-/** 목업의 자물쇠 작성 폼을 API 저장 없이 화면으로 제공한다. */
+/** 음악 검색 선택만 실제 연동하고 저장은 준비 중으로 유지하는 자물쇠 작성 화면이다. */
 export function LockCreatePage() {
   const navigate = useNavigate();
+  const { fetchAuthenticatedJson } = useSession();
+  const [selectedTrack, setSelectedTrack] = useState<MusicSearchResult | null>(null);
+
+  /** 검색 결과에서 선택한 음악을 현재 작성 화면에만 보관한다. */
+  const handleTrackSelect = (track: MusicSearchResult) => {
+    setSelectedTrack(track);
+  };
 
   return (
     <main className="static-page">
@@ -23,9 +34,6 @@ export function LockCreatePage() {
           <h1 className="static-page-title">자물쇠 만들기</h1>
           <span aria-hidden="true" className="lock-create-header-spacer" />
         </header>
-        <p className="lock-create-draft">
-          📝 이전에 작성하던 임시저장 내용이 있어요. 이어서 작성할까요?
-        </p>
         <div className="lock-create-context">
           <article className="surface-card lock-create-card">
             <small>📍 장소</small>
@@ -40,20 +48,21 @@ export function LockCreatePage() {
         </div>
         <section className="surface-card lock-create-card">
           <small>🖼️ 사진</small>
-          <label className="lock-create-photo">
-            <span aria-hidden="true">▧</span>사진 추가하기
-            <input accept="image/jpeg,image/png" type="file" />
-          </label>
+          <div className="lock-create-photo" role="status">
+            <span aria-hidden="true">▧</span>사진 추가 기능은 준비 중이에요.
+          </div>
           <button className="lock-create-ai" disabled type="button">
             🤖 사진으로 음악 추천받기
           </button>
         </section>
         <section className="surface-card lock-create-card">
           <small>🎧 지금 듣고 있는 음악 *</small>
-          <label className="lock-create-song">
-            <span aria-hidden="true">⌕</span>
-            <input maxLength={50} placeholder="곡 제목이나 아티스트 검색" />
-          </label>
+          <MusicSearchField onSelect={handleTrackSelect} request={fetchAuthenticatedJson} />
+          {selectedTrack ? (
+            <p className="lock-create-selected-song">
+              선택한 음악: {selectedTrack.title} — {selectedTrack.artistName}
+            </p>
+          ) : null}
         </section>
         <section className="surface-card lock-create-card">
           <small>😌 오늘 기분</small>
@@ -70,7 +79,7 @@ export function LockCreatePage() {
         <button className="lock-create-save" disabled type="button">
           🔒 자물쇠 저장하기
         </button>
-        <p className="lock-create-autosave">작성 중인 내용은 자동으로 임시저장됩니다</p>
+        <p className="lock-create-autosave">자물쇠 저장 기능은 준비 중이에요.</p>
       </div>
       <MainNavigation activeItem="dashboard" />
     </main>

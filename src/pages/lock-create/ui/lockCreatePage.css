@@ -25,15 +25,6 @@
   width: 30px;
   height: 30px;
 }
-.lock-create-draft {
-  margin: 0 0 12px;
-  padding: 9px 12px;
-  border: 1px solid #e8b54b;
-  border-radius: 12px;
-  background: #fcf1da;
-  color: #8a6412;
-  font-size: 11px;
-}
 .lock-create-context {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -75,12 +66,6 @@
   color: #a78bde;
   font-size: 24px;
 }
-.lock-create-photo input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
 .lock-create-ai {
   width: 100%;
   margin-top: 3px;
@@ -96,23 +81,10 @@
   cursor: default;
   opacity: 0.45;
 }
-.lock-create-song {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border: 1px solid #dccbf0;
-  border-radius: 12px;
-  background: #efe7fa;
-  color: #9a90b3;
-}
-.lock-create-song input {
-  width: 100%;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #332b4a;
-  font-size: 12.5px;
+.lock-create-selected-song {
+  margin: 0;
+  color: #398f75;
+  font-size: 11px;
 }
 .lock-create-mood {
   display: flex;
