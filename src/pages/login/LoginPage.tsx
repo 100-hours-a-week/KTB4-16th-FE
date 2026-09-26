@@ -5,7 +5,7 @@ import { useSession } from '../../entities/session/model/useSession';
 import { login } from '../../features/auth/api/authApi';
 import type { AuthFieldErrors, LoginValues } from '../../features/auth/model/auth.types';
 import { validateLogin } from '../../features/auth/model/auth.validation';
-import { AuthFormField } from '../../features/auth/ui/AuthFormField';
+import { FormField } from '../../shared/ui/FormField';
 import { ApiError } from '../../shared/api/apiError';
 
 const INITIAL_VALUES: LoginValues = { email: '', password: '' };
@@ -98,7 +98,7 @@ export function LoginPage() {
         {signupMessage ? <p role="status">{signupMessage}</p> : null}
 
         <form className="auth-form" noValidate onSubmit={handleSubmit}>
-          <AuthFormField
+          <FormField
             id="email"
             label="이메일"
             type="email"
@@ -108,7 +108,7 @@ export function LoginPage() {
             placeholder="example@mulo.com"
             autoComplete="email"
           />
-          <AuthFormField
+          <FormField
             id="password"
             label="비밀번호"
             type="password"

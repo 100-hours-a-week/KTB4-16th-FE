@@ -8,7 +8,7 @@ import type {
   SignupValues,
 } from '../../features/auth/model/auth.types';
 import { validateSignup } from '../../features/auth/model/auth.validation';
-import { AuthFormField } from '../../features/auth/ui/AuthFormField';
+import { FormField } from '../../shared/ui/FormField';
 import { ApiError } from '../../shared/api/apiError';
 
 const INITIAL_VALUES: SignupValues = {
@@ -107,7 +107,7 @@ export function SignupPage() {
         </header>
 
         <form className="auth-form" noValidate onSubmit={handleSubmit}>
-          <AuthFormField
+          <FormField
             id="nickname"
             label="닉네임"
             type="text"
@@ -125,7 +125,7 @@ export function SignupPage() {
             maxLength={10}
             autoComplete="nickname"
           />
-          <AuthFormField
+          <FormField
             id="email"
             label="이메일"
             type="email"
@@ -141,7 +141,7 @@ export function SignupPage() {
             maxLength={254}
             autoComplete="email"
           />
-          <AuthFormField
+          <FormField
             id="password"
             label="비밀번호"
             type="password"
@@ -161,7 +161,7 @@ export function SignupPage() {
             maxLength={16}
             autoComplete="new-password"
           />
-          <AuthFormField
+          <FormField
             id="passwordConfirm"
             label="비밀번호 확인"
             type="password"

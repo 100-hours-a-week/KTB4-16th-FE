@@ -4,7 +4,7 @@ import type {
   HTMLInputTypeAttribute,
 } from 'react';
 
-interface AuthFormFieldProps {
+interface FormFieldProps {
   id: string;
   label: string;
   type: HTMLInputTypeAttribute;
@@ -18,8 +18,8 @@ interface AuthFormFieldProps {
   autoComplete: HTMLInputAutoCompleteAttribute;
 }
 
-/** 인증 폼의 label, input, 상태 안내를 접근성 속성으로 연결한다. */
-export function AuthFormField({
+/** 입력 label과 상태 설명을 접근 가능한 하나의 필드로 조립한다. */
+export function FormField({
   id,
   label,
   type,
@@ -31,13 +31,13 @@ export function AuthFormField({
   placeholder,
   maxLength,
   autoComplete,
-}: AuthFormFieldProps) {
+}: FormFieldProps) {
   const message = error ?? successText ?? helperText;
   const messageId = `${id}-message`;
   const messageTone = error ? 'error' : successText ? 'success' : 'helper';
 
   return (
-    <div className="auth-field">
+    <div className="form-field">
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
@@ -52,7 +52,7 @@ export function AuthFormField({
         aria-describedby={message ? messageId : undefined}
       />
       {message ? (
-        <p id={messageId} className={`field-message field-message--${messageTone}`}>
+        <p id={messageId} className={`form-field-message form-field-message--${messageTone}`}>
           {message}
         </p>
       ) : null}

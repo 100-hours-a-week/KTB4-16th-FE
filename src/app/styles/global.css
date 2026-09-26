@@ -119,19 +119,19 @@ a:hover {
   gap: 16px;
 }
 
-.auth-field {
+.form-field {
   display: grid;
   gap: 6px;
 }
 
-.auth-field label {
+.form-field label {
   color: #6c6285;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
 }
 
-.auth-field input {
+.form-field input {
   width: 100%;
   min-height: 46px;
   padding: 12px 14px;
@@ -146,22 +146,22 @@ a:hover {
     background-color 160ms ease;
 }
 
-.auth-field input:hover {
+.form-field input:hover {
   border-color: #c9b7ec;
 }
 
-.auth-field input:focus-visible {
+.form-field input:focus-visible {
   border-color: #a78bde;
   background: #ffffff;
   box-shadow: 0 0 0 3px rgb(167 139 222 / 18%);
 }
 
-.auth-field input[aria-invalid='true'] {
+.form-field input[aria-invalid='true'] {
   border-color: #e4674b;
   background: #fde7e2;
 }
 
-.field-message,
+.form-field-message,
 [role='alert'] {
   margin: 0;
   color: #9a90b3;
@@ -169,12 +169,12 @@ a:hover {
   line-height: 1.45;
 }
 
-.field-message--error,
+.form-field-message--error,
 [role='alert'] {
   color: #e4674b;
 }
 
-.field-message--success {
+.form-field-message--success {
   color: #398f75;
 }
 
