@@ -1,0 +1,30 @@
+.feature-unavailable-notice {
+  display: grid;
+  gap: 12px;
+  padding: 26px 18px;
+  border: 1px solid #ece3f7;
+  border-radius: 20px;
+  background: #fff;
+  text-align: center;
+}
+.feature-unavailable-notice h2,
+.feature-unavailable-notice p {
+  margin: 0;
+}
+.feature-unavailable-notice h2 {
+  color: #332b4a;
+  font-size: 16px;
+}
+.feature-unavailable-notice p {
+  color: #6c6285;
+  font-size: 12px;
+}
+.feature-unavailable-notice a {
+  justify-self: center;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #efe7fa;
+  color: #66539b;
+  font-size: 12px;
+  text-decoration: none;
+}
