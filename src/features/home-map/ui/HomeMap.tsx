@@ -562,7 +562,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         {isMissingMapAppKey ? (
           <div className="home-map-notice" role="status">
             <span aria-hidden="true">🗺️</span>
-            <strong>카카오맵을 준비하고 있어요</strong>
+            <strong>카카오맵 기능은 미구현입니다</strong>
             <p>`.env`에 VITE_KAKAO_MAP_APP_KEY를 설정하면 지도가 표시됩니다.</p>
           </div>
         ) : null}

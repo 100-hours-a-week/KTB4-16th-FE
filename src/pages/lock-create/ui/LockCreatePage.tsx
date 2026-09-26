@@ -8,7 +8,7 @@ import { MusicSearchField } from '../../../features/music-search/ui/MusicSearchF
 import '../../pageShell.css';
 import './lockCreatePage.css';
 
-/** 음악 검색 선택만 실제 연동하고 저장은 준비 중으로 유지하는 자물쇠 작성 화면이다. */
+/** 음악 검색 선택만 실제 연동하고 저장·사진 기능은 미구현으로 유지하는 자물쇠 작성 화면이다. */
 export function LockCreatePage() {
   const navigate = useNavigate();
   const { fetchAuthenticatedJson } = useSession();
@@ -49,7 +49,7 @@ export function LockCreatePage() {
         <section className="surface-card lock-create-card">
           <small>🖼️ 사진</small>
           <div className="lock-create-photo" role="status">
-            <span aria-hidden="true">▧</span>사진 추가 기능은 준비 중이에요.
+            <span aria-hidden="true">▧</span>사진 추가 기능은 미구현입니다.
           </div>
           <button className="lock-create-ai" disabled type="button">
             🤖 사진으로 음악 추천받기
@@ -79,7 +79,7 @@ export function LockCreatePage() {
         <button className="lock-create-save" disabled type="button">
           🔒 자물쇠 저장하기
         </button>
-        <p className="lock-create-autosave">자물쇠 저장 기능은 준비 중이에요.</p>
+        <p className="lock-create-autosave">자물쇠 저장 기능은 미구현입니다.</p>
       </div>
       <MainNavigation activeItem="dashboard" />
     </main>
