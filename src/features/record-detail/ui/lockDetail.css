@@ -11,9 +11,7 @@
   height: clamp(280px, 72vw, 420px);
   max-height: 420px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 72% 30%, rgb(255 238 225 / 92%) 0 12%, transparent 13%),
-    linear-gradient(150deg, #c9b7ec, #ffc9a6 52%, #a7e3d0);
+  background: #fff;
 }
 
 .lock-detail-photo > img {
@@ -38,6 +36,10 @@
   font-size: 22px;
   line-height: 1;
   box-shadow: 0 3px 12px rgb(51 43 74 / 12%);
+}
+
+.lock-detail-close > span {
+  transform: translateY(-2px);
 }
 
 .lock-detail-place {
@@ -219,7 +221,7 @@
   border: 1px solid #a7e3d0;
   border-radius: 12px;
   outline: none;
-  background: #fff;
+  background: #e4f7f0;
   color: #332b4a;
   padding: 10px 11px;
   font: inherit;

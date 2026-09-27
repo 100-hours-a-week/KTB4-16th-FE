@@ -105,7 +105,7 @@ export function LockDetail({
             type="button"
             onClick={onClose}
           >
-            ×
+            <span aria-hidden="true">×</span>
           </button>
           <span className="lock-detail-place">
             📍 {detail.place.legalDongName ?? '확인할 수 없음'}
