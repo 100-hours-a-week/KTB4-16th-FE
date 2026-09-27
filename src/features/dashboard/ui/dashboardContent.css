@@ -121,6 +121,23 @@
   background: #fff;
 }
 
+.dashboard-cover {
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #c9b7ec, #a7e3d0);
+}
+
+.dashboard-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
 .dashboard-record > span:nth-child(2) {
   display: grid;
   min-width: 0;
