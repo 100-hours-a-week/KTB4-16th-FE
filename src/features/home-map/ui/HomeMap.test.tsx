@@ -10,10 +10,12 @@ const mocks = vi.hoisted(() => {
   let listeners = new Map<object, Map<string, Listener>>();
   const markers: Array<{ setImage: ReturnType<typeof vi.fn>; setMap: ReturnType<typeof vi.fn> }> =
     [];
+  const markerImageSources: string[] = [];
   const clusterers: Array<{
     addMarkers: ReturnType<typeof vi.fn>;
     clear: ReturnType<typeof vi.fn>;
   }> = [];
+  const clustererOptions: Array<Record<string, unknown>> = [];
 
   const addListener = (target: object, eventName: string, listener: Listener) => {
     const targetListeners = listeners.get(target) ?? new Map<string, Listener>();
@@ -29,11 +31,15 @@ const mocks = vi.hoisted(() => {
     fetchAuthenticatedJson: vi.fn(),
     addListener,
     markers,
+    markerImageSources,
     clusterers,
+    clustererOptions,
     reset() {
       listeners = new Map<object, Map<string, Listener>>();
       markers.splice(0);
+      markerImageSources.splice(0);
       clusterers.splice(0);
+      clustererOptions.splice(0);
     },
     triggerMarker(index: number) {
       const marker = markers[index];
@@ -78,8 +84,9 @@ vi.mock('../lib/kakaoMap', () => {
     addMarkers = vi.fn();
     clear = vi.fn();
 
-    constructor() {
+    constructor(options: Record<string, unknown>) {
       mocks.clusterers.push(this);
+      mocks.clustererOptions.push(options);
     }
   }
 
@@ -107,7 +114,11 @@ vi.mock('../lib/kakaoMap', () => {
         },
         Point: class {},
         Size: class {},
-        MarkerImage: class {},
+        MarkerImage: class {
+          constructor(source: string) {
+            mocks.markerImageSources.push(source);
+          }
+        },
         Map: class {
           getBounds() {
             return {
@@ -161,12 +172,30 @@ beforeEach(() => {
     music: [{ rank: 1, musicTrackId: 7, title: '밤편지', artistName: '아이유', count: 1 }],
   });
   mocks.getMyMarkers.mockResolvedValue([
-    { placeId: 22, legalDongName: '테스트동', latitude: 37.2, longitude: 127.1 },
+    {
+      placeId: 22,
+      legalDongName: '테스트동',
+      myRecordsCount: 1,
+      latitude: 37.2,
+      longitude: 127.1,
+    },
   ]);
   mocks.getMyPlaceRecords.mockResolvedValue({ records: [], nextCursor: null });
 });
 
 describe('HomeMap popular music selection', () => {
+  it('starts clustering at the initial map level so visually overlapping Places are selectable', async () => {
+    renderHomeMap();
+
+    await waitFor(() => expect(mocks.clusterers).toHaveLength(1));
+
+    expect(mocks.clustererOptions[0]).toMatchObject({
+      averageCenter: true,
+      minLevel: 5,
+      disableClickZoom: true,
+    });
+  });
+
   it('loads popular tracks for one clicked popular marker', async () => {
     renderHomeMap();
     await waitFor(() => expect(mocks.markers).toHaveLength(2));
@@ -245,6 +274,31 @@ describe('HomeMap popular music selection', () => {
       expect.any(AbortSignal),
     );
     expect(mocks.getPopularTracks).not.toHaveBeenCalled();
+  });
+
+  it('shows the per-Place record count on a mine marker when it has multiple records', async () => {
+    const user = userEvent.setup();
+    mocks.getMyMarkers.mockResolvedValue([
+      {
+        placeId: 22,
+        legalDongName: '테스트동',
+        myRecordsCount: 2,
+        latitude: 37.2,
+        longitude: 127.1,
+      },
+    ]);
+
+    renderHomeMap();
+    await waitFor(() => expect(mocks.markers).toHaveLength(2));
+    await user.click(screen.getByRole('button', { name: '🔒 내 자물쇠 보기' }));
+    await waitFor(() => expect(mocks.markers).toHaveLength(3));
+
+    const markerSvgSources = mocks.markerImageSources.map((source) =>
+      decodeURIComponent(source.slice(source.indexOf(',') + 1)),
+    );
+
+    expect(markerSvgSources).toContainEqual(expect.stringContaining('data-my-records-count="2"'));
+    expect(markerSvgSources).toContainEqual(expect.stringContaining('>2</text>'));
   });
 
   it('keeps mine Cluster selection on the existing MyLocksSheet request', async () => {
