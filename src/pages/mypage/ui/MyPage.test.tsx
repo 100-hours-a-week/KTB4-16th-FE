@@ -79,6 +79,19 @@ describe('MyPage', () => {
     expect(getMyProfile).toHaveBeenCalledTimes(2);
   });
 
+  it('V1 범위 밖인 회원탈퇴 메뉴를 표시하지 않는다', async () => {
+    vi.mocked(getMyProfile).mockResolvedValue({
+      userId: 35,
+      nickname: '뮤로',
+      email: 'me@mulo.com',
+    });
+
+    renderMyPage();
+
+    await screen.findByText('뮤로');
+    expect(screen.queryByRole('button', { name: /회원탈퇴/ })).not.toBeInTheDocument();
+  });
+
   it('로그아웃 요청 실패와 관계없이 로그인 화면으로 이동한다', async () => {
     const user = userEvent.setup();
     vi.mocked(getMyProfile).mockResolvedValue({
