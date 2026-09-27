@@ -13,7 +13,7 @@ const accountMenus = [
   { label: '닉네임 변경', to: '/mypage/nickname' },
   { label: '비밀번호 변경', to: '/mypage/password' },
 ] as const;
-const accountActions = ['로그아웃', '회원탈퇴'] as const;
+const accountActions = ['로그아웃'] as const;
 
 /** route state에서 마이페이지에 표시할 안전한 완료 안내만 추출한다. */
 function getProfileMessage(state: unknown): string | null {
@@ -119,12 +119,7 @@ export function MyPage() {
           ) : null}
         </section>
         <MenuGroup items={accountMenus} />
-        <MenuGroup
-          isLoggingOut={isLoggingOut}
-          items={accountActions}
-          danger
-          onLogout={handleLogout}
-        />
+        <MenuGroup isLoggingOut={isLoggingOut} items={accountActions} onLogout={handleLogout} />
       </div>
       <MainNavigation />
     </main>
@@ -133,14 +128,12 @@ export function MyPage() {
 
 type AccountMenuItem = (typeof accountMenus)[number];
 
-/** 계정 변경 경로와 아직 제공하지 않는 계정 동작을 구분해 표시한다. */
+/** 계정 변경 경로와 로그아웃 동작을 같은 메뉴 레이아웃으로 표시한다. */
 function MenuGroup({
-  danger = false,
   isLoggingOut = false,
   items,
   onLogout,
 }: {
-  danger?: boolean;
   isLoggingOut?: boolean;
   items: readonly AccountMenuItem[] | readonly string[];
   onLogout?: () => Promise<void>;
@@ -149,7 +142,6 @@ function MenuGroup({
     <section className="surface-card my-menu-group">
       {items.map((item) => (
         <MenuItem
-          danger={danger}
           isLoggingOut={isLoggingOut}
           item={item}
           key={typeof item === 'string' ? item : item.to}
@@ -160,14 +152,12 @@ function MenuGroup({
   );
 }
 
-/** 메뉴 항목을 경로 이동, 실제 로그아웃, 구현 예정 상태로 구분해 렌더링한다. */
+/** 메뉴 항목을 계정 설정 경로 또는 실제 로그아웃 버튼으로 렌더링한다. */
 function MenuItem({
-  danger,
   isLoggingOut,
   item,
   onLogout,
 }: {
-  danger: boolean;
   isLoggingOut: boolean;
   item: AccountMenuItem | string;
   onLogout?: () => Promise<void>;
@@ -181,23 +171,9 @@ function MenuItem({
     );
   }
 
-  if (item === '로그아웃') {
-    return (
-      <button disabled={isLoggingOut} onClick={() => void onLogout?.()} type="button">
-        <span>{isLoggingOut ? '로그아웃 중...' : item}</span>
-        <span aria-hidden="true">›</span>
-      </button>
-    );
-  }
-
   return (
-    <button
-      aria-label={`${item} 구현 예정`}
-      className={danger && item === '회원탈퇴' ? 'is-danger' : ''}
-      disabled
-      type="button"
-    >
-      <span>{item}</span>
+    <button disabled={isLoggingOut} onClick={() => void onLogout?.()} type="button">
+      <span>{isLoggingOut ? '로그아웃 중...' : item}</span>
       <span aria-hidden="true">›</span>
     </button>
   );
