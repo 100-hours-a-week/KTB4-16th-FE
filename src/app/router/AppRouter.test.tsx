@@ -52,7 +52,7 @@ describe('AppRouter', () => {
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
-  it.each(['/mypage', '/mypage/nickname', '/mypage/password'])(
+  it.each(['/mypage', '/mypage/nickname', '/mypage/password', '/records/1'])(
     'sends an anonymous visitor from %s to login',
     (path) => {
       renderRoute(path);

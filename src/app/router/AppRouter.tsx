@@ -5,6 +5,7 @@ import { DashboardPage } from '../../pages/dashboard/ui/DashboardPage';
 import { GroupPage } from '../../pages/group/ui/GroupPage';
 import { LoginPage } from '../../pages/login/LoginPage';
 import { LockCreatePage } from '../../pages/lock-create/ui/LockCreatePage';
+import { LockDetailPage } from '../../pages/lock-detail/ui/LockDetailPage';
 import { MyPage } from '../../pages/mypage/ui/MyPage';
 import { NicknameChangePage } from '../../pages/mypage/ui/NicknameChangePage';
 import { PasswordChangePage } from '../../pages/mypage/ui/PasswordChangePage';
@@ -56,6 +57,10 @@ export function AppRouter() {
       <Route
         path="/locks/create"
         element={isAuthenticated ? <LockCreatePage /> : <Navigate to="/login" replace />}
+      />
+      <Route
+        path="/records/:recordId"
+        element={isAuthenticated ? <LockDetailPage /> : <Navigate to="/login" replace />}
       />
       <Route
         path="/login"

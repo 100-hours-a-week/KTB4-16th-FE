@@ -7,6 +7,7 @@ export type MyPlaceRecord = {
   musicTrackId: number;
   title: string;
   artistName: string;
+  albumImageUrl: string | null;
   createdAt: string;
 };
 
@@ -71,6 +72,7 @@ function parseMyPlaceRecord(value: unknown): MyPlaceRecord {
     !isFiniteNumber(value.musicTrackId) ||
     !isNonEmptyString(value.title) ||
     !isNonEmptyString(value.artistName) ||
+    !isOptionalNullableNonEmptyString(value.albumImageUrl) ||
     !isNonEmptyString(value.createdAt)
   ) {
     throw new Error('내 자물쇠 목록 항목 형식이 올바르지 않습니다.');
@@ -82,6 +84,7 @@ function parseMyPlaceRecord(value: unknown): MyPlaceRecord {
     musicTrackId: value.musicTrackId,
     title: value.title,
     artistName: value.artistName,
+    albumImageUrl: value.albumImageUrl ?? null,
     createdAt: value.createdAt,
   };
 }
@@ -100,4 +103,9 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isNullableString(value: unknown): value is string | null {
   return typeof value === 'string' || value === null;
+}
+
+/** BE 전환 기간에는 기존 응답의 필드 누락과 새 nullable 문자열 계약을 모두 허용한다. */
+function isOptionalNullableNonEmptyString(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || isNonEmptyString(value);
 }

@@ -67,6 +67,35 @@ describe('getMyPlaceRecords', () => {
 
     await expect(
       getMyPlaceRecords([222], null, fetchAuthenticatedJson, new AbortController().signal),
-    ).resolves.toMatchObject({ nextCursor: 'cursor-value', records: [{ recordId: 585 }] });
+    ).resolves.toMatchObject({
+      nextCursor: 'cursor-value',
+      records: [{ recordId: 585, albumImageUrl: null }],
+    });
+  });
+
+  it('parses an album cover URL when the expanded response provides one', async () => {
+    fetchAuthenticatedJson.mockResolvedValueOnce({
+      message: 'ok',
+      data: {
+        records: [
+          {
+            recordId: 586,
+            placeId: 222,
+            musicTrackId: 123,
+            title: 'REALLY REALLY',
+            artistName: 'WINNER',
+            albumImageUrl: 'https://image.test/really-really.jpg',
+            createdAt: '2026-09-26T11:30:43',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    await expect(
+      getMyPlaceRecords([222], null, fetchAuthenticatedJson, new AbortController().signal),
+    ).resolves.toMatchObject({
+      records: [{ albumImageUrl: 'https://image.test/really-really.jpg' }],
+    });
   });
 });
