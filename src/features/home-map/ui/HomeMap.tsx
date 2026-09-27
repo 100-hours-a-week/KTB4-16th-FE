@@ -29,6 +29,11 @@ export type MapCenter = {
   longitude: number;
 };
 
+type InitialMapLocation = {
+  center: MapCenter;
+  currentLocation: MapCenter | null;
+};
+
 type HomeMapProps = {
   children?: ReactNode;
   onInitialCenterResolved?: (center: MapCenter) => void;
@@ -39,28 +44,29 @@ const DEFAULT_CENTER: MapCenter = {
   longitude: 127.098,
 };
 
-/** 위치 권한·지원 여부와 관계없이 지도 생성에 사용할 초기 중심 좌표를 반환한다. */
-function getInitialMapCenter(): Promise<MapCenter> {
+/** 지도 중심과 실제 geolocation 성공 좌표를 구분해 반환한다. */
+function getInitialMapCenter(): Promise<InitialMapLocation> {
   if (!navigator.geolocation) {
-    return Promise.resolve(DEFAULT_CENTER);
+    return Promise.resolve({ center: DEFAULT_CENTER, currentLocation: null });
   }
 
   return new Promise((resolve) => {
     try {
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => {
-          resolve({
+          const currentLocation = {
             latitude: coords.latitude,
             longitude: coords.longitude,
-          });
+          };
+          resolve({ center: currentLocation, currentLocation });
         },
         () => {
-          resolve(DEFAULT_CENTER);
+          resolve({ center: DEFAULT_CENTER, currentLocation: null });
         },
         { timeout: 10_000 },
       );
     } catch {
-      resolve(DEFAULT_CENTER);
+      resolve({ center: DEFAULT_CENTER, currentLocation: null });
     }
   });
 }
@@ -132,6 +138,18 @@ const SELECTED_CLUSTER_HALO_CONTENT = `
   <span class="home-map-selected-cluster-halo" aria-hidden="true"></span>
 `;
 
+function createCurrentLocationOverlayContent() {
+  const content = document.createElement('span');
+  content.className = 'home-map-current-location';
+  content.setAttribute('aria-hidden', 'true');
+  content.style.pointerEvents = 'none';
+
+  const dot = document.createElement('span');
+  content.append(dot);
+
+  return content;
+}
+
 /** 기본 Marker와 Cluster 색상을 맞추기 위한 MULO 음악 노트 핀 이미지를 생성한다. */
 function createMusicNoteMarkerImage(kakao: KakaoMaps, myRecordsCount = 1) {
   const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
@@ -166,7 +184,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const navigate = useNavigate();
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const initialCenterPromiseRef = useRef<Promise<MapCenter> | null>(null);
+  const initialCenterPromiseRef = useRef<Promise<InitialMapLocation> | null>(null);
   const mapModeRef = useRef<MapMode>('popular');
   const refreshMarkersRef = useRef<(() => void) | null>(null);
   const openMyLocksSheetRef = useRef<(placeIds: number[]) => void>(() => undefined);
@@ -372,6 +390,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     let selectedMarker: KakaoMarker | undefined;
     let selectedClusterOverlay: KakaoCustomOverlay | undefined;
     let selectedClusterMarker: KakaoCustomOverlay | undefined;
+    let currentLocationOverlay: KakaoCustomOverlay | undefined;
     let resetSelectedMarkerImage: ((marker: KakaoMarker) => void) | undefined;
 
     /** 현재 viewport의 Cluster와 선택된 지도 모드의 Marker를 모두 제거한다. */
@@ -409,7 +428,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       try {
         const initialCenterPromise = initialCenterPromiseRef.current ?? getInitialMapCenter();
         initialCenterPromiseRef.current = initialCenterPromise;
-        const initialCenter = await initialCenterPromise;
+        const { center: initialCenter, currentLocation } = await initialCenterPromise;
 
         if (!isMounted) {
           return;
@@ -447,6 +466,20 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           ],
         });
         markerClusterer = currentMarkerClusterer;
+        if (currentLocation) {
+          // 실제 geolocation 성공 좌표만 Place Marker·Clusterer와 독립적으로 표시한다.
+          const currentLocationContent = createCurrentLocationOverlayContent();
+          currentLocationOverlay = new kakao.maps.CustomOverlay({
+            map,
+            position: new kakao.maps.LatLng(currentLocation.latitude, currentLocation.longitude),
+            content: currentLocationContent,
+            xAnchor: 0.5,
+            yAnchor: 0.5,
+            clickable: false,
+            zIndex: 10,
+          });
+          currentLocationContent.parentElement?.style.setProperty('pointer-events', 'none');
+        }
         const musicNoteMarkerImage = createMusicNoteMarkerImage(kakao);
         const selectedMusicNoteMarkerImage = createSelectedMusicNoteMarkerImage(kakao);
         resetSelectedMarkerImage = (marker) => marker.setImage(musicNoteMarkerImage);
@@ -507,6 +540,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
                 position: new kakao.maps.LatLng(marker.latitude, marker.longitude),
                 image: markerImage,
                 clickable: true,
+                zIndex: 1,
               });
               markerPlaceIds.set(kakaoMarker, marker.placeId);
               markerDefaultImages.set(kakaoMarker, markerImage);
@@ -634,6 +668,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       removeIdleListener?.();
       removeMapClickListener?.();
       removeClusterClickListener?.();
+      currentLocationOverlay?.setMap(null);
       if (refreshMarkersRef.current) {
         refreshMarkersRef.current = null;
       }

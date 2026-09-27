@@ -10,12 +10,16 @@ const mocks = vi.hoisted(() => {
   let listeners = new Map<object, Map<string, Listener>>();
   const markers: Array<{ setImage: ReturnType<typeof vi.fn>; setMap: ReturnType<typeof vi.fn> }> =
     [];
+  const markerOptions: Array<Record<string, unknown>> = [];
   const markerImageSources: string[] = [];
   const clusterers: Array<{
     addMarkers: ReturnType<typeof vi.fn>;
     clear: ReturnType<typeof vi.fn>;
   }> = [];
   const clustererOptions: Array<Record<string, unknown>> = [];
+  const customOverlayOptions: Array<Record<string, unknown>> = [];
+  const customOverlayContainers: HTMLElement[] = [];
+  const mapOptions: Array<Record<string, unknown>> = [];
 
   const addListener = (target: object, eventName: string, listener: Listener) => {
     const targetListeners = listeners.get(target) ?? new Map<string, Listener>();
@@ -31,15 +35,23 @@ const mocks = vi.hoisted(() => {
     fetchAuthenticatedJson: vi.fn(),
     addListener,
     markers,
+    markerOptions,
     markerImageSources,
     clusterers,
     clustererOptions,
+    customOverlayOptions,
+    customOverlayContainers,
+    mapOptions,
     reset() {
       listeners = new Map<object, Map<string, Listener>>();
       markers.splice(0);
+      markerOptions.splice(0);
       markerImageSources.splice(0);
       clusterers.splice(0);
       clustererOptions.splice(0);
+      customOverlayOptions.splice(0);
+      customOverlayContainers.splice(0);
+      mapOptions.splice(0);
     },
     triggerMarker(index: number) {
       const marker = markers[index];
@@ -75,8 +87,9 @@ vi.mock('../lib/kakaoMap', () => {
     setImage = vi.fn();
     setMap = vi.fn();
 
-    constructor() {
+    constructor(options: Record<string, unknown>) {
       mocks.markers.push(this);
+      mocks.markerOptions.push(options);
     }
   }
 
@@ -120,6 +133,10 @@ vi.mock('../lib/kakaoMap', () => {
           }
         },
         Map: class {
+          constructor(_container: HTMLElement, options: Record<string, unknown>) {
+            mocks.mapOptions.push(options);
+          }
+
           getBounds() {
             return {
               getSouthWest: () => ({ getLat: () => 37, getLng: () => 127 }),
@@ -131,6 +148,15 @@ vi.mock('../lib/kakaoMap', () => {
         CustomOverlay: class {
           setMap = vi.fn();
           setZIndex = vi.fn();
+
+          constructor(options: Record<string, unknown>) {
+            mocks.customOverlayOptions.push(options);
+            if (options.content instanceof HTMLElement) {
+              const wrapper = document.createElement('div');
+              wrapper.append(options.content);
+              mocks.customOverlayContainers.push(wrapper);
+            }
+          }
         },
         MarkerClusterer,
         event,
@@ -166,6 +192,7 @@ beforeEach(() => {
     return 1;
   });
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  setGeolocation(null);
   mocks.getPopularMarkers.mockResolvedValue(popularMarkers);
   mocks.getPopularTracks.mockResolvedValue({
     recordCount: 1,
@@ -181,6 +208,79 @@ beforeEach(() => {
     },
   ]);
   mocks.getMyPlaceRecords.mockResolvedValue({ records: [], nextCursor: null });
+});
+
+describe('HomeMap current location overlay', () => {
+  it('uses the successful geolocation coordinates for a separate current location overlay', async () => {
+    const getCurrentPosition = useSuccessfulGeolocation(37.501, 127.031);
+    const onInitialCenterResolved = vi.fn();
+
+    renderHomeMap({ onInitialCenterResolved });
+
+    await waitFor(() => expect(currentLocationOverlay()).toBeDefined());
+
+    expect(currentLocationOverlay()).toMatchObject({
+      position: { latitude: 37.501, longitude: 127.031 },
+      clickable: false,
+      zIndex: 10,
+    });
+    const content = currentLocationOverlay()?.content;
+    expect(content).toBeInstanceOf(HTMLElement);
+    expect((content as HTMLElement).style.pointerEvents).toBe('none');
+    expect((content as HTMLElement).parentElement?.style.pointerEvents).toBe('none');
+    expect(onInitialCenterResolved).toHaveBeenCalledWith({ latitude: 37.501, longitude: 127.031 });
+    expect(getCurrentPosition).toHaveBeenCalledOnce();
+    expect(mocks.markers).toHaveLength(2);
+    expect(mocks.markerOptions.every((options) => options.zIndex === 1)).toBe(true);
+    expect(mocks.clusterers[0].addMarkers).toHaveBeenCalledWith(mocks.markers);
+  });
+
+  it('does not show a current location overlay when geolocation permission is denied', async () => {
+    useFailedGeolocation(1);
+    const onInitialCenterResolved = vi.fn();
+
+    renderHomeMap({ onInitialCenterResolved });
+
+    await waitFor(() => expect(mocks.mapOptions).toHaveLength(1));
+
+    expect(currentLocationOverlay()).toBeUndefined();
+    expect(onInitialCenterResolved).toHaveBeenCalledWith({ latitude: 37.2002, longitude: 127.098 });
+  });
+
+  it('does not show a current location overlay when geolocation fails', async () => {
+    useFailedGeolocation(2);
+
+    renderHomeMap();
+
+    await waitFor(() => expect(mocks.mapOptions).toHaveLength(1));
+
+    expect(currentLocationOverlay()).toBeUndefined();
+  });
+
+  it('does not show a current location overlay for the fallback center when geolocation is unavailable', async () => {
+    renderHomeMap();
+
+    await waitFor(() => expect(mocks.mapOptions).toHaveLength(1));
+
+    expect(mocks.mapOptions[0]).toMatchObject({
+      center: { latitude: 37.2002, longitude: 127.098 },
+    });
+    expect(currentLocationOverlay()).toBeUndefined();
+  });
+
+  it('keeps the current location overlay while switching between popular and mine modes', async () => {
+    const user = userEvent.setup();
+    const getCurrentPosition = useSuccessfulGeolocation(37.501, 127.031);
+
+    renderHomeMap();
+    await waitFor(() => expect(currentLocationOverlay()).toBeDefined());
+
+    await user.click(screen.getByRole('button', { name: '🔒 내 자물쇠 보기' }));
+    await waitFor(() => expect(mocks.markers).toHaveLength(3));
+
+    expect(mocks.customOverlayOptions.filter(isCurrentLocationOverlay)).toHaveLength(1);
+    expect(getCurrentPosition).toHaveBeenCalledOnce();
+  });
 });
 
 describe('HomeMap popular music selection', () => {
@@ -321,10 +421,68 @@ describe('HomeMap popular music selection', () => {
   });
 });
 
-function renderHomeMap() {
+function setGeolocation(getCurrentPosition: Geolocation['getCurrentPosition'] | null) {
+  Object.defineProperty(navigator, 'geolocation', {
+    configurable: true,
+    value: getCurrentPosition === null ? undefined : { getCurrentPosition },
+  });
+}
+
+function useSuccessfulGeolocation(latitude: number, longitude: number) {
+  const position: GeolocationPosition = {
+    coords: {
+      accuracy: 0,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      latitude,
+      longitude,
+      speed: null,
+      toJSON: () => ({}),
+    },
+    timestamp: 0,
+    toJSON: () => ({}),
+  };
+
+  const getCurrentPosition: Geolocation['getCurrentPosition'] = vi.fn((success) => {
+    success(position);
+  });
+
+  setGeolocation(getCurrentPosition);
+
+  return getCurrentPosition;
+}
+
+function useFailedGeolocation(code: number) {
+  const error: GeolocationPositionError = {
+    code,
+    message: '위치 정보를 가져올 수 없습니다.',
+    PERMISSION_DENIED: 1,
+    POSITION_UNAVAILABLE: 2,
+    TIMEOUT: 3,
+  };
+
+  setGeolocation((_success, failure) => failure?.(error));
+}
+
+function isCurrentLocationOverlay(options: Record<string, unknown>) {
+  const content = options.content;
+  return (
+    (typeof content === 'string' && content.includes('home-map-current-location')) ||
+    (content instanceof HTMLElement && content.classList.contains('home-map-current-location'))
+  );
+}
+
+function currentLocationOverlay() {
+  return mocks.customOverlayOptions.find(isCurrentLocationOverlay);
+}
+
+function renderHomeMap(props?: {
+  onInitialCenterResolved?: (center: { latitude: number; longitude: number }) => void;
+}) {
   return render(
     <MemoryRouter>
-      <HomeMap />
+      <HomeMap {...props} />
     </MemoryRouter>,
   );
 }
