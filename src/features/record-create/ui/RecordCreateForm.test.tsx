@@ -42,8 +42,19 @@ const anotherMusic = {
   externalUrl: 'https://music.test/love-scenario',
 };
 
+let latestMapControl: {
+  center: { getLat: () => number; getLng: () => number };
+  setCenter: ReturnType<typeof vi.fn>;
+  setCurrentCenter: (center: { getLat: () => number; getLng: () => number }) => void;
+  triggerIdle: () => void;
+} | null = null;
+let customOverlayOptions: Array<Record<string, unknown>> = [];
+
 beforeEach(() => {
   vi.clearAllMocks();
+  latestMapControl = null;
+  customOverlayOptions = [];
+  setGeolocation(null);
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
     value: vi.fn(() => 'blob:photo-preview'),
@@ -59,6 +70,59 @@ beforeEach(() => {
 });
 
 describe('RecordCreateForm', () => {
+  it('uses the map center as the final location after movement settles', async () => {
+    const onCoordinatesChange = vi.fn();
+    setGeolocation((success) =>
+      success({
+        coords: { latitude: 37.5, longitude: 127.03 } as GeolocationCoordinates,
+        timestamp: 0,
+      } as GeolocationPosition),
+    );
+    renderForm(vi.fn(), onCoordinatesChange);
+
+    await screen.findByText('수원역');
+    expect(document.querySelector('.lock-create-map-center-pin')).toBeInTheDocument();
+    const nextCenter = {
+      getLat: () => 37.51,
+      getLng: () => 127.04,
+    };
+    if (!latestMapControl) throw new Error('지도 테스트 제어 객체가 없습니다.');
+    latestMapControl.setCurrentCenter(nextCenter);
+    latestMapControl?.triggerIdle();
+
+    await waitFor(() =>
+      expect(onCoordinatesChange).toHaveBeenLastCalledWith({ latitude: 37.51, longitude: 127.04 }),
+    );
+  });
+
+  it('reuses the acquired GPS location without requesting geolocation again', async () => {
+    const getCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 37.5, longitude: 127.03 } as GeolocationCoordinates,
+        timestamp: 0,
+      } as GeolocationPosition);
+    });
+    setGeolocation(getCurrentPosition);
+    renderForm();
+
+    const button = await screen.findByRole('button', { name: '현재 위치로 이동' });
+    fireEvent.click(button);
+
+    expect(getCurrentPosition).toHaveBeenCalledOnce();
+    expect(latestMapControl?.setCenter).toHaveBeenCalledOnce();
+    expect(customOverlayOptions).toHaveLength(1);
+    expect(customOverlayOptions[0]).toMatchObject({ clickable: false, zIndex: 1 });
+  });
+
+  it('does not render the GPS dot or return button when geolocation fails', async () => {
+    renderForm();
+
+    await screen.findByText('수원역');
+
+    expect(screen.queryByRole('button', { name: '현재 위치로 이동' })).not.toBeInTheDocument();
+    expect(customOverlayOptions).toHaveLength(0);
+  });
+
   it('shows a preview and uploads immediately after photo selection', async () => {
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
@@ -354,8 +418,7 @@ describe('RecordCreateForm', () => {
   });
 });
 
-function renderForm(onCreated = vi.fn()) {
-  const onCoordinatesChange = vi.fn();
+function renderForm(onCreated = vi.fn(), onCoordinatesChange = vi.fn()) {
   return render(
     <RecordCreateForm
       onCoordinatesChange={onCoordinatesChange}
@@ -392,6 +455,46 @@ async function selectMusic() {
 }
 
 function createKakaoMaps(): KakaoMaps {
+  let idleHandler: (() => void) | undefined;
+
+  class LatLng {
+    constructor(
+      private readonly latitude: number,
+      private readonly longitude: number,
+    ) {}
+
+    getLat() {
+      return this.latitude;
+    }
+
+    getLng() {
+      return this.longitude;
+    }
+  }
+
+  class Map {
+    private center: LatLng;
+    setCenter = vi.fn((center: LatLng) => {
+      this.center = center;
+    });
+
+    constructor(_container: HTMLElement, options: { center: LatLng }) {
+      this.center = options.center;
+      latestMapControl = {
+        center: this.center,
+        setCenter: this.setCenter,
+        setCurrentCenter: (center) => {
+          this.center = new LatLng(center.getLat(), center.getLng());
+        },
+        triggerIdle: () => idleHandler?.(),
+      };
+    }
+
+    getCenter() {
+      return this.center;
+    }
+  }
+
   class Geocoder {
     coord2RegionCode(
       _longitude: number,
@@ -404,10 +507,33 @@ function createKakaoMaps(): KakaoMaps {
 
   return {
     maps: {
-      Map: class {},
-      LatLng: class {},
+      Map,
+      LatLng,
       services: { Geocoder, Status: { OK: 'OK' } },
-      event: { addListener: vi.fn() },
+      event: {
+        addListener: vi.fn((_target: unknown, eventName: string, handler: () => void) => {
+          if (eventName === 'idle') idleHandler = handler;
+        }),
+      },
+      CustomOverlay: class {
+        setMap = vi.fn();
+        setZIndex = vi.fn();
+
+        constructor(options: Record<string, unknown>) {
+          customOverlayOptions.push(options);
+          if (options.content instanceof HTMLElement) {
+            const wrapper = document.createElement('div');
+            wrapper.append(options.content);
+          }
+        }
+      },
     },
   } as unknown as KakaoMaps;
+}
+
+function setGeolocation(getCurrentPosition: Geolocation['getCurrentPosition'] | null) {
+  Object.defineProperty(navigator, 'geolocation', {
+    configurable: true,
+    value: getCurrentPosition ? { getCurrentPosition } : undefined,
+  });
 }
