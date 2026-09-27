@@ -15,20 +15,20 @@ export function LockCreatePage() {
   );
 
   return (
-    <main className="static-page">
+    <main className="static-page lock-create-page">
+      <header className="lock-create-header">
+        <button
+          aria-label="이전 화면으로 돌아가기"
+          className="lock-create-back"
+          type="button"
+          onClick={() => navigate(-1)}
+        >
+          ‹
+        </button>
+        <h1 className="static-page-title">자물쇠 만들기</h1>
+        <span aria-hidden="true" className="lock-create-header-spacer" />
+      </header>
       <div className="static-page-content lock-create-content">
-        <header className="lock-create-header">
-          <button
-            aria-label="이전 화면으로 돌아가기"
-            className="lock-create-back"
-            type="button"
-            onClick={() => navigate(-1)}
-          >
-            ‹
-          </button>
-          <h1 className="static-page-title">자물쇠 만들기</h1>
-          <span aria-hidden="true" className="lock-create-header-spacer" />
-        </header>
         <RecordCreateForm
           onCoordinatesChange={setCoordinates}
           onCreated={() => navigate('/', { replace: true })}
