@@ -1,7 +1,9 @@
 import './homePlaylistSheet.css';
 import { FeatureUnavailableNotice } from '../../../shared/ui/FeatureUnavailableNotice';
+import type { MapCenter } from '../../home-map/ui/HomeMap';
 
 type HomePlaylistSheetProps = {
+  currentLocation?: MapCenter | null;
   isOpen: boolean;
   onExited: () => void;
 };
