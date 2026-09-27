@@ -102,6 +102,21 @@ const SELECTED_MUSIC_NOTE_PIN_SVG = `
   </svg>
 `;
 
+/** 같은 Place에 저장된 내 자물쇠 수는 Cluster 수와 별도로 Marker 위에 표시한다. */
+function addMyRecordsCountBadge(markerSvg: string, myRecordsCount: number) {
+  if (myRecordsCount <= 1) {
+    return markerSvg;
+  }
+
+  const countBadge = `
+    <g data-my-records-count="${myRecordsCount}">
+      <rect x="23" y="6" width="16" height="15" rx="7.5" fill="#7a5cbe" stroke="#fff" stroke-width="1.5"/>
+      <text x="31" y="16.7" fill="#fff" font-family="Arial, sans-serif" font-size="9" font-weight="800" text-anchor="middle">${myRecordsCount}</text>
+    </g>`;
+
+  return markerSvg.replace('</svg>', `${countBadge}\n  </svg>`);
+}
+
 const CLUSTER_PIN_SVG = `
   <svg xmlns="http://www.w3.org/2000/svg" width="42" height="52" viewBox="0 0 42 52">
     <defs>
@@ -118,8 +133,10 @@ const SELECTED_CLUSTER_HALO_CONTENT = `
 `;
 
 /** 기본 Marker와 Cluster 색상을 맞추기 위한 MULO 음악 노트 핀 이미지를 생성한다. */
-function createMusicNoteMarkerImage(kakao: KakaoMaps) {
-  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(MUSIC_NOTE_PIN_SVG)}`;
+function createMusicNoteMarkerImage(kakao: KakaoMaps, myRecordsCount = 1) {
+  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    addMyRecordsCountBadge(MUSIC_NOTE_PIN_SVG, myRecordsCount),
+  )}`;
 
   return new kakao.maps.MarkerImage(source, new kakao.maps.Size(42, 52), {
     offset: new kakao.maps.Point(21, 50),
@@ -127,8 +144,10 @@ function createMusicNoteMarkerImage(kakao: KakaoMaps) {
 }
 
 /** 선택된 Marker가 같은 좌표 anchor를 유지한 채 강조되도록 이미지를 만든다. */
-function createSelectedMusicNoteMarkerImage(kakao: KakaoMaps) {
-  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(SELECTED_MUSIC_NOTE_PIN_SVG)}`;
+function createSelectedMusicNoteMarkerImage(kakao: KakaoMaps, myRecordsCount = 1) {
+  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    addMyRecordsCountBadge(SELECTED_MUSIC_NOTE_PIN_SVG, myRecordsCount),
+  )}`;
 
   return new kakao.maps.MarkerImage(source, new kakao.maps.Size(46, 56), {
     offset: new kakao.maps.Point(23, 54),
@@ -342,6 +361,14 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     let removeClusterClickListener: (() => void) | undefined;
     let removeMarkerClickListeners: (() => void)[] = [];
     const markerPlaceIds = new Map<KakaoMarker, number>();
+    const markerDefaultImages = new Map<
+      KakaoMarker,
+      ReturnType<typeof createMusicNoteMarkerImage>
+    >();
+    const markerSelectedImages = new Map<
+      KakaoMarker,
+      ReturnType<typeof createSelectedMusicNoteMarkerImage>
+    >();
     let selectedMarker: KakaoMarker | undefined;
     let selectedClusterOverlay: KakaoCustomOverlay | undefined;
     let selectedClusterMarker: KakaoCustomOverlay | undefined;
@@ -354,6 +381,8 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       removeMarkerClickListeners.forEach((removeListener) => removeListener());
       removeMarkerClickListeners = [];
       markerPlaceIds.clear();
+      markerDefaultImages.clear();
+      markerSelectedImages.clear();
       markers.forEach((marker) => marker.setMap(null));
       markers = [];
     }
@@ -399,7 +428,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         const currentMarkerClusterer = new kakao.maps.MarkerClusterer({
           map,
           averageCenter: true,
-          minLevel: 6,
+          minLevel: 5,
           disableClickZoom: true,
           styles: [
             {
@@ -465,12 +494,25 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
             }
 
             markers = mapMarkers.map((marker) => {
+              const myRecordsCount = 'myRecordsCount' in marker ? marker.myRecordsCount : 1;
+              const markerImage =
+                requestedMode === 'mine'
+                  ? createMusicNoteMarkerImage(kakao, myRecordsCount)
+                  : musicNoteMarkerImage;
+              const selectedMarkerImage =
+                requestedMode === 'mine'
+                  ? createSelectedMusicNoteMarkerImage(kakao, myRecordsCount)
+                  : selectedMusicNoteMarkerImage;
               const kakaoMarker = new kakao.maps.Marker({
                 position: new kakao.maps.LatLng(marker.latitude, marker.longitude),
-                image: musicNoteMarkerImage,
+                image: markerImage,
                 clickable: true,
               });
               markerPlaceIds.set(kakaoMarker, marker.placeId);
+              markerDefaultImages.set(kakaoMarker, markerImage);
+              markerSelectedImages.set(kakaoMarker, selectedMarkerImage);
+              resetSelectedMarkerImage = (selected) =>
+                selected.setImage(markerDefaultImages.get(selected) ?? musicNoteMarkerImage);
               const handleMarkerClick = () => {
                 if (mapModeRef.current === 'popular') {
                   clearMapSelection();
@@ -482,7 +524,9 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
 
                 clearMapSelection();
                 selectedMarker = kakaoMarker;
-                selectedMarker.setImage(selectedMusicNoteMarkerImage);
+                selectedMarker.setImage(
+                  markerSelectedImages.get(kakaoMarker) ?? selectedMusicNoteMarkerImage,
+                );
                 openMyLocksSheetRef.current([marker.placeId]);
               };
               kakao.maps.event.addListener(kakaoMarker, 'click', handleMarkerClick);
