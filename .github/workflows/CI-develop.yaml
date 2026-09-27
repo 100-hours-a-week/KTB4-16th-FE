@@ -1,0 +1,43 @@
+name: Frontend CI develop
+
+# Responsibility: develop 대상 PR의 코드 품질만 검증한다. 배포·릴리스 작업은 실행하지 않는다.
+on:
+  pull_request:
+    branches:
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  ci:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+
+    steps:
+      # Responsibility: PR의 검증 대상 커밋을 가져온다.
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Responsibility: 프로젝트가 사용하는 Node.js 실행 환경을 구성한다.
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      # Responsibility: lockfile 기준으로 재현 가능한 의존성을 설치한다.
+      - name: Install dependencies
+        run: npm ci
+
+      # Responsibility: 코드 포맷 규칙 위반을 검사한다.
+      - name: Run Prettier
+        run: npm run prettier
+
+      # Responsibility: ESLint 규칙 위반을 검사한다.
+      - name: Run ESLint
+        run: npm run lint
+
+      # Responsibility: TypeScript 타입 오류를 검사한다.
+      - name: Typecheck
+        run: npm run typecheck

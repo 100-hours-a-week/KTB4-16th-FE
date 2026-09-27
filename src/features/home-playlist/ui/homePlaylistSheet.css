@@ -56,6 +56,15 @@
   padding: 8px 0;
   border-bottom: 1px solid #ece3f7;
 }
+.home-playlist-track-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-playlist-track-list a {
+  color: inherit;
+  text-decoration: none;
+}
 .home-playlist-track:last-child {
   border-bottom: 0;
 }
@@ -87,4 +96,18 @@
   color: #fff;
   font-size: 12.5px;
   font-weight: 800;
+}
+.home-playlist-notice {
+  margin: 8px 0;
+  color: #6c6285;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+.home-playlist-notice button,
+.home-playlist-notice a {
+  display: inline-block;
+  margin-top: 6px;
+  color: #7a5cbe;
+  font-weight: 700;
 }
