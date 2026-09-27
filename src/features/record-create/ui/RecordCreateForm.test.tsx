@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { KakaoMaps, KakaoRegion } from '../../home-map/lib/kakaoMap';
 import { searchMusic } from '../../music-search/api/musicSearchApi';
 import type { MusicSearchResult } from '../../music-search/model/musicSearch.types';
+import { getPhotoMusicRecommendations } from '../api/getPhotoMusicRecommendations';
 import { RecordCreateForm } from './RecordCreateForm';
 import '../../../pages/lock-create/ui/lockCreatePage.css';
 
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   createRecord: vi.fn(),
   loadKakaoMapSdk: vi.fn(),
   uploadPhoto: vi.fn(),
+  getPhotoMusicRecommendations: vi.fn(),
 }));
 
 vi.mock('../../../entities/session/model/useSession', () => ({
@@ -21,6 +23,9 @@ vi.mock('../../home-map/lib/kakaoMap', () => ({ loadKakaoMapSdk: mocks.loadKakao
 vi.mock('../../music-search/api/musicSearchApi', () => ({ searchMusic: vi.fn() }));
 vi.mock('../api/createRecord', () => ({ createRecord: mocks.createRecord }));
 vi.mock('../api/uploadPhoto', () => ({ uploadPhoto: mocks.uploadPhoto }));
+vi.mock('../api/getPhotoMusicRecommendations', () => ({
+  getPhotoMusicRecommendations: mocks.getPhotoMusicRecommendations,
+}));
 
 const selectedMusic = {
   externalTrackId: 'spotify-track',
@@ -49,6 +54,7 @@ beforeEach(() => {
   });
   mocks.loadKakaoMapSdk.mockResolvedValue(createKakaoMaps());
   mocks.uploadPhoto.mockResolvedValue(77);
+  mocks.getPhotoMusicRecommendations.mockResolvedValue([selectedMusic]);
   vi.mocked(searchMusic).mockResolvedValue([{ provider: 'SPOTIFY', ...selectedMusic }]);
 });
 
@@ -69,6 +75,68 @@ describe('RecordCreateForm', () => {
     expect(mocks.uploadPhoto).toHaveBeenCalledWith(photo, expect.any(Function));
     expect(screen.queryByRole('button', { name: '사진 업로드하기' })).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '사진 바꾸기' })).toBeEnabled();
+  });
+
+  it('requests photo music recommendations only after an uploaded photo and selects one through selectedMusic', async () => {
+    const { container } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+
+    expect(screen.getByRole('button', { name: '✨ AI 음악 추천받기' })).toBeDisabled();
+    await selectAndUploadPhoto(input, new File(['photo'], 'memory.jpg', { type: 'image/jpeg' }));
+
+    const recommendButton = screen.getByRole('button', { name: '✨ AI 음악 추천받기' });
+    expect(recommendButton).toBeEnabled();
+    fireEvent.click(recommendButton);
+    fireEvent.click(recommendButton);
+
+    expect(getPhotoMusicRecommendations).toHaveBeenCalledOnce();
+    expect(getPhotoMusicRecommendations).toHaveBeenCalledWith(77, expect.any(Function));
+    fireEvent.click(await screen.findByRole('button', { name: /REALLY REALLY/ }));
+
+    expect(screen.queryByRole('dialog', { name: '사진 음악 추천' })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText('현재 선택한 음악')).getByText('REALLY REALLY'),
+    ).toBeInTheDocument();
+  });
+
+  it('clears photo recommendations when a replacement photo is selected', async () => {
+    let resolveRecommendations: ((value: (typeof selectedMusic)[]) => void) | undefined;
+    mocks.getPhotoMusicRecommendations.mockImplementationOnce(
+      () =>
+        new Promise<(typeof selectedMusic)[]>((resolve) => {
+          resolveRecommendations = resolve;
+        }),
+    );
+    const { container } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    await selectAndUploadPhoto(input, new File(['first'], 'first.jpg', { type: 'image/jpeg' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '✨ AI 음악 추천받기' }));
+    expect(screen.getByRole('status')).toHaveTextContent('음악을 추천하는 중이에요.');
+    fireEvent.change(input as HTMLInputElement, {
+      target: { files: [new File(['second'], 'second.jpg', { type: 'image/jpeg' })] },
+    });
+    resolveRecommendations?.([selectedMusic]);
+
+    await screen.findByRole('button', { name: '사진 바꾸기' });
+    expect(screen.queryByRole('dialog', { name: '사진 음악 추천' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the form inputs and allows a failed recommendation request to be retried', async () => {
+    mocks.getPhotoMusicRecommendations
+      .mockRejectedValueOnce(new Error('추천 실패'))
+      .mockResolvedValueOnce([selectedMusic]);
+    const { container } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    await selectAndUploadPhoto(input, new File(['photo'], 'memory.jpg', { type: 'image/jpeg' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '✨ AI 음악 추천받기' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('추천 실패');
+    expect(screen.getByRole('img', { name: '선택한 사진 미리보기' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByRole('button', { name: /REALLY REALLY/ })).toBeInTheDocument();
+    expect(getPhotoMusicRecommendations).toHaveBeenCalledTimes(2);
   });
 
   it('keeps the form and does not report success when record creation fails', async () => {
