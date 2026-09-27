@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { SessionProvider } from '../../entities/session/model/SessionProvider';
 import { useSession } from '../../entities/session/model/useSession';
@@ -43,6 +43,12 @@ describe('AppRouter', () => {
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
+  it('does not expose the removed V1 group route', () => {
+    renderRoute('/group');
+
+    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+  });
+
   it.each(['/login', '/signup'])('sends an authenticated visitor from %s to home', async (path) => {
     const user = userEvent.setup();
     renderRoute(path);
@@ -50,5 +56,28 @@ describe('AppRouter', () => {
     await user.click(screen.getByRole('button', { name: '테스트 로그인' }));
 
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+  });
+
+  it('keeps a protected route while the initial refresh restores the memory session', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.endsWith('/csrf')) {
+        document.cookie = 'XSRF-TOKEN=csrf; path=/';
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url.endsWith('/auth/refresh')) {
+        return Promise.resolve(new Response('{"accessToken":"restored"}', { status: 200 }));
+      }
+      return Promise.resolve(new Response('{"message":"ok","data":[]}', { status: 200 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderRoute('/dashboard');
+
+    expect(screen.getByRole('status')).toHaveTextContent('인증 정보를 확인하고 있습니다.');
+    expect(await screen.findByRole('heading', { name: '내 대시보드' })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/auth\/refresh$/),
+      expect.anything(),
+    );
   });
 });

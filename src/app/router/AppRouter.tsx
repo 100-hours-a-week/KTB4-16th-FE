@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router';
+import type { ReactNode } from 'react';
 
 import { HomePage } from '../../pages/home/ui/HomePage';
 import { DashboardPage } from '../../pages/dashboard/ui/DashboardPage';
-import { GroupPage } from '../../pages/group/ui/GroupPage';
 import { LoginPage } from '../../pages/login/LoginPage';
 import { LockCreatePage } from '../../pages/lock-create/ui/LockCreatePage';
 import { MyPage } from '../../pages/mypage/ui/MyPage';
@@ -14,39 +14,28 @@ import { useSession } from '../../entities/session/model/useSession';
 
 /** 홈은 공개하고 로그인 상태의 인증 화면 재진입만 홈으로 돌려보낸다. */
 export function AppRouter() {
-  const { isAuthenticated } = useSession();
+  const { isAuthenticated, isSessionReady } = useSession();
+  const protectedPage = (page: ReactNode) => {
+    if (!isSessionReady) {
+      return (
+        <main aria-live="polite" role="status">
+          인증 정보를 확인하고 있습니다.
+        </main>
+      );
+    }
+
+    return isAuthenticated ? page : <Navigate to="/login" replace />;
+  };
 
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route
-        path="/dashboard"
-        element={isAuthenticated ? <DashboardPage /> : <Navigate to="/login" replace />}
-      />
-      <Route
-        path="/report"
-        element={isAuthenticated ? <ReportPage /> : <Navigate to="/login" replace />}
-      />
-      <Route
-        path="/report/:year/:month"
-        element={isAuthenticated ? <ReportDetailPage /> : <Navigate to="/login" replace />}
-      />
-      <Route
-        path="/group"
-        element={isAuthenticated ? <GroupPage /> : <Navigate to="/login" replace />}
-      />
-      <Route
-        path="/mypage"
-        element={isAuthenticated ? <MyPage /> : <Navigate to="/login" replace />}
-      />
-      <Route
-        path="/memory-search"
-        element={isAuthenticated ? <MemorySearchPage /> : <Navigate to="/login" replace />}
-      />
-      <Route
-        path="/locks/create"
-        element={isAuthenticated ? <LockCreatePage /> : <Navigate to="/login" replace />}
-      />
+      <Route path="/dashboard" element={protectedPage(<DashboardPage />)} />
+      <Route path="/report" element={protectedPage(<ReportPage />)} />
+      <Route path="/report/:year/:month" element={protectedPage(<ReportDetailPage />)} />
+      <Route path="/mypage" element={protectedPage(<MyPage />)} />
+      <Route path="/memory-search" element={protectedPage(<MemorySearchPage />)} />
+      <Route path="/locks/create" element={protectedPage(<LockCreatePage />)} />
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}

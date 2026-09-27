@@ -14,6 +14,7 @@ export interface AuthenticatedApiAdapter {
 
 export interface AuthenticatedApiClient {
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
+  restoreSession: () => Promise<void>;
 }
 
 /** 주입된 메모리 세션을 사용하는 보호 API 클라이언트를 생성한다. */
@@ -76,7 +77,16 @@ export function createAuthenticatedApi(adapter: AuthenticatedApiAdapter): Authen
     }
   }
 
-  return { fetchJson: fetchAuthenticatedJson };
+  /** 앱 초기화 중 Refresh Cookie로만 세션을 복구하며 실패는 비인증 상태로 확정한다. */
+  async function restoreSession(): Promise<void> {
+    try {
+      await refreshAccessToken();
+    } catch {
+      // Refresh Cookie가 없거나 만료된 경우는 정상적인 비로그인 초기 상태다.
+    }
+  }
+
+  return { fetchJson: fetchAuthenticatedJson, restoreSession };
 }
 
 /** 기존 요청 옵션을 보존하면서 현재 access token만 Authorization 헤더에 추가한다. */

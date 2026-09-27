@@ -25,7 +25,10 @@ function SessionProbe() {
       <button type="button" onClick={clearSession}>
         logout
       </button>
-      <button type="button" onClick={() => void fetchAuthenticatedJson('/users/me')}>
+      <button
+        type="button"
+        onClick={() => void fetchAuthenticatedJson('/users/me').catch(() => undefined)}
+      >
         보호 요청
       </button>
     </>

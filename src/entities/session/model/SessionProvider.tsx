@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useState,
   type Dispatch,
@@ -50,17 +51,31 @@ function createSessionController(
 /** access token을 브라우저 영구 저장소가 아닌 Provider 생명주기 동안만 보관한다. */
 export function SessionProvider({ children }: PropsWithChildren) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isSessionReady, setIsSessionReady] = useState(false);
   const [sessionController] = useState(() => createSessionController(setAccessToken));
+
+  useEffect(() => {
+    let isActive = true;
+
+    void sessionController.authenticatedApi.restoreSession().finally(() => {
+      if (isActive) setIsSessionReady(true);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [sessionController]);
 
   const value = useMemo<SessionContextValue>(
     () => ({
       accessToken,
       isAuthenticated: accessToken !== null,
+      isSessionReady,
       setAccessToken: sessionController.updateAccessToken,
       clearSession: sessionController.clearSession,
       fetchAuthenticatedJson: sessionController.authenticatedApi.fetchJson,
     }),
-    [accessToken, sessionController],
+    [accessToken, isSessionReady, sessionController],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;
