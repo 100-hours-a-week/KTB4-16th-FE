@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router';
 import { getMyMarkers } from '../api/getMyMarkers';
 import { getMyPlaceRecords, type MyPlaceRecord } from '../api/getMyPlaceRecords';
 import { getPopularMarkers } from '../api/getPopularMarkers';
+import { getPopularTracks, type PopularTracksResult } from '../api/getPopularTracks';
 import { useSession } from '../../../entities/session/model/useSession';
 import { env } from '../../../shared/config/env';
 import { MyLocksSheet } from './MyLocksSheet';
+import { PopularTracksSheet } from './PopularTracksSheet';
 import {
   type KakaoCluster,
   type KakaoCustomOverlay,
@@ -21,6 +23,7 @@ type MapMode = 'popular' | 'mine';
 type MapLoadState = 'idle' | 'ready' | 'error';
 type MarkersLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 type MyLocksLoadState = 'loading' | 'ready' | 'empty' | 'error';
+type PopularTracksLoadState = 'loading' | 'ready' | 'empty' | 'error';
 export type MapCenter = {
   latitude: number;
   longitude: number;
@@ -149,9 +152,13 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const refreshMarkersRef = useRef<(() => void) | null>(null);
   const openMyLocksSheetRef = useRef<(placeIds: number[]) => void>(() => undefined);
   const closeMyLocksSheetRef = useRef<() => void>(() => undefined);
+  const openPopularTracksSheetRef = useRef<(placeIds: number[]) => void>(() => undefined);
+  const closePopularTracksSheetRef = useRef<() => void>(() => undefined);
   const clearMapSelectionRef = useRef<() => void>(() => undefined);
   const myLocksRequestControllerRef = useRef<AbortController | null>(null);
   const myLocksRequestIdRef = useRef(0);
+  const popularTracksRequestControllerRef = useRef<AbortController | null>(null);
+  const popularTracksRequestIdRef = useRef(0);
   const [mapMode, setMapMode] = useState<MapMode>('popular');
   const [mapLoadState, setMapLoadState] = useState<MapLoadState>('idle');
   const [markersLoadState, setMarkersLoadState] = useState<MarkersLoadState>('idle');
@@ -162,6 +169,12 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const [isMyLocksSheetOpen, setIsMyLocksSheetOpen] = useState(false);
   const [isMyLocksSheetVisible, setIsMyLocksSheetVisible] = useState(false);
   const [isLoadingNextPage, setIsLoadingNextPage] = useState(false);
+  const [selectedPopularPlaceIds, setSelectedPopularPlaceIds] = useState<number[]>([]);
+  const [popularTracksResult, setPopularTracksResult] = useState<PopularTracksResult | null>(null);
+  const [popularTracksLoadState, setPopularTracksLoadState] =
+    useState<PopularTracksLoadState>('loading');
+  const [isPopularTracksSheetOpen, setIsPopularTracksSheetOpen] = useState(false);
+  const [isPopularTracksSheetVisible, setIsPopularTracksSheetVisible] = useState(false);
 
   useEffect(() => {
     mapModeRef.current = mapMode;
@@ -171,6 +184,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   useEffect(
     () => () => {
       myLocksRequestControllerRef.current?.abort();
+      popularTracksRequestControllerRef.current?.abort();
     },
     [],
   );
@@ -250,6 +264,65 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     setMyLocksRecords([]);
     setNextMyLocksCursor(null);
     setIsLoadingNextPage(false);
+  }, []);
+
+  /** 선택한 Place들의 최근 7일 인기 음악을 최신 요청만 반영해 조회한다. */
+  const loadPopularTracks = useCallback(async (placeIds: number[]) => {
+    popularTracksRequestControllerRef.current?.abort();
+    const requestController = new AbortController();
+    const requestId = popularTracksRequestIdRef.current + 1;
+    popularTracksRequestIdRef.current = requestId;
+    popularTracksRequestControllerRef.current = requestController;
+    setPopularTracksResult(null);
+    setPopularTracksLoadState('loading');
+
+    try {
+      const result = await getPopularTracks(placeIds, requestController.signal);
+      if (requestController.signal.aborted || requestId !== popularTracksRequestIdRef.current) {
+        return;
+      }
+
+      setPopularTracksResult(result);
+      setPopularTracksLoadState(result.music.length === 0 ? 'empty' : 'ready');
+    } catch {
+      if (!requestController.signal.aborted && requestId === popularTracksRequestIdRef.current) {
+        setPopularTracksLoadState('error');
+      }
+    } finally {
+      if (requestId === popularTracksRequestIdRef.current) {
+        popularTracksRequestControllerRef.current = null;
+      }
+    }
+  }, []);
+
+  /** 인기 Marker 또는 Cluster가 선택한 Place IDs로 음악 집계 sheet를 연다. */
+  const openPopularTracksSheet = useCallback(
+    (placeIds: number[]) => {
+      const uniquePlaceIds = [...new Set(placeIds)];
+
+      if (uniquePlaceIds.length === 0 || mapModeRef.current !== 'popular') {
+        return;
+      }
+
+      closeMyLocksSheetRef.current();
+      setSelectedPopularPlaceIds(uniquePlaceIds);
+      setPopularTracksResult(null);
+      setIsPopularTracksSheetVisible(true);
+      requestAnimationFrame(() => setIsPopularTracksSheetOpen(true));
+      void loadPopularTracks(uniquePlaceIds);
+    },
+    [loadPopularTracks],
+  );
+
+  const closePopularTracksSheet = useCallback(() => {
+    popularTracksRequestControllerRef.current?.abort();
+    popularTracksRequestControllerRef.current = null;
+    popularTracksRequestIdRef.current += 1;
+    setIsPopularTracksSheetOpen(false);
+    clearMapSelectionRef.current();
+    setSelectedPopularPlaceIds([]);
+    setPopularTracksResult(null);
+    setPopularTracksLoadState('loading');
   }, []);
 
   useEffect(() => {
@@ -356,6 +429,8 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           activeRequestController?.abort();
           if (mapModeRef.current === 'mine') {
             closeMyLocksSheetRef.current();
+          } else {
+            closePopularTracksSheetRef.current();
           }
           removeMapMarkers();
 
@@ -397,9 +472,14 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
               });
               markerPlaceIds.set(kakaoMarker, marker.placeId);
               const handleMarkerClick = () => {
-                if (mapModeRef.current !== 'mine') {
+                if (mapModeRef.current === 'popular') {
+                  clearMapSelection();
+                  openPopularTracksSheetRef.current([marker.placeId]);
                   return;
                 }
+
+                if (mapModeRef.current !== 'mine') return;
+
                 clearMapSelection();
                 selectedMarker = kakaoMarker;
                 selectedMarker.setImage(selectedMusicNoteMarkerImage);
@@ -435,9 +515,22 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         };
 
         const handleClusterClick = (cluster: KakaoCluster) => {
-          if (mapModeRef.current !== 'mine') {
+          const placeIds = [
+            ...new Set(
+              cluster.getMarkers().flatMap((marker) => {
+                const placeId = markerPlaceIds.get(marker);
+                return placeId === undefined ? [] : [placeId];
+              }),
+            ),
+          ];
+
+          if (mapModeRef.current === 'popular') {
+            clearMapSelection();
+            openPopularTracksSheetRef.current(placeIds);
             return;
           }
+
+          if (mapModeRef.current !== 'mine') return;
 
           clearMapSelection();
           selectedClusterMarker = cluster.getClusterMarker();
@@ -451,12 +544,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
             zIndex: 2,
           });
 
-          openMyLocksSheetRef.current(
-            cluster.getMarkers().flatMap((marker) => {
-              const placeId = markerPlaceIds.get(marker);
-              return placeId === undefined ? [] : [placeId];
-            }),
-          );
+          openMyLocksSheetRef.current(placeIds);
         };
         kakao.maps.event.addListener(currentMarkerClusterer, 'clusterclick', handleClusterClick);
         removeClusterClickListener = () => {
@@ -473,6 +561,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
 
         const handleMapClick = () => {
           closeMyLocksSheetRef.current();
+          closePopularTracksSheetRef.current();
         };
 
         kakao.maps.event.addListener(map, 'click', handleMapClick);
@@ -519,6 +608,8 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
 
     if (nextMapMode === 'popular') {
       closeMyLocksSheet();
+    } else {
+      closePopularTracksSheet();
     }
 
     setMapMode(nextMapMode);
@@ -532,9 +623,23 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     closeMyLocksSheetRef.current = closeMyLocksSheet;
   }, [closeMyLocksSheet]);
 
+  useEffect(() => {
+    openPopularTracksSheetRef.current = openPopularTracksSheet;
+  }, [openPopularTracksSheet]);
+
+  useEffect(() => {
+    closePopularTracksSheetRef.current = closePopularTracksSheet;
+  }, [closePopularTracksSheet]);
+
   function finishClosingMyLocksSheet() {
     if (!isMyLocksSheetOpen) {
       setIsMyLocksSheetVisible(false);
+    }
+  }
+
+  function finishClosingPopularTracksSheet() {
+    if (!isPopularTracksSheetOpen) {
+      setIsPopularTracksSheetVisible(false);
     }
   }
 
@@ -606,6 +711,21 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
             }}
             onClose={closeMyLocksSheet}
             onExited={finishClosingMyLocksSheet}
+          />
+        ) : null}
+        {isPopularTracksSheetVisible ? (
+          <PopularTracksSheet
+            isOpen={isPopularTracksSheetOpen}
+            placeCount={selectedPopularPlaceIds.length}
+            result={popularTracksResult}
+            loadState={popularTracksLoadState}
+            onRetry={() => {
+              if (selectedPopularPlaceIds.length > 0) {
+                void loadPopularTracks(selectedPopularPlaceIds);
+              }
+            }}
+            onClose={closePopularTracksSheet}
+            onExited={finishClosingPopularTracksSheet}
           />
         ) : null}
       </div>
