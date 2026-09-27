@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCsrfToken } from '../../../shared/api/csrf';
 import { ApiError } from '../../../shared/api/apiError';
 import { fetchJson } from '../../../shared/api/fetchJson';
-import { login, signup } from './authApi';
+import { login, logout, signup } from './authApi';
 
 vi.mock('../../../shared/api/fetchJson', () => ({ fetchJson: vi.fn() }));
 vi.mock('../../../shared/api/csrf', () => ({ getCsrfToken: vi.fn() }));
@@ -11,6 +11,19 @@ vi.mock('../../../shared/api/csrf', () => ({ getCsrfToken: vi.fn() }));
 beforeEach(() => vi.clearAllMocks());
 
 describe('authApi', () => {
+  it('sends the CSRF-protected logout request with the refresh cookie', async () => {
+    vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
+    vi.mocked(fetchJson).mockResolvedValue({ message: '로그아웃되었습니다.' });
+
+    await logout();
+
+    expect(fetchJson).toHaveBeenCalledWith('/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-XSRF-TOKEN': 'csrf-token' },
+    });
+  });
+
   it('normalizes only login email and preserves password bytes', async () => {
     vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
     vi.mocked(fetchJson).mockResolvedValue({ message: 'ok', accessToken: 'access-token' });

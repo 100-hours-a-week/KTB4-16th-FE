@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
 import type { UserProfile } from '../../../entities/user/model/user.types';
+import { logout } from '../../../features/auth/api/authApi';
 import { getMyProfile } from '../../../features/user-profile/api/userProfileApi';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
 import { useSession } from '../../../entities/session/model/useSession';
@@ -12,7 +13,7 @@ const accountMenus = [
   { label: '닉네임 변경', to: '/mypage/nickname' },
   { label: '비밀번호 변경', to: '/mypage/password' },
 ] as const;
-const accountActions = ['로그아웃', '회원탈퇴'];
+const accountActions = ['로그아웃', '회원탈퇴'] as const;
 
 /** route state에서 마이페이지에 표시할 안전한 완료 안내만 추출한다. */
 function getProfileMessage(state: unknown): string | null {
@@ -25,10 +26,12 @@ function getProfileMessage(state: unknown): string | null {
 
 /** 현재 사용자 정보를 조회하고 계정 메뉴를 조립한다. */
 export function MyPage() {
-  const { fetchAuthenticatedJson } = useSession();
+  const { clearSession, fetchAuthenticatedJson } = useSession();
   const location = useLocation();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const profileMessage = getProfileMessage(location.state);
 
@@ -75,6 +78,21 @@ export function MyPage() {
     };
   }, [fetchAuthenticatedJson]);
 
+  /** 서버 로그아웃 결과와 무관하게 로컬 세션을 지우고 로그인 화면으로 전환한다. */
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } catch {
+      // 서버가 Cookie 무효화에 실패해도 현재 기기의 인증 상태는 종료한다.
+    } finally {
+      // 중요: 서버 오류여도 메모리 Access Token은 남기지 않는다.
+      clearSession();
+      navigate('/login', { replace: true });
+    }
+  };
+
   return (
     <main className="static-page">
       <div className="static-page-content">
@@ -101,7 +119,12 @@ export function MyPage() {
           ) : null}
         </section>
         <MenuGroup items={accountMenus} />
-        <MenuGroup items={accountActions} danger />
+        <MenuGroup
+          isLoggingOut={isLoggingOut}
+          items={accountActions}
+          danger
+          onLogout={handleLogout}
+        />
       </div>
       <MainNavigation />
     </main>
@@ -113,28 +136,57 @@ type AccountMenuItem = (typeof accountMenus)[number];
 /** 계정 변경 경로와 아직 제공하지 않는 계정 동작을 구분해 표시한다. */
 function MenuGroup({
   danger = false,
+  isLoggingOut = false,
   items,
+  onLogout,
 }: {
   danger?: boolean;
+  isLoggingOut?: boolean;
   items: readonly AccountMenuItem[] | readonly string[];
+  onLogout?: () => Promise<void>;
 }) {
   return (
     <section className="surface-card my-menu-group">
       {items.map((item) => (
-        <MenuItem danger={danger} item={item} key={typeof item === 'string' ? item : item.to} />
+        <MenuItem
+          danger={danger}
+          isLoggingOut={isLoggingOut}
+          item={item}
+          key={typeof item === 'string' ? item : item.to}
+          onLogout={onLogout}
+        />
       ))}
     </section>
   );
 }
 
-/** 메뉴 항목이 실제 경로인지 구현 예정 동작인지에 맞는 제어 요소를 렌더링한다. */
-function MenuItem({ danger, item }: { danger: boolean; item: AccountMenuItem | string }) {
+/** 메뉴 항목을 경로 이동, 실제 로그아웃, 구현 예정 상태로 구분해 렌더링한다. */
+function MenuItem({
+  danger,
+  isLoggingOut,
+  item,
+  onLogout,
+}: {
+  danger: boolean;
+  isLoggingOut: boolean;
+  item: AccountMenuItem | string;
+  onLogout?: () => Promise<void>;
+}) {
   if (typeof item !== 'string') {
     return (
       <Link to={item.to}>
         <span>{item.label}</span>
         <span aria-hidden="true">›</span>
       </Link>
+    );
+  }
+
+  if (item === '로그아웃') {
+    return (
+      <button disabled={isLoggingOut} onClick={() => void onLogout?.()} type="button">
+        <span>{isLoggingOut ? '로그아웃 중...' : item}</span>
+        <span aria-hidden="true">›</span>
+      </button>
     );
   }
 
