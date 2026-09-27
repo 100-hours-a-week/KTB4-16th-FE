@@ -119,6 +119,14 @@
   border: 1px solid #ece3f7;
   border-radius: 16px;
   background: #fff;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.dashboard-record:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 32%);
+  outline-offset: 2px;
 }
 
 .dashboard-cover {
