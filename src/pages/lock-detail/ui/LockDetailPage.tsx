@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
+import { deleteRecord } from '../../../features/record-detail/api/deleteRecord';
 import { getRecordDetail } from '../../../features/record-detail/api/getRecordDetail';
 import { updateRecordComment } from '../../../features/record-detail/api/updateRecordComment';
 import type { LockDetailData } from '../../../features/record-detail/model/lockDetail.types';
@@ -89,6 +90,8 @@ export function LockDetailPage() {
             onSaveComment={(comment) =>
               updateRecordComment(detail.recordId, comment, fetchAuthenticatedJson)
             }
+            onDelete={() => deleteRecord(detail.recordId, fetchAuthenticatedJson)}
+            onDeleted={() => navigate('/', { replace: true })}
           />
         ) : null}
       </div>

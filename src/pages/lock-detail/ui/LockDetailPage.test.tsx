@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LockDetailData } from '../../../features/record-detail/model/lockDetail.types';
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   fetchAuthenticatedJson: vi.fn(),
   getRecordDetail: vi.fn(),
   updateRecordComment: vi.fn(),
+  deleteRecord: vi.fn(),
 }));
 
 vi.mock('../../../entities/session/model/useSession', () => ({
@@ -18,6 +19,9 @@ vi.mock('../../../entities/session/model/useSession', () => ({
 }));
 vi.mock('../../../features/record-detail/api/getRecordDetail', () => ({
   getRecordDetail: mocks.getRecordDetail,
+}));
+vi.mock('../../../features/record-detail/api/deleteRecord', () => ({
+  deleteRecord: mocks.deleteRecord,
 }));
 vi.mock('../../../features/record-detail/api/updateRecordComment', () => ({
   updateRecordComment: mocks.updateRecordComment,
@@ -54,6 +58,7 @@ beforeEach(() => {
   mocks.updateRecordComment.mockImplementation(
     async (_recordId: number, comment: string | null) => comment,
   );
+  mocks.deleteRecord.mockResolvedValue(undefined);
 });
 
 describe('LockDetailPage', () => {
@@ -97,6 +102,33 @@ describe('LockDetailPage', () => {
     );
   });
 
+  it('deletes the record then replaces the detail route with home', async () => {
+    const user = userEvent.setup();
+    renderPage('/records/585');
+    await screen.findByText('📍 매산로1가');
+
+    await user.click(screen.getByRole('button', { name: '자물쇠 삭제' }));
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+
+    await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/'));
+    expect(mocks.deleteRecord).toHaveBeenCalledWith(585, mocks.fetchAuthenticatedJson);
+  });
+
+  it('keeps the detail page after a delete API failure', async () => {
+    const user = userEvent.setup();
+    mocks.deleteRecord.mockRejectedValueOnce(new Error('failed'));
+    renderPage('/records/585');
+    await screen.findByText('📍 매산로1가');
+
+    await user.click(screen.getByRole('button', { name: '자물쇠 삭제' }));
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '자물쇠를 삭제하지 못했어요. 다시 시도해주세요.',
+    );
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/records/585');
+  });
+
   it('aborts the detail request on unmount', async () => {
     mocks.getRecordDetail.mockReturnValueOnce(new Promise(() => undefined));
     const { unmount } = renderPage('/records/585');
@@ -115,6 +147,12 @@ function renderPage(path: string) {
       <Routes>
         <Route path="/records/:recordId" element={<LockDetailPage />} />
       </Routes>
+      <LocationProbe />
     </MemoryRouter>,
   );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="current-path">{location.pathname}</span>;
 }

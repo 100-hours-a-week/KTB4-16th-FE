@@ -9,17 +9,29 @@ type Props = {
   isOwner: boolean;
   onClose: () => void;
   onSaveComment: (comment: string | null) => Promise<string | null>;
+  onDelete: () => Promise<void>;
+  onDeleted: () => void;
 };
 
 /** 자물쇠 상세 정보와 소유자용 코멘트 수정·삭제 UI를 제공한다. */
-export function LockDetail({ detail, isOwner, onClose, onSaveComment }: Props) {
+export function LockDetail({
+  detail,
+  isOwner,
+  onClose,
+  onSaveComment,
+  onDelete,
+  onDeleted,
+}: Props) {
   const [comment, setComment] = useState<string | null>(detail.comment);
   const [commentDraft, setCommentDraft] = useState('');
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [isSavingComment, setIsSavingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const commentSaveInFlightRef = useRef(false);
+  const deleteInFlightRef = useRef(false);
 
   const startCommentEditing = () => {
     setCommentDraft(comment ?? '');
@@ -54,9 +66,24 @@ export function LockDetail({ detail, isOwner, onClose, onSaveComment }: Props) {
     }
   };
 
-  /** 추후 삭제 API 연결 지점이며 현재는 확인창만 닫는다. */
-  const confirmDelete = () => {
-    setIsDeleteDialogOpen(false);
+  /** 삭제가 성공한 뒤에만 상세 화면을 떠나고, 실패하면 모달을 유지한다. */
+  const confirmDelete = async () => {
+    if (deleteInFlightRef.current) return;
+
+    deleteInFlightRef.current = true;
+    setIsDeleting(true);
+    setDeleteError('');
+
+    try {
+      await onDelete();
+      setIsDeleteDialogOpen(false);
+      onDeleted();
+    } catch {
+      setDeleteError('자물쇠를 삭제하지 못했어요. 다시 시도해주세요.');
+    } finally {
+      deleteInFlightRef.current = false;
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -171,7 +198,11 @@ export function LockDetail({ detail, isOwner, onClose, onSaveComment }: Props) {
             <button
               className="lock-detail-delete"
               type="button"
-              onClick={() => setIsDeleteDialogOpen(true)}
+              disabled={isDeleting}
+              onClick={() => {
+                setDeleteError('');
+                setIsDeleteDialogOpen(true);
+              }}
             >
               자물쇠 삭제
             </button>
@@ -190,12 +221,26 @@ export function LockDetail({ detail, isOwner, onClose, onSaveComment }: Props) {
           >
             <h2 id="lock-delete-title">이 자물쇠를 삭제하시겠어요?</h2>
             <p id="lock-delete-description">삭제한 자물쇠는 복구할 수 없어요.</p>
+            {deleteError ? (
+              <p className="lock-detail-delete-error" role="alert">
+                {deleteError}
+              </p>
+            ) : null}
             <div>
-              <button type="button" onClick={() => setIsDeleteDialogOpen(false)}>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setIsDeleteDialogOpen(false)}
+              >
                 취소
               </button>
-              <button className="danger" type="button" onClick={confirmDelete}>
-                삭제
+              <button
+                className="danger"
+                type="button"
+                disabled={isDeleting}
+                onClick={() => void confirmDelete()}
+              >
+                {isDeleting ? '삭제 중…' : '삭제'}
               </button>
             </div>
           </section>

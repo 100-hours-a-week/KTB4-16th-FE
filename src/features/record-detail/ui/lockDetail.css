@@ -319,6 +319,16 @@
   line-height: 1.6;
 }
 
+.lock-detail-dialog .lock-detail-delete-error {
+  margin: 0 0 12px;
+  color: #b64d4d;
+}
+
+.lock-detail-dialog button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .lock-detail-dialog button.danger {
   border-color: #d76565;
   background: #d76565;
