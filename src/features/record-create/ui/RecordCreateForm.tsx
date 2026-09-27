@@ -6,8 +6,13 @@ import { MusicSearchField } from '../../music-search';
 import { env } from '../../../shared/config/env';
 import { loadKakaoMapSdk, type KakaoMaps, type KakaoMouseEvent } from '../../home-map/lib/kakaoMap';
 import { createRecord } from '../api/createRecord';
+import {
+  getPhotoMusicRecommendations,
+  type PhotoMusicRecommendation,
+} from '../api/getPhotoMusicRecommendations';
 import { uploadPhoto } from '../api/uploadPhoto';
 import type { RecordLocation, SelectedMusic } from '../model/recordCreate.types';
+import { PhotoMusicRecommendationModal } from './PhotoMusicRecommendationModal';
 
 const DEFAULT_LOCATION = { latitude: 37.2002, longitude: 127.098 };
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/webp']);
@@ -25,6 +30,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photoSelectionIdRef = useRef(0);
+  const recommendationRequestIdRef = useRef(0);
   const [location, setLocation] = useState<RecordLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -32,6 +38,13 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const [uploadId, setUploadId] = useState<number | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [recommendations, setRecommendations] = useState<PhotoMusicRecommendation[]>([]);
+  const [recommendationLoadState, setRecommendationLoadState] = useState<
+    'loading' | 'ready' | 'error'
+  >('ready');
+  const [isRecommendationOpen, setIsRecommendationOpen] = useState(false);
+  const [isRecommending, setIsRecommending] = useState(false);
+  const [recommendationError, setRecommendationError] = useState<string | null>(null);
   const [selectedMusic, setSelectedMusic] = useState<SelectedMusic | null>(null);
   const [moodScore, setMoodScore] = useState(0);
   const [comment, setComment] = useState('');
@@ -129,7 +142,13 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
       return;
     }
     photoSelectionIdRef.current += 1;
+    recommendationRequestIdRef.current += 1;
     const selectionId = photoSelectionIdRef.current;
+    setRecommendations([]);
+    setIsRecommendationOpen(false);
+    setIsRecommending(false);
+    setRecommendationLoadState('ready');
+    setRecommendationError(null);
     setUploadId(null);
     setPhoto(file);
     setPhotoPreview(URL.createObjectURL(file));
@@ -177,6 +196,54 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  /** 최신 업로드 사진에 대해서만 사용자 요청 시 AI 음악 추천을 조회한다. */
+  async function requestPhotoMusicRecommendations() {
+    if (!uploadId || isRecommending || isUploading || isSubmitting) return;
+
+    const requestId = recommendationRequestIdRef.current + 1;
+    const photoSelectionId = photoSelectionIdRef.current;
+    recommendationRequestIdRef.current = requestId;
+    setIsRecommendationOpen(true);
+    setIsRecommending(true);
+    setRecommendationLoadState('loading');
+    setRecommendationError(null);
+    setRecommendations([]);
+
+    try {
+      const nextRecommendations = await getPhotoMusicRecommendations(
+        uploadId,
+        fetchAuthenticatedJson,
+      );
+      if (
+        requestId !== recommendationRequestIdRef.current ||
+        photoSelectionId !== photoSelectionIdRef.current
+      ) {
+        return;
+      }
+      setRecommendations(nextRecommendations);
+      setRecommendationLoadState('ready');
+    } catch (error) {
+      if (
+        requestId !== recommendationRequestIdRef.current ||
+        photoSelectionId !== photoSelectionIdRef.current
+      ) {
+        return;
+      }
+      setRecommendationError(messageForError(error, '음악 추천에 실패했어요. 다시 시도해주세요.'));
+      setRecommendationLoadState('error');
+    } finally {
+      if (requestId === recommendationRequestIdRef.current) {
+        setIsRecommending(false);
+      }
+    }
+  }
+
+  /** 추천곡을 기존 직접 검색과 같은 선택 음악 상태로 반영한다. */
+  function selectRecommendedMusic(recommendation: PhotoMusicRecommendation) {
+    setSelectedMusic(recommendation);
+    setIsRecommendationOpen(false);
   }
 
   return (
@@ -230,6 +297,14 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
             {isUploading ? '사진 업로드 중…' : '사진 바꾸기'}
           </button>
         )}
+        <button
+          className="lock-create-ai"
+          type="button"
+          disabled={!uploadId || isUploading || isSubmitting || isRecommending}
+          onClick={() => void requestPhotoMusicRecommendations()}
+        >
+          {isRecommending ? '음악 추천 중…' : '✨ AI 음악 추천받기'}
+        </button>
         {photoError && <p className="lock-create-error">{photoError}</p>}
       </section>
       <section className="surface-card lock-create-card">
@@ -288,6 +363,16 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         {isSubmitting ? '자물쇠 저장 중…' : '🔒 자물쇠 저장하기'}
       </button>
       {submitError && <p className="lock-create-error">{submitError}</p>}
+      <PhotoMusicRecommendationModal
+        errorMessage={recommendationError}
+        isOpen={isRecommendationOpen}
+        loadState={recommendationLoadState}
+        onClose={() => setIsRecommendationOpen(false)}
+        onDirectSearch={() => setIsRecommendationOpen(false)}
+        onRetry={() => void requestPhotoMusicRecommendations()}
+        onSelect={selectRecommendedMusic}
+        recommendations={recommendations}
+      />
     </>
   );
 }
