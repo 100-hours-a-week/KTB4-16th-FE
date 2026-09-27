@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import { getRecordRegions, type RecordRegion } from '../api/getRecordRegions';
@@ -177,7 +178,11 @@ export function DashboardContent() {
         {recordsLoadState === 'ready' ? (
           <div className="dashboard-record-list">
             {records.map((record) => (
-              <article className="dashboard-record" key={record.recordId}>
+              <Link
+                className="dashboard-record"
+                key={record.recordId}
+                to={`/records/${record.recordId}`}
+              >
                 {record.albumImageUrl ? (
                   <span className="dashboard-cover">
                     <img
@@ -197,7 +202,7 @@ export function DashboardContent() {
                     {record.artistName} · {formatRecordDate(record.createdAt)}
                   </small>
                 </span>
-              </article>
+              </Link>
             ))}
             {nextCursor !== null ? (
               <button
