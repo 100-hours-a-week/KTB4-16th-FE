@@ -72,6 +72,30 @@
   pointer-events: none;
 }
 
+.home-map-current-location {
+  position: relative;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(167 139 222 / 22%);
+  box-shadow: 0 2px 5px rgb(122 92 190 / 12%);
+  pointer-events: none;
+}
+
+.home-map-current-location > span {
+  width: 13px;
+  height: 13px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #5023ba;
+  box-shadow:
+    0 0 0 4px rgb(201 183 236 / 45%),
+    0 0 10px 7px rgb(167 139 222 / 55%),
+    0 0 22px 12px rgb(122 92 190 / 35%);
+}
+
 .home-map-notice {
   z-index: 1;
   display: grid;
