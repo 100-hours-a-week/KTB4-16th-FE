@@ -8,6 +8,7 @@ type KakaoMarkerOptions = {
   map?: KakaoMap;
   image?: KakaoMarkerImage;
   clickable?: boolean;
+  zIndex?: number;
 };
 
 type KakaoMarkerClustererOptions = {
@@ -52,6 +53,8 @@ export type KakaoLatLngBounds = {
 
 export type KakaoMap = {
   getBounds: () => KakaoLatLngBounds;
+  getCenter: () => KakaoLatLng;
+  setCenter: (center: KakaoLatLng) => void;
 };
 
 export type KakaoMouseEvent = {
@@ -101,7 +104,8 @@ export type KakaoMaps = {
     CustomOverlay: new (options: {
       map?: KakaoMap;
       position: KakaoLatLng;
-      content: string;
+      content: string | HTMLElement;
+      clickable?: boolean;
       xAnchor?: number;
       yAnchor?: number;
       zIndex?: number;

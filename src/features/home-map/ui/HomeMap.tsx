@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router';
 import { getMyMarkers } from '../api/getMyMarkers';
 import { getMyPlaceRecords, type MyPlaceRecord } from '../api/getMyPlaceRecords';
 import { getPopularMarkers } from '../api/getPopularMarkers';
+import { getPopularTracks, type PopularTracksResult } from '../api/getPopularTracks';
 import { useSession } from '../../../entities/session/model/useSession';
 import { env } from '../../../shared/config/env';
 import { MyLocksSheet } from './MyLocksSheet';
+import { PopularTracksSheet } from './PopularTracksSheet';
 import {
   type KakaoCluster,
   type KakaoCustomOverlay,
@@ -21,9 +23,15 @@ type MapMode = 'popular' | 'mine';
 type MapLoadState = 'idle' | 'ready' | 'error';
 type MarkersLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 type MyLocksLoadState = 'loading' | 'ready' | 'empty' | 'error';
+type PopularTracksLoadState = 'loading' | 'ready' | 'empty' | 'error';
 export type MapCenter = {
   latitude: number;
   longitude: number;
+};
+
+type InitialMapLocation = {
+  center: MapCenter;
+  currentLocation: MapCenter | null;
 };
 
 type HomeMapProps = {
@@ -36,28 +44,29 @@ const DEFAULT_CENTER: MapCenter = {
   longitude: 127.098,
 };
 
-/** 위치 권한·지원 여부와 관계없이 지도 생성에 사용할 초기 중심 좌표를 반환한다. */
-function getInitialMapCenter(): Promise<MapCenter> {
+/** 지도 중심과 실제 geolocation 성공 좌표를 구분해 반환한다. */
+function getInitialMapCenter(): Promise<InitialMapLocation> {
   if (!navigator.geolocation) {
-    return Promise.resolve(DEFAULT_CENTER);
+    return Promise.resolve({ center: DEFAULT_CENTER, currentLocation: null });
   }
 
   return new Promise((resolve) => {
     try {
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => {
-          resolve({
+          const currentLocation = {
             latitude: coords.latitude,
             longitude: coords.longitude,
-          });
+          };
+          resolve({ center: currentLocation, currentLocation });
         },
         () => {
-          resolve(DEFAULT_CENTER);
+          resolve({ center: DEFAULT_CENTER, currentLocation: null });
         },
         { timeout: 10_000 },
       );
     } catch {
-      resolve(DEFAULT_CENTER);
+      resolve({ center: DEFAULT_CENTER, currentLocation: null });
     }
   });
 }
@@ -99,6 +108,21 @@ const SELECTED_MUSIC_NOTE_PIN_SVG = `
   </svg>
 `;
 
+/** 같은 Place에 저장된 내 자물쇠 수는 Cluster 수와 별도로 Marker 위에 표시한다. */
+function addMyRecordsCountBadge(markerSvg: string, myRecordsCount: number) {
+  if (myRecordsCount <= 1) {
+    return markerSvg;
+  }
+
+  const countBadge = `
+    <g data-my-records-count="${myRecordsCount}">
+      <rect x="23" y="6" width="16" height="15" rx="7.5" fill="#7a5cbe" stroke="#fff" stroke-width="1.5"/>
+      <text x="31" y="16.7" fill="#fff" font-family="Arial, sans-serif" font-size="9" font-weight="800" text-anchor="middle">${myRecordsCount}</text>
+    </g>`;
+
+  return markerSvg.replace('</svg>', `${countBadge}\n  </svg>`);
+}
+
 const CLUSTER_PIN_SVG = `
   <svg xmlns="http://www.w3.org/2000/svg" width="42" height="52" viewBox="0 0 42 52">
     <defs>
@@ -114,9 +138,23 @@ const SELECTED_CLUSTER_HALO_CONTENT = `
   <span class="home-map-selected-cluster-halo" aria-hidden="true"></span>
 `;
 
+function createCurrentLocationOverlayContent() {
+  const content = document.createElement('span');
+  content.className = 'home-map-current-location';
+  content.setAttribute('aria-hidden', 'true');
+  content.style.pointerEvents = 'none';
+
+  const dot = document.createElement('span');
+  content.append(dot);
+
+  return content;
+}
+
 /** 기본 Marker와 Cluster 색상을 맞추기 위한 MULO 음악 노트 핀 이미지를 생성한다. */
-function createMusicNoteMarkerImage(kakao: KakaoMaps) {
-  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(MUSIC_NOTE_PIN_SVG)}`;
+function createMusicNoteMarkerImage(kakao: KakaoMaps, myRecordsCount = 1) {
+  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    addMyRecordsCountBadge(MUSIC_NOTE_PIN_SVG, myRecordsCount),
+  )}`;
 
   return new kakao.maps.MarkerImage(source, new kakao.maps.Size(42, 52), {
     offset: new kakao.maps.Point(21, 50),
@@ -124,8 +162,10 @@ function createMusicNoteMarkerImage(kakao: KakaoMaps) {
 }
 
 /** 선택된 Marker가 같은 좌표 anchor를 유지한 채 강조되도록 이미지를 만든다. */
-function createSelectedMusicNoteMarkerImage(kakao: KakaoMaps) {
-  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(SELECTED_MUSIC_NOTE_PIN_SVG)}`;
+function createSelectedMusicNoteMarkerImage(kakao: KakaoMaps, myRecordsCount = 1) {
+  const source = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    addMyRecordsCountBadge(SELECTED_MUSIC_NOTE_PIN_SVG, myRecordsCount),
+  )}`;
 
   return new kakao.maps.MarkerImage(source, new kakao.maps.Size(46, 56), {
     offset: new kakao.maps.Point(23, 54),
@@ -144,14 +184,18 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const navigate = useNavigate();
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const initialCenterPromiseRef = useRef<Promise<MapCenter> | null>(null);
+  const initialCenterPromiseRef = useRef<Promise<InitialMapLocation> | null>(null);
   const mapModeRef = useRef<MapMode>('popular');
   const refreshMarkersRef = useRef<(() => void) | null>(null);
   const openMyLocksSheetRef = useRef<(placeIds: number[]) => void>(() => undefined);
   const closeMyLocksSheetRef = useRef<() => void>(() => undefined);
+  const openPopularTracksSheetRef = useRef<(placeIds: number[]) => void>(() => undefined);
+  const closePopularTracksSheetRef = useRef<() => void>(() => undefined);
   const clearMapSelectionRef = useRef<() => void>(() => undefined);
   const myLocksRequestControllerRef = useRef<AbortController | null>(null);
   const myLocksRequestIdRef = useRef(0);
+  const popularTracksRequestControllerRef = useRef<AbortController | null>(null);
+  const popularTracksRequestIdRef = useRef(0);
   const [mapMode, setMapMode] = useState<MapMode>('popular');
   const [mapLoadState, setMapLoadState] = useState<MapLoadState>('idle');
   const [markersLoadState, setMarkersLoadState] = useState<MarkersLoadState>('idle');
@@ -162,6 +206,12 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const [isMyLocksSheetOpen, setIsMyLocksSheetOpen] = useState(false);
   const [isMyLocksSheetVisible, setIsMyLocksSheetVisible] = useState(false);
   const [isLoadingNextPage, setIsLoadingNextPage] = useState(false);
+  const [selectedPopularPlaceIds, setSelectedPopularPlaceIds] = useState<number[]>([]);
+  const [popularTracksResult, setPopularTracksResult] = useState<PopularTracksResult | null>(null);
+  const [popularTracksLoadState, setPopularTracksLoadState] =
+    useState<PopularTracksLoadState>('loading');
+  const [isPopularTracksSheetOpen, setIsPopularTracksSheetOpen] = useState(false);
+  const [isPopularTracksSheetVisible, setIsPopularTracksSheetVisible] = useState(false);
 
   useEffect(() => {
     mapModeRef.current = mapMode;
@@ -171,6 +221,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   useEffect(
     () => () => {
       myLocksRequestControllerRef.current?.abort();
+      popularTracksRequestControllerRef.current?.abort();
     },
     [],
   );
@@ -252,6 +303,65 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     setIsLoadingNextPage(false);
   }, []);
 
+  /** 선택한 Place들의 최근 7일 인기 음악을 최신 요청만 반영해 조회한다. */
+  const loadPopularTracks = useCallback(async (placeIds: number[]) => {
+    popularTracksRequestControllerRef.current?.abort();
+    const requestController = new AbortController();
+    const requestId = popularTracksRequestIdRef.current + 1;
+    popularTracksRequestIdRef.current = requestId;
+    popularTracksRequestControllerRef.current = requestController;
+    setPopularTracksResult(null);
+    setPopularTracksLoadState('loading');
+
+    try {
+      const result = await getPopularTracks(placeIds, requestController.signal);
+      if (requestController.signal.aborted || requestId !== popularTracksRequestIdRef.current) {
+        return;
+      }
+
+      setPopularTracksResult(result);
+      setPopularTracksLoadState(result.music.length === 0 ? 'empty' : 'ready');
+    } catch {
+      if (!requestController.signal.aborted && requestId === popularTracksRequestIdRef.current) {
+        setPopularTracksLoadState('error');
+      }
+    } finally {
+      if (requestId === popularTracksRequestIdRef.current) {
+        popularTracksRequestControllerRef.current = null;
+      }
+    }
+  }, []);
+
+  /** 인기 Marker 또는 Cluster가 선택한 Place IDs로 음악 집계 sheet를 연다. */
+  const openPopularTracksSheet = useCallback(
+    (placeIds: number[]) => {
+      const uniquePlaceIds = [...new Set(placeIds)];
+
+      if (uniquePlaceIds.length === 0 || mapModeRef.current !== 'popular') {
+        return;
+      }
+
+      closeMyLocksSheetRef.current();
+      setSelectedPopularPlaceIds(uniquePlaceIds);
+      setPopularTracksResult(null);
+      setIsPopularTracksSheetVisible(true);
+      requestAnimationFrame(() => setIsPopularTracksSheetOpen(true));
+      void loadPopularTracks(uniquePlaceIds);
+    },
+    [loadPopularTracks],
+  );
+
+  const closePopularTracksSheet = useCallback(() => {
+    popularTracksRequestControllerRef.current?.abort();
+    popularTracksRequestControllerRef.current = null;
+    popularTracksRequestIdRef.current += 1;
+    setIsPopularTracksSheetOpen(false);
+    clearMapSelectionRef.current();
+    setSelectedPopularPlaceIds([]);
+    setPopularTracksResult(null);
+    setPopularTracksLoadState('loading');
+  }, []);
+
   useEffect(() => {
     const mapElement = mapContainerRef.current;
 
@@ -269,9 +379,18 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     let removeClusterClickListener: (() => void) | undefined;
     let removeMarkerClickListeners: (() => void)[] = [];
     const markerPlaceIds = new Map<KakaoMarker, number>();
+    const markerDefaultImages = new Map<
+      KakaoMarker,
+      ReturnType<typeof createMusicNoteMarkerImage>
+    >();
+    const markerSelectedImages = new Map<
+      KakaoMarker,
+      ReturnType<typeof createSelectedMusicNoteMarkerImage>
+    >();
     let selectedMarker: KakaoMarker | undefined;
     let selectedClusterOverlay: KakaoCustomOverlay | undefined;
     let selectedClusterMarker: KakaoCustomOverlay | undefined;
+    let currentLocationOverlay: KakaoCustomOverlay | undefined;
     let resetSelectedMarkerImage: ((marker: KakaoMarker) => void) | undefined;
 
     /** 현재 viewport의 Cluster와 선택된 지도 모드의 Marker를 모두 제거한다. */
@@ -281,6 +400,8 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       removeMarkerClickListeners.forEach((removeListener) => removeListener());
       removeMarkerClickListeners = [];
       markerPlaceIds.clear();
+      markerDefaultImages.clear();
+      markerSelectedImages.clear();
       markers.forEach((marker) => marker.setMap(null));
       markers = [];
     }
@@ -307,7 +428,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       try {
         const initialCenterPromise = initialCenterPromiseRef.current ?? getInitialMapCenter();
         initialCenterPromiseRef.current = initialCenterPromise;
-        const initialCenter = await initialCenterPromise;
+        const { center: initialCenter, currentLocation } = await initialCenterPromise;
 
         if (!isMounted) {
           return;
@@ -326,7 +447,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         const currentMarkerClusterer = new kakao.maps.MarkerClusterer({
           map,
           averageCenter: true,
-          minLevel: 6,
+          minLevel: 5,
           disableClickZoom: true,
           styles: [
             {
@@ -345,6 +466,20 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           ],
         });
         markerClusterer = currentMarkerClusterer;
+        if (currentLocation) {
+          // 실제 geolocation 성공 좌표만 Place Marker·Clusterer와 독립적으로 표시한다.
+          const currentLocationContent = createCurrentLocationOverlayContent();
+          currentLocationOverlay = new kakao.maps.CustomOverlay({
+            map,
+            position: new kakao.maps.LatLng(currentLocation.latitude, currentLocation.longitude),
+            content: currentLocationContent,
+            xAnchor: 0.5,
+            yAnchor: 0.5,
+            clickable: false,
+            zIndex: 10,
+          });
+          currentLocationContent.parentElement?.style.setProperty('pointer-events', 'none');
+        }
         const musicNoteMarkerImage = createMusicNoteMarkerImage(kakao);
         const selectedMusicNoteMarkerImage = createSelectedMusicNoteMarkerImage(kakao);
         resetSelectedMarkerImage = (marker) => marker.setImage(musicNoteMarkerImage);
@@ -356,6 +491,8 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           activeRequestController?.abort();
           if (mapModeRef.current === 'mine') {
             closeMyLocksSheetRef.current();
+          } else {
+            closePopularTracksSheetRef.current();
           }
           removeMapMarkers();
 
@@ -390,19 +527,40 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
             }
 
             markers = mapMarkers.map((marker) => {
+              const myRecordsCount = 'myRecordsCount' in marker ? marker.myRecordsCount : 1;
+              const markerImage =
+                requestedMode === 'mine'
+                  ? createMusicNoteMarkerImage(kakao, myRecordsCount)
+                  : musicNoteMarkerImage;
+              const selectedMarkerImage =
+                requestedMode === 'mine'
+                  ? createSelectedMusicNoteMarkerImage(kakao, myRecordsCount)
+                  : selectedMusicNoteMarkerImage;
               const kakaoMarker = new kakao.maps.Marker({
                 position: new kakao.maps.LatLng(marker.latitude, marker.longitude),
-                image: musicNoteMarkerImage,
+                image: markerImage,
                 clickable: true,
+                zIndex: 1,
               });
               markerPlaceIds.set(kakaoMarker, marker.placeId);
+              markerDefaultImages.set(kakaoMarker, markerImage);
+              markerSelectedImages.set(kakaoMarker, selectedMarkerImage);
+              resetSelectedMarkerImage = (selected) =>
+                selected.setImage(markerDefaultImages.get(selected) ?? musicNoteMarkerImage);
               const handleMarkerClick = () => {
-                if (mapModeRef.current !== 'mine') {
+                if (mapModeRef.current === 'popular') {
+                  clearMapSelection();
+                  openPopularTracksSheetRef.current([marker.placeId]);
                   return;
                 }
+
+                if (mapModeRef.current !== 'mine') return;
+
                 clearMapSelection();
                 selectedMarker = kakaoMarker;
-                selectedMarker.setImage(selectedMusicNoteMarkerImage);
+                selectedMarker.setImage(
+                  markerSelectedImages.get(kakaoMarker) ?? selectedMusicNoteMarkerImage,
+                );
                 openMyLocksSheetRef.current([marker.placeId]);
               };
               kakao.maps.event.addListener(kakaoMarker, 'click', handleMarkerClick);
@@ -435,9 +593,22 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         };
 
         const handleClusterClick = (cluster: KakaoCluster) => {
-          if (mapModeRef.current !== 'mine') {
+          const placeIds = [
+            ...new Set(
+              cluster.getMarkers().flatMap((marker) => {
+                const placeId = markerPlaceIds.get(marker);
+                return placeId === undefined ? [] : [placeId];
+              }),
+            ),
+          ];
+
+          if (mapModeRef.current === 'popular') {
+            clearMapSelection();
+            openPopularTracksSheetRef.current(placeIds);
             return;
           }
+
+          if (mapModeRef.current !== 'mine') return;
 
           clearMapSelection();
           selectedClusterMarker = cluster.getClusterMarker();
@@ -451,12 +622,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
             zIndex: 2,
           });
 
-          openMyLocksSheetRef.current(
-            cluster.getMarkers().flatMap((marker) => {
-              const placeId = markerPlaceIds.get(marker);
-              return placeId === undefined ? [] : [placeId];
-            }),
-          );
+          openMyLocksSheetRef.current(placeIds);
         };
         kakao.maps.event.addListener(currentMarkerClusterer, 'clusterclick', handleClusterClick);
         removeClusterClickListener = () => {
@@ -473,6 +639,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
 
         const handleMapClick = () => {
           closeMyLocksSheetRef.current();
+          closePopularTracksSheetRef.current();
         };
 
         kakao.maps.event.addListener(map, 'click', handleMapClick);
@@ -501,6 +668,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       removeIdleListener?.();
       removeMapClickListener?.();
       removeClusterClickListener?.();
+      currentLocationOverlay?.setMap(null);
       if (refreshMarkersRef.current) {
         refreshMarkersRef.current = null;
       }
@@ -519,6 +687,8 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
 
     if (nextMapMode === 'popular') {
       closeMyLocksSheet();
+    } else {
+      closePopularTracksSheet();
     }
 
     setMapMode(nextMapMode);
@@ -532,9 +702,23 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     closeMyLocksSheetRef.current = closeMyLocksSheet;
   }, [closeMyLocksSheet]);
 
+  useEffect(() => {
+    openPopularTracksSheetRef.current = openPopularTracksSheet;
+  }, [openPopularTracksSheet]);
+
+  useEffect(() => {
+    closePopularTracksSheetRef.current = closePopularTracksSheet;
+  }, [closePopularTracksSheet]);
+
   function finishClosingMyLocksSheet() {
     if (!isMyLocksSheetOpen) {
       setIsMyLocksSheetVisible(false);
+    }
+  }
+
+  function finishClosingPopularTracksSheet() {
+    if (!isPopularTracksSheetOpen) {
+      setIsPopularTracksSheetVisible(false);
     }
   }
 
@@ -562,7 +746,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         {isMissingMapAppKey ? (
           <div className="home-map-notice" role="status">
             <span aria-hidden="true">🗺️</span>
-            <strong>카카오맵을 준비하고 있어요</strong>
+            <strong>카카오맵 기능은 구현 예정입니다</strong>
             <p>`.env`에 VITE_KAKAO_MAP_APP_KEY를 설정하면 지도가 표시됩니다.</p>
           </div>
         ) : null}
@@ -606,6 +790,21 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
             }}
             onClose={closeMyLocksSheet}
             onExited={finishClosingMyLocksSheet}
+          />
+        ) : null}
+        {isPopularTracksSheetVisible ? (
+          <PopularTracksSheet
+            isOpen={isPopularTracksSheetOpen}
+            placeCount={selectedPopularPlaceIds.length}
+            result={popularTracksResult}
+            loadState={popularTracksLoadState}
+            onRetry={() => {
+              if (selectedPopularPlaceIds.length > 0) {
+                void loadPopularTracks(selectedPopularPlaceIds);
+              }
+            }}
+            onClose={closePopularTracksSheet}
+            onExited={finishClosingPopularTracksSheet}
           />
         ) : null}
       </div>

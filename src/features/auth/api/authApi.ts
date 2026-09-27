@@ -51,6 +51,17 @@ export async function login(values: LoginValues): Promise<LoginResponse> {
   return parseLoginResponse(response);
 }
 
+/** Refresh Cookie를 무효화하도록 서버에 로그아웃을 요청한다. */
+export async function logout(): Promise<void> {
+  const csrfToken = await getCsrfToken();
+
+  await fetchJson<unknown>('/auth/logout', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-XSRF-TOKEN': csrfToken },
+  });
+}
+
 /** 비밀번호 확인 값을 제외한 가입 계약만 서버에 전송한다. */
 export async function signup(values: SignupValues): Promise<SignupResponse> {
   const response = await fetchJson<unknown>('/users/signup', {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import { getRecordRegions, type RecordRegion } from '../api/getRecordRegions';
@@ -177,15 +178,31 @@ export function DashboardContent() {
         {recordsLoadState === 'ready' ? (
           <div className="dashboard-record-list">
             {records.map((record) => (
-              <article className="dashboard-record" key={record.recordId}>
-                <span className="dashboard-cover" aria-hidden="true" />
+              <Link
+                className="dashboard-record"
+                key={record.recordId}
+                to={`/records/${record.recordId}`}
+              >
+                {record.albumImageUrl ? (
+                  <span className="dashboard-cover">
+                    <img
+                      alt={`${record.title} - ${record.artistName} 앨범 커버`}
+                      src={record.albumImageUrl}
+                      onError={(event) => {
+                        event.currentTarget.hidden = true;
+                      }}
+                    />
+                  </span>
+                ) : (
+                  <span className="dashboard-cover" aria-hidden="true" />
+                )}
                 <span>
                   <strong>{record.title}</strong>
                   <small>
                     {record.artistName} · {formatRecordDate(record.createdAt)}
                   </small>
                 </span>
-              </article>
+              </Link>
             ))}
             {nextCursor !== null ? (
               <button

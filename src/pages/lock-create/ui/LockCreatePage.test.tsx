@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
-import { LockCreatePage } from './LockCreatePage';
 import { SessionProvider } from '../../../entities/session/model/SessionProvider';
+import { LockCreatePage } from './LockCreatePage';
 
 /** 실제 라우터 문맥에서 자물쇠 작성 화면의 사용자 입력을 검증한다. */
 function renderLockCreatePage() {

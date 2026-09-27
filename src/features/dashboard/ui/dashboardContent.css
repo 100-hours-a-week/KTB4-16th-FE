@@ -119,6 +119,31 @@
   border: 1px solid #ece3f7;
   border-radius: 16px;
   background: #fff;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.dashboard-record:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 32%);
+  outline-offset: 2px;
+}
+
+.dashboard-cover {
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #c9b7ec, #a7e3d0);
+}
+
+.dashboard-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .dashboard-record > span:nth-child(2) {

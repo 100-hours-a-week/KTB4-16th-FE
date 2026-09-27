@@ -6,6 +6,7 @@ export type RegionRecord = {
   musicTrackId: number;
   title: string;
   artistName: string;
+  albumImageUrl: string | null;
   createdAt: string;
 };
 
@@ -79,6 +80,7 @@ function parseRegionRecord(value: unknown): RegionRecord {
     !isPositiveInteger(value.musicTrackId) ||
     !isNonEmptyString(value.title) ||
     !isNonEmptyString(value.artistName) ||
+    !isOptionalNullableNonEmptyString(value.albumImageUrl) ||
     !isNonEmptyString(value.createdAt)
   ) {
     throw new Error('내 대시보드 자물쇠 항목 형식이 올바르지 않습니다.');
@@ -90,6 +92,7 @@ function parseRegionRecord(value: unknown): RegionRecord {
     musicTrackId: value.musicTrackId,
     title: value.title,
     artistName: value.artistName,
+    albumImageUrl: value.albumImageUrl ?? null,
     createdAt: value.createdAt,
   };
 }
@@ -112,4 +115,9 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isNullableString(value: unknown): value is string | null {
   return typeof value === 'string' || value === null;
+}
+
+/** BE 전환 기간의 필드 누락과 nullable 앨범 커버 URL을 모두 안전하게 허용한다. */
+function isOptionalNullableNonEmptyString(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || isNonEmptyString(value);
 }

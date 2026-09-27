@@ -43,6 +43,13 @@ describe('AppRouter', () => {
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
+  it('does not expose the removed group route', () => {
+    renderRoute('/group');
+
+    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '그룹' })).not.toBeInTheDocument();
+  });
+
   it.each(['/login', '/signup'])('sends an authenticated visitor from %s to home', async (path) => {
     const user = userEvent.setup();
     renderRoute(path);
@@ -51,4 +58,13 @@ describe('AppRouter', () => {
 
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
+
+  it.each(['/mypage', '/mypage/nickname', '/mypage/password', '/records/1'])(
+    'sends an anonymous visitor from %s to login',
+    (path) => {
+      renderRoute(path);
+
+      expect(screen.getByRole('heading', { name: '로그인' })).toBeInTheDocument();
+    },
+  );
 });

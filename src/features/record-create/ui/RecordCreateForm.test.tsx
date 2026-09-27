@@ -3,23 +3,29 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { KakaoMaps, KakaoRegion } from '../../home-map/lib/kakaoMap';
+import { searchMusic } from '../../music-search/api/musicSearchApi';
+import type { MusicSearchResult } from '../../music-search/model/musicSearch.types';
+import { getPhotoMusicRecommendations } from '../api/getPhotoMusicRecommendations';
 import { RecordCreateForm } from './RecordCreateForm';
 import '../../../pages/lock-create/ui/lockCreatePage.css';
 
 const mocks = vi.hoisted(() => ({
   createRecord: vi.fn(),
   loadKakaoMapSdk: vi.fn(),
-  searchMusic: vi.fn(),
   uploadPhoto: vi.fn(),
+  getPhotoMusicRecommendations: vi.fn(),
 }));
 
 vi.mock('../../../entities/session/model/useSession', () => ({
   useSession: () => ({ fetchAuthenticatedJson: vi.fn() }),
 }));
 vi.mock('../../home-map/lib/kakaoMap', () => ({ loadKakaoMapSdk: mocks.loadKakaoMapSdk }));
+vi.mock('../../music-search/api/musicSearchApi', () => ({ searchMusic: vi.fn() }));
 vi.mock('../api/createRecord', () => ({ createRecord: mocks.createRecord }));
-vi.mock('../api/searchMusic', () => ({ searchMusic: mocks.searchMusic }));
 vi.mock('../api/uploadPhoto', () => ({ uploadPhoto: mocks.uploadPhoto }));
+vi.mock('../api/getPhotoMusicRecommendations', () => ({
+  getPhotoMusicRecommendations: mocks.getPhotoMusicRecommendations,
+}));
 
 const selectedMusic = {
   externalTrackId: 'spotify-track',
@@ -36,8 +42,19 @@ const anotherMusic = {
   externalUrl: 'https://music.test/love-scenario',
 };
 
+let latestMapControl: {
+  center: { getLat: () => number; getLng: () => number };
+  setCenter: ReturnType<typeof vi.fn>;
+  setCurrentCenter: (center: { getLat: () => number; getLng: () => number }) => void;
+  triggerIdle: () => void;
+} | null = null;
+let customOverlayOptions: Array<Record<string, unknown>> = [];
+
 beforeEach(() => {
   vi.clearAllMocks();
+  latestMapControl = null;
+  customOverlayOptions = [];
+  setGeolocation(null);
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
     value: vi.fn(() => 'blob:photo-preview'),
@@ -48,10 +65,64 @@ beforeEach(() => {
   });
   mocks.loadKakaoMapSdk.mockResolvedValue(createKakaoMaps());
   mocks.uploadPhoto.mockResolvedValue(77);
-  mocks.searchMusic.mockResolvedValue([selectedMusic]);
+  mocks.getPhotoMusicRecommendations.mockResolvedValue([selectedMusic]);
+  vi.mocked(searchMusic).mockResolvedValue([{ provider: 'SPOTIFY', ...selectedMusic }]);
 });
 
 describe('RecordCreateForm', () => {
+  it('uses the map center as the final location after movement settles', async () => {
+    const onCoordinatesChange = vi.fn();
+    setGeolocation((success) =>
+      success({
+        coords: { latitude: 37.5, longitude: 127.03 } as GeolocationCoordinates,
+        timestamp: 0,
+      } as GeolocationPosition),
+    );
+    renderForm(vi.fn(), onCoordinatesChange);
+
+    await screen.findByText('수원역');
+    expect(document.querySelector('.lock-create-map-center-pin')).toBeInTheDocument();
+    const nextCenter = {
+      getLat: () => 37.51,
+      getLng: () => 127.04,
+    };
+    if (!latestMapControl) throw new Error('지도 테스트 제어 객체가 없습니다.');
+    latestMapControl.setCurrentCenter(nextCenter);
+    latestMapControl?.triggerIdle();
+
+    await waitFor(() =>
+      expect(onCoordinatesChange).toHaveBeenLastCalledWith({ latitude: 37.51, longitude: 127.04 }),
+    );
+  });
+
+  it('reuses the acquired GPS location without requesting geolocation again', async () => {
+    const getCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 37.5, longitude: 127.03 } as GeolocationCoordinates,
+        timestamp: 0,
+      } as GeolocationPosition);
+    });
+    setGeolocation(getCurrentPosition);
+    renderForm();
+
+    const button = await screen.findByRole('button', { name: '현재 위치로 이동' });
+    fireEvent.click(button);
+
+    expect(getCurrentPosition).toHaveBeenCalledOnce();
+    expect(latestMapControl?.setCenter).toHaveBeenCalledOnce();
+    expect(customOverlayOptions).toHaveLength(1);
+    expect(customOverlayOptions[0]).toMatchObject({ clickable: false, zIndex: 1 });
+  });
+
+  it('does not render the GPS dot or return button when geolocation fails', async () => {
+    renderForm();
+
+    await screen.findByText('수원역');
+
+    expect(screen.queryByRole('button', { name: '현재 위치로 이동' })).not.toBeInTheDocument();
+    expect(customOverlayOptions).toHaveLength(0);
+  });
+
   it('shows a preview and uploads immediately after photo selection', async () => {
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
@@ -68,6 +139,68 @@ describe('RecordCreateForm', () => {
     expect(mocks.uploadPhoto).toHaveBeenCalledWith(photo, expect.any(Function));
     expect(screen.queryByRole('button', { name: '사진 업로드하기' })).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '사진 바꾸기' })).toBeEnabled();
+  });
+
+  it('requests photo music recommendations only after an uploaded photo and selects one through selectedMusic', async () => {
+    const { container } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+
+    expect(screen.getByRole('button', { name: '✨ AI 음악 추천받기' })).toBeDisabled();
+    await selectAndUploadPhoto(input, new File(['photo'], 'memory.jpg', { type: 'image/jpeg' }));
+
+    const recommendButton = screen.getByRole('button', { name: '✨ AI 음악 추천받기' });
+    expect(recommendButton).toBeEnabled();
+    fireEvent.click(recommendButton);
+    fireEvent.click(recommendButton);
+
+    expect(getPhotoMusicRecommendations).toHaveBeenCalledOnce();
+    expect(getPhotoMusicRecommendations).toHaveBeenCalledWith(77, expect.any(Function));
+    fireEvent.click(await screen.findByRole('button', { name: /REALLY REALLY/ }));
+
+    expect(screen.queryByRole('dialog', { name: '사진 음악 추천' })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText('현재 선택한 음악')).getByText('REALLY REALLY'),
+    ).toBeInTheDocument();
+  });
+
+  it('clears photo recommendations when a replacement photo is selected', async () => {
+    let resolveRecommendations: ((value: (typeof selectedMusic)[]) => void) | undefined;
+    mocks.getPhotoMusicRecommendations.mockImplementationOnce(
+      () =>
+        new Promise<(typeof selectedMusic)[]>((resolve) => {
+          resolveRecommendations = resolve;
+        }),
+    );
+    const { container } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    await selectAndUploadPhoto(input, new File(['first'], 'first.jpg', { type: 'image/jpeg' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '✨ AI 음악 추천받기' }));
+    expect(screen.getByRole('status')).toHaveTextContent('음악을 추천하는 중이에요.');
+    fireEvent.change(input as HTMLInputElement, {
+      target: { files: [new File(['second'], 'second.jpg', { type: 'image/jpeg' })] },
+    });
+    resolveRecommendations?.([selectedMusic]);
+
+    await screen.findByRole('button', { name: '사진 바꾸기' });
+    expect(screen.queryByRole('dialog', { name: '사진 음악 추천' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the form inputs and allows a failed recommendation request to be retried', async () => {
+    mocks.getPhotoMusicRecommendations
+      .mockRejectedValueOnce(new Error('추천 실패'))
+      .mockResolvedValueOnce([selectedMusic]);
+    const { container } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    await selectAndUploadPhoto(input, new File(['photo'], 'memory.jpg', { type: 'image/jpeg' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '✨ AI 음악 추천받기' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('추천 실패');
+    expect(screen.getByRole('img', { name: '선택한 사진 미리보기' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByRole('button', { name: /REALLY REALLY/ })).toBeInTheDocument();
+    expect(getPhotoMusicRecommendations).toHaveBeenCalledTimes(2);
   });
 
   it('keeps the form and does not report success when record creation fails', async () => {
@@ -210,8 +343,8 @@ describe('RecordCreateForm', () => {
       'REALLY REALLY{Enter}',
     );
 
-    await waitFor(() => expect(mocks.searchMusic).toHaveBeenCalledOnce());
-    expect(mocks.searchMusic).toHaveBeenCalledWith('REALLY REALLY', expect.any(Function));
+    await waitFor(() => expect(searchMusic).toHaveBeenCalledOnce());
+    expect(searchMusic).toHaveBeenCalledWith(expect.any(Function), 'REALLY REALLY');
   });
 
   it('searches exactly once from the search button', async () => {
@@ -222,14 +355,14 @@ describe('RecordCreateForm', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '음악 검색' }));
 
-    await waitFor(() => expect(mocks.searchMusic).toHaveBeenCalledOnce());
+    await waitFor(() => expect(searchMusic).toHaveBeenCalledOnce());
   });
 
   it('ignores duplicate submits while a music search is pending', async () => {
-    let resolveSearch: ((music: Array<typeof selectedMusic>) => void) | undefined;
-    mocks.searchMusic.mockImplementationOnce(
+    let resolveSearch: ((music: MusicSearchResult[]) => void) | undefined;
+    vi.mocked(searchMusic).mockImplementationOnce(
       () =>
-        new Promise<(typeof selectedMusic)[]>((resolve) => {
+        new Promise<MusicSearchResult[]>((resolve) => {
           resolveSearch = resolve;
         }),
     );
@@ -237,18 +370,23 @@ describe('RecordCreateForm', () => {
     fireEvent.change(screen.getByPlaceholderText('곡 제목이나 아티스트 검색'), {
       target: { value: 'REALLY REALLY' },
     });
-    const searchForm = screen.getByRole('search', { name: '음악 검색' });
+    const searchForm = screen.getByRole('button', { name: '음악 검색' }).closest('form');
 
-    fireEvent.submit(searchForm);
-    fireEvent.submit(searchForm);
+    fireEvent.submit(searchForm as HTMLFormElement);
+    fireEvent.submit(searchForm as HTMLFormElement);
 
-    expect(mocks.searchMusic).toHaveBeenCalledOnce();
-    resolveSearch?.([selectedMusic]);
+    expect(searchMusic).toHaveBeenCalledOnce();
+    resolveSearch?.([{ provider: 'SPOTIFY', ...selectedMusic }]);
     expect(await screen.findByRole('button', { name: /REALLY REALLY/ })).toBeInTheDocument();
   });
 
   it('shows the selected track and switches it without another search request', async () => {
-    mocks.searchMusic.mockResolvedValueOnce([selectedMusic, anotherMusic]);
+    vi.mocked(searchMusic)
+      .mockResolvedValueOnce([
+        { provider: 'SPOTIFY', ...selectedMusic },
+        { provider: 'SPOTIFY', ...anotherMusic },
+      ])
+      .mockResolvedValueOnce([{ provider: 'SPOTIFY', ...anotherMusic }]);
     renderForm();
 
     fireEvent.change(screen.getByPlaceholderText('곡 제목이나 아티스트 검색'), {
@@ -265,19 +403,22 @@ describe('RecordCreateForm', () => {
     fireEvent.error(firstCover);
     expect(firstCover).toHaveAttribute('hidden');
 
-    fireEvent.click(screen.getByRole('button', { name: /LOVE SCENARIO/ }));
+    fireEvent.change(screen.getByPlaceholderText('곡 제목이나 아티스트 검색'), {
+      target: { value: 'LOVE SCENARIO' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '음악 검색' }));
+    fireEvent.click(await screen.findByRole('button', { name: /LOVE SCENARIO/ }));
 
     summary = screen.getByLabelText('현재 선택한 음악');
     expect(within(summary).getByText('LOVE SCENARIO')).toBeInTheDocument();
     expect(within(summary).getByText('iKON')).toBeInTheDocument();
     expect(within(summary).getByRole('img')).toHaveAttribute('src', anotherMusic.albumImageUrl);
     expect(within(summary).getByRole('img')).not.toHaveAttribute('hidden');
-    expect(mocks.searchMusic).toHaveBeenCalledTimes(1);
+    expect(searchMusic).toHaveBeenCalledTimes(2);
   });
 });
 
-function renderForm(onCreated = vi.fn()) {
-  const onCoordinatesChange = vi.fn();
+function renderForm(onCreated = vi.fn(), onCoordinatesChange = vi.fn()) {
   return render(
     <RecordCreateForm
       onCoordinatesChange={onCoordinatesChange}
@@ -314,6 +455,46 @@ async function selectMusic() {
 }
 
 function createKakaoMaps(): KakaoMaps {
+  let idleHandler: (() => void) | undefined;
+
+  class LatLng {
+    constructor(
+      private readonly latitude: number,
+      private readonly longitude: number,
+    ) {}
+
+    getLat() {
+      return this.latitude;
+    }
+
+    getLng() {
+      return this.longitude;
+    }
+  }
+
+  class Map {
+    private center: LatLng;
+    setCenter = vi.fn((center: LatLng) => {
+      this.center = center;
+    });
+
+    constructor(_container: HTMLElement, options: { center: LatLng }) {
+      this.center = options.center;
+      latestMapControl = {
+        center: this.center,
+        setCenter: this.setCenter,
+        setCurrentCenter: (center) => {
+          this.center = new LatLng(center.getLat(), center.getLng());
+        },
+        triggerIdle: () => idleHandler?.(),
+      };
+    }
+
+    getCenter() {
+      return this.center;
+    }
+  }
+
   class Geocoder {
     coord2RegionCode(
       _longitude: number,
@@ -326,10 +507,33 @@ function createKakaoMaps(): KakaoMaps {
 
   return {
     maps: {
-      Map: class {},
-      LatLng: class {},
+      Map,
+      LatLng,
       services: { Geocoder, Status: { OK: 'OK' } },
-      event: { addListener: vi.fn() },
+      event: {
+        addListener: vi.fn((_target: unknown, eventName: string, handler: () => void) => {
+          if (eventName === 'idle') idleHandler = handler;
+        }),
+      },
+      CustomOverlay: class {
+        setMap = vi.fn();
+        setZIndex = vi.fn();
+
+        constructor(options: Record<string, unknown>) {
+          customOverlayOptions.push(options);
+          if (options.content instanceof HTMLElement) {
+            const wrapper = document.createElement('div');
+            wrapper.append(options.content);
+          }
+        }
+      },
     },
   } as unknown as KakaoMaps;
+}
+
+function setGeolocation(getCurrentPosition: Geolocation['getCurrentPosition'] | null) {
+  Object.defineProperty(navigator, 'geolocation', {
+    configurable: true,
+    value: getCurrentPosition ? { getCurrentPosition } : undefined,
+  });
 }
