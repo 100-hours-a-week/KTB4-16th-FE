@@ -18,12 +18,12 @@ V1에서 이미 구현된 백엔드 API를 프론트의 준비 중 화면에 연
 
 프론트의 기존 설계 문서는 API를 `contract-only`로 기록했지만, 최신 백엔드 원본의 OpenAPI와 가이드는 다음 API를 `implemented`로 명시한다.
 
-| 기능 | API | 인증 | 핵심 응답 |
-| --- | --- | --- | --- |
-| 월별 목록 | `GET /api/monthly-reports` | Bearer | `reports[]`: ID, 연·월, 기록 수, AI 회고 상태 |
-| 월별 상세 | `GET /api/monthly-reports/{monthlyReportId}` | Bearer | 통계, 사진 장면, AI 회고 |
-| 추천 조회 | `GET /api/recommendations/playlists` | Bearer | `playlist` 또는 `null` |
-| 추천 생성 | `POST /api/recommendations/playlists` | Bearer, CSRF | 위치 좌표를 바탕으로 만든 `playlist` |
+| 기능      | API                                          | 인증         | 핵심 응답                                     |
+| --------- | -------------------------------------------- | ------------ | --------------------------------------------- |
+| 월별 목록 | `GET /api/monthly-reports`                   | Bearer       | `reports[]`: ID, 연·월, 기록 수, AI 회고 상태 |
+| 월별 상세 | `GET /api/monthly-reports/{monthlyReportId}` | Bearer       | 통계, 사진 장면, AI 회고                      |
+| 추천 조회 | `GET /api/recommendations/playlists`         | Bearer       | `playlist` 또는 `null`                        |
+| 추천 생성 | `POST /api/recommendations/playlists`        | Bearer, CSRF | 위치 좌표를 바탕으로 만든 `playlist`          |
 
 근거:
 
