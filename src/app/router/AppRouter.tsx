@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from 'react-router';
 
 import { HomePage } from '../../pages/home/ui/HomePage';
 import { DashboardPage } from '../../pages/dashboard/ui/DashboardPage';
-import { GroupPage } from '../../pages/group/ui/GroupPage';
 import { LoginPage } from '../../pages/login/LoginPage';
 import { LockCreatePage } from '../../pages/lock-create/ui/LockCreatePage';
 import { LockDetailPage } from '../../pages/lock-detail/ui/LockDetailPage';
@@ -33,10 +32,6 @@ export function AppRouter() {
       <Route
         path="/report/:year/:month"
         element={isAuthenticated ? <ReportDetailPage /> : <Navigate to="/login" replace />}
-      />
-      <Route
-        path="/group"
-        element={isAuthenticated ? <GroupPage /> : <Navigate to="/login" replace />}
       />
       <Route
         path="/mypage"
