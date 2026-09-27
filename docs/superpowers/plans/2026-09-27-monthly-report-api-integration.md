@@ -29,6 +29,7 @@
 ### Task 1: Add runtime-validated report contracts and API clients
 
 **Files:**
+
 - Create: `src/features/monthly-report/model/monthlyReport.types.ts`
 - Create: `src/features/monthly-report/api/monthlyReportApi.ts`
 - Create: `src/features/monthly-report/api/monthlyReportApi.test.ts`
@@ -56,7 +57,7 @@ export async function getMonthlyReportDetail(
 
 **RED:** Add tests proving valid list/detail payloads are transformed, `reports: []` remains valid, invalid field types reject with `ApiError(INVALID_RESPONSE)`, and a non-positive/non-integer ID does not issue a request.
 
-**GREEN:** Implement request functions for `GET /api/reports/monthly` and `GET /api/reports/monthly/:monthlyReportId`. Parse only documented fields: `reports`, `stats`, `photoScenes`, and `aiRecap`; preserve optional statistics as `null` rather than inventing labels or numbers. Add Korean responsibility comments to each parser and request function.
+**GREEN:** Implement request functions for `GET /api/monthly-reports` and `GET /api/monthly-reports/:monthlyReportId`. Parse only documented fields: `reports`, `stats`, `photoScenes`, and `aiRecap`; preserve optional statistics as `null` rather than inventing labels or numbers. Add Korean responsibility comments to each parser and request function.
 
 **VERIFY:** `npm test -- monthlyReportApi`
 
@@ -65,6 +66,7 @@ export async function getMonthlyReportDetail(
 ### Task 2: Render the report list from server state
 
 **Files:**
+
 - Create: `src/features/monthly-report/ui/MonthlyReportList.tsx`
 - Create: `src/features/monthly-report/ui/MonthlyReportList.test.tsx`
 - Modify: `src/pages/report/ui/ReportPage.tsx`
@@ -94,6 +96,7 @@ type MonthlyReportListProps = {
 ### Task 3: Render a selected report detail and safe direct-URL recovery
 
 **Files:**
+
 - Create: `src/features/monthly-report/ui/MonthlyReportDetail.tsx`
 - Create: `src/features/monthly-report/ui/MonthlyReportDetail.test.tsx`
 - Modify: `src/pages/report/ui/ReportDetailPage.tsx`

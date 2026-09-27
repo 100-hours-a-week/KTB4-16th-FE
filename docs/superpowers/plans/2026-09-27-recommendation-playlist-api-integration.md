@@ -30,6 +30,7 @@
 ### Task 1: Add runtime-validated playlist contracts and API clients
 
 **Files:**
+
 - Create: `src/features/home-playlist/model/recommendationPlaylist.types.ts`
 - Create: `src/features/home-playlist/api/recommendationPlaylistApi.ts`
 - Create: `src/features/home-playlist/api/recommendationPlaylistApi.test.ts`
@@ -38,8 +39,7 @@
 
 ```ts
 export type RecommendationPlaylist = {
-  playlistId: number;
-  title: string;
+  recommendationPlaylistId: number;
   tracks: RecommendationTrack[];
 };
 
@@ -55,7 +55,7 @@ export async function createRecommendationPlaylist(
 
 **RED:** Test `data.playlist: null`, a valid playlist, invalid track fields, and POST request composition. Assert POST uses `credentials: 'include'`, JSON body `{ latitude, longitude }`, and an `X-XSRF-TOKEN` obtained through the existing CSRF function.
 
-**GREEN:** Implement documented GET/POST endpoints and parsers. Validate finite latitude/longitude before POST. Parse only server fields that the UI needs (playlist identity/title and track title/artist/external URL); reject malformed payloads as `ApiError(INVALID_RESPONSE)`.
+**GREEN:** Implement documented GET/POST endpoints and parsers. Validate finite latitude/longitude before POST. Parse only server fields that the UI needs (playlist identity and track title/artist/external URL); reject malformed payloads as `ApiError(INVALID_RESPONSE)`.
 
 **VERIFY:** `npm test -- recommendationPlaylistApi`
 
@@ -64,6 +64,7 @@ export async function createRecommendationPlaylist(
 ### Task 2: Preserve real geolocation separately from the map fallback
 
 **Files:**
+
 - Modify: `src/features/home-map/ui/HomeMap.tsx`
 - Modify: `src/pages/home/ui/HomePage.tsx`
 - Modify/create focused HomeMap/HomePage tests if the current test suite has them.
@@ -89,6 +90,7 @@ type HomeMapProps = {
 ### Task 3: Replace the unavailable sheet with authenticated states and create flow
 
 **Files:**
+
 - Modify: `src/features/home-playlist/ui/HomePlaylistSheet.tsx`
 - Create: `src/features/home-playlist/ui/HomePlaylistSheet.test.tsx`
 - Modify: `src/features/home-playlist/ui/homePlaylistSheet.css`
