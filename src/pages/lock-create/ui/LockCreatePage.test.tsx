@@ -1,44 +1,45 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { SessionProvider } from '../../../entities/session/model/SessionProvider';
-import type { MusicSearchResult } from '../../../features/music-search/model/musicSearch.types';
 import { LockCreatePage } from './LockCreatePage';
 
-const selectedTrack: MusicSearchResult = {
-  provider: 'SPOTIFY',
-  externalTrackId: 'track-1',
-  title: '밤편지',
-  artistName: '아이유',
-  albumImageUrl: 'https://example.com/cover.jpg',
-  externalUrl: 'https://example.com/track-1',
-};
-
-vi.mock('../../../features/music-search/ui/MusicSearchField', () => ({
-  MusicSearchField: ({ onSelect }: { onSelect: (track: MusicSearchResult) => void }) => (
-    <button type="button" onClick={() => onSelect(selectedTrack)}>
-      테스트 음악 선택
-    </button>
-  ),
-}));
+/** 실제 라우터 문맥에서 자물쇠 작성 화면의 사용자 입력을 검증한다. */
+function renderLockCreatePage() {
+  return render(
+    <MemoryRouter>
+      <SessionProvider>
+        <LockCreatePage />
+      </SessionProvider>
+    </MemoryRouter>,
+  );
+}
 
 describe('LockCreatePage', () => {
-  it('음악 검색에서 선택한 곡을 작성 화면에 표시하고 저장은 활성화하지 않는다', async () => {
+  it('updates the comment count and preserves the 80-character limit', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <SessionProvider>
-          <LockCreatePage />
-        </SessionProvider>
-      </MemoryRouter>,
-    );
+    renderLockCreatePage();
+    const comment = screen.getByPlaceholderText('이 순간을 1~2문장으로 남겨보세요');
 
-    await user.click(screen.getByRole('button', { name: '테스트 음악 선택' }));
+    await user.type(comment, '안녕');
+    expect(screen.getByText('2 / 80')).toBeInTheDocument();
 
-    expect(screen.getByText('선택한 음악: 밤편지 — 아이유')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '🔒 자물쇠 저장하기' })).toBeDisabled();
-    expect(screen.getByText('자물쇠 저장 기능은 구현 예정입니다.')).toBeInTheDocument();
+    await user.clear(comment);
+    await user.type(comment, 'a'.repeat(81));
+    expect(comment).toHaveValue('a'.repeat(80));
+    expect(screen.getByText('80 / 80')).toBeInTheDocument();
+  });
+
+  it('changes the mood emoji at the mockup score boundaries', async () => {
+    renderLockCreatePage();
+    const moodSlider = screen.getByLabelText('오늘 기분');
+
+    fireEvent.change(moodSlider, { target: { value: '-1' } });
+    expect(screen.getByText('🙁')).toBeInTheDocument();
+
+    fireEvent.change(moodSlider, { target: { value: '41' } });
+    expect(screen.getByText('🤩')).toBeInTheDocument();
   });
 });
