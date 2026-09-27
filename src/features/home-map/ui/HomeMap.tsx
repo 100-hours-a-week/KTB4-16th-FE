@@ -37,6 +37,7 @@ type InitialMapLocation = {
 type HomeMapProps = {
   children?: ReactNode;
   onInitialCenterResolved?: (center: MapCenter) => void;
+  onCurrentLocationResolved?: (location: MapCenter | null) => void;
 };
 
 const DEFAULT_CENTER: MapCenter = {
@@ -180,7 +181,11 @@ function createClusterPinBackground() {
 }
 
 /** 홈의 지도 표시 기반과 목업의 지도 모드 선택 UI를 제공한다. */
-export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
+export function HomeMap({
+  children,
+  onInitialCenterResolved,
+  onCurrentLocationResolved,
+}: HomeMapProps) {
   const navigate = useNavigate();
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -435,6 +440,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         }
 
         onInitialCenterResolved?.(initialCenter);
+        onCurrentLocationResolved?.(currentLocation);
 
         const kakao = await loadKakaoMapSdk(env.kakaoMapAppKey);
 
@@ -675,7 +681,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       removeMapMarkers();
       clearMapSelectionRef.current = () => undefined;
     };
-  }, [fetchAuthenticatedJson, onInitialCenterResolved]);
+  }, [fetchAuthenticatedJson, onCurrentLocationResolved, onInitialCenterResolved]);
 
   const isMissingMapAppKey = !env.kakaoMapAppKey;
 
