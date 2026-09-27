@@ -39,7 +39,7 @@ export function ReportPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadReports(controller.signal);
+    queueMicrotask(() => void loadReports(controller.signal));
 
     return () => controller.abort();
   }, [loadReports, requestVersion]);

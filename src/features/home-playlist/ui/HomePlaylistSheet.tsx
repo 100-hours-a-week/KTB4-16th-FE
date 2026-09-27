@@ -61,7 +61,9 @@ function RecommendationTrackItem({ track }: { track: RecommendationTrack }) {
 export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePlaylistSheetProps) {
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const [playlist, setPlaylist] = useState<RecommendationPlaylist | null>(null);
-  const [loadState, setLoadState] = useState<LoadState>('idle');
+  const [loadState, setLoadState] = useState<LoadState>(() =>
+    isAuthenticated && isOpen ? 'loading' : 'idle',
+  );
   const [failedOperation, setFailedOperation] = useState<FailedOperation>(null);
   const createControllerRef = useRef<AbortController | null>(null);
 
@@ -93,7 +95,7 @@ export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePla
     }
 
     const controller = new AbortController();
-    void loadPlaylist(controller.signal);
+    queueMicrotask(() => void loadPlaylist(controller.signal));
 
     return () => controller.abort();
   }, [isAuthenticated, isOpen, loadPlaylist]);

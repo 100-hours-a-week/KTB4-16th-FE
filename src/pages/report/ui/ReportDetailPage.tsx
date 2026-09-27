@@ -63,7 +63,7 @@ export function ReportDetailPage() {
     }
 
     const controller = new AbortController();
-    void loadReport(monthlyReportId, controller.signal);
+    queueMicrotask(() => void loadReport(monthlyReportId, controller.signal));
 
     return () => controller.abort();
   }, [loadReport, monthlyReportId, requestVersion]);

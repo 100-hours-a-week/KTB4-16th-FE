@@ -681,7 +681,7 @@ export function HomeMap({
       removeMapMarkers();
       clearMapSelectionRef.current = () => undefined;
     };
-  }, [fetchAuthenticatedJson, onInitialCenterResolved]);
+  }, [fetchAuthenticatedJson, onCurrentLocationResolved, onInitialCenterResolved]);
 
   const isMissingMapAppKey = !env.kakaoMapAppKey;
 
