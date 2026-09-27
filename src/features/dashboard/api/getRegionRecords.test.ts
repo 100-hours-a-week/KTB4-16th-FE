@@ -15,6 +15,7 @@ const validPage = {
         musicTrackId: 44,
         title: '밤편지',
         artistName: '아이유',
+        albumImageUrl: 'https://image.test/night-letter.jpg',
         createdAt: '2026-09-25T12:30:00',
       },
     ],
@@ -29,7 +30,11 @@ describe('getRegionRecords', () => {
 
     await expect(
       getRegionRecords('4111710100', null, fetchAuthenticatedJson, controller.signal),
-    ).resolves.toMatchObject({ recordsCount: 21, nextCursor: 'next-cursor' });
+    ).resolves.toMatchObject({
+      recordsCount: 21,
+      nextCursor: 'next-cursor',
+      records: [{ albumImageUrl: 'https://image.test/night-letter.jpg' }],
+    });
 
     expect(fetchAuthenticatedJson).toHaveBeenCalledWith('/records?legalDongCode=4111710100', {
       signal: controller.signal,
@@ -61,5 +66,19 @@ describe('getRegionRecords', () => {
     await expect(
       getRegionRecords('4111710100', null, fetchAuthenticatedJson, new AbortController().signal),
     ).rejects.toThrow('내 대시보드 자물쇠 항목 형식이 올바르지 않습니다.');
+  });
+
+  it('keeps a missing album cover URL nullable for the UI fallback', async () => {
+    const fetchAuthenticatedJson = vi.fn().mockResolvedValue({
+      ...validPage,
+      data: {
+        ...validPage.data,
+        records: [{ ...validPage.data.records[0], albumImageUrl: null }],
+      },
+    });
+
+    await expect(
+      getRegionRecords('4111710100', null, fetchAuthenticatedJson, new AbortController().signal),
+    ).resolves.toMatchObject({ records: [{ albumImageUrl: null }] });
   });
 });

@@ -178,7 +178,19 @@ export function DashboardContent() {
           <div className="dashboard-record-list">
             {records.map((record) => (
               <article className="dashboard-record" key={record.recordId}>
-                <span className="dashboard-cover" aria-hidden="true" />
+                {record.albumImageUrl ? (
+                  <span className="dashboard-cover">
+                    <img
+                      alt={`${record.title} - ${record.artistName} 앨범 커버`}
+                      src={record.albumImageUrl}
+                      onError={(event) => {
+                        event.currentTarget.hidden = true;
+                      }}
+                    />
+                  </span>
+                ) : (
+                  <span className="dashboard-cover" aria-hidden="true" />
+                )}
                 <span>
                   <strong>{record.title}</strong>
                   <small>
