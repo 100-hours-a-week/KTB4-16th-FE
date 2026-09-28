@@ -752,8 +752,8 @@ export function HomeMap({
         {isMissingMapAppKey ? (
           <div className="home-map-notice" role="status">
             <span aria-hidden="true">🗺️</span>
-            <strong>카카오맵 기능은 구현 예정입니다</strong>
-            <p>`.env`에 VITE_KAKAO_MAP_APP_KEY를 설정하면 지도가 표시됩니다.</p>
+            <strong>카카오맵을 불러오지 못했습니다</strong>
+            <p>잠시 후 다시 시도해주세요.</p>
           </div>
         ) : null}
         {mapLoadState === 'error' ? (
