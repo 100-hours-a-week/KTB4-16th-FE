@@ -185,12 +185,27 @@ export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePla
           </button>
         </section>
       ) : null}
-      {isAuthenticated && loadState === 'ready' && playlist !== null ? (
+      {isAuthenticated && loadState !== 'loading' && playlist !== null ? (
         <ul className="home-playlist-track-list">
           {playlist.tracks.map((track) => (
             <RecommendationTrackItem key={track.musicTrackId} track={track} />
           ))}
         </ul>
+      ) : null}
+      {isAuthenticated && loadState === 'ready' && playlist !== null ? (
+        <>
+          <button
+            className="home-playlist-save-button"
+            disabled={currentLocation === null}
+            onClick={() => void createPlaylist()}
+            type="button"
+          >
+            새 추천 받기
+          </button>
+          {currentLocation === null ? (
+            <p className="home-playlist-notice">현재 위치를 확인한 뒤 새 추천을 받을 수 있어요.</p>
+          ) : null}
+        </>
       ) : null}
       {isAuthenticated && loadState === 'ready' && playlist === null && currentLocation === null ? (
         <p className="home-playlist-notice">현재 위치를 확인한 뒤 추천을 만들 수 있어요.</p>
