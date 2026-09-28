@@ -69,6 +69,54 @@ describe('HomePlaylistSheet', () => {
     expect(screen.getByText('헤이즈')).toBeInTheDocument();
   });
 
+  it('저장된 추천이 있어도 실제 위치에서 새 추천을 다시 요청해 목록을 교체한다', async () => {
+    const user = userEvent.setup();
+    const refreshedPlaylist = {
+      ...playlist,
+      recommendationPlaylistId: 72,
+      tracks: [{ ...playlist.tracks[0], musicTrackId: 4, title: '밤편지', artistName: '아이유' }],
+    };
+    mocks.isAuthenticated = true;
+    vi.mocked(getRecommendationPlaylist).mockResolvedValue(playlist);
+    vi.mocked(createRecommendationPlaylist).mockResolvedValue(refreshedPlaylist);
+
+    renderSheet();
+    await user.click(await screen.findByRole('button', { name: '새 추천 받기' }));
+
+    expect(createRecommendationPlaylist).toHaveBeenCalledWith(
+      { latitude: 37.5, longitude: 127.03 },
+      mocks.fetchAuthenticatedJson,
+      expect.any(AbortSignal),
+    );
+    expect(await screen.findByText('밤편지')).toBeInTheDocument();
+    expect(screen.queryByText('비 오는 날엔')).not.toBeInTheDocument();
+  });
+
+  it('현재 위치를 아직 확인하지 못해도 새 추천 버튼과 필요한 안내를 표시한다', async () => {
+    mocks.isAuthenticated = true;
+    vi.mocked(getRecommendationPlaylist).mockResolvedValue(playlist);
+
+    renderSheet({ currentLocation: null });
+
+    expect(await screen.findByText('비 오는 날엔')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '새 추천 받기' })).toBeDisabled();
+    expect(screen.getByText('현재 위치를 확인한 뒤 새 추천을 받을 수 있어요.')).toBeInTheDocument();
+  });
+
+  it('새 추천 요청이 실패하면 기존 추천을 유지하고 재시도 경로를 제공한다', async () => {
+    const user = userEvent.setup();
+    mocks.isAuthenticated = true;
+    vi.mocked(getRecommendationPlaylist).mockResolvedValue(playlist);
+    vi.mocked(createRecommendationPlaylist).mockRejectedValue(new Error('추천 생성 실패'));
+
+    renderSheet();
+    await user.click(await screen.findByRole('button', { name: '새 추천 받기' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('추천을 만들지 못했습니다.');
+    expect(screen.getByText('비 오는 날엔')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
+
   it('저장된 추천이 없고 위치가 없으면 생성 요청을 보내지 않는다', async () => {
     mocks.isAuthenticated = true;
     vi.mocked(getRecommendationPlaylist).mockResolvedValue(null);
