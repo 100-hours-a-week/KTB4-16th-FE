@@ -37,6 +37,7 @@ function renderSheet(props?: Partial<Parameters<typeof HomePlaylistSheet>[0]>) {
     <MemoryRouter>
       <HomePlaylistSheet
         currentLocation={{ latitude: 37.5, longitude: 127.03 }}
+        selectedPopularPlaceIds={[]}
         isOpen
         onExited={vi.fn()}
         {...props}
@@ -96,6 +97,22 @@ describe('HomePlaylistSheet', () => {
       expect.any(AbortSignal),
     );
     expect(await screen.findByText('비 오는 날엔')).toBeInTheDocument();
+  });
+
+  it('선택한 인기 장소가 있으면 추천 생성에 placeIds를 포함한다', async () => {
+    const user = userEvent.setup();
+    mocks.isAuthenticated = true;
+    vi.mocked(getRecommendationPlaylist).mockResolvedValue(null);
+    vi.mocked(createRecommendationPlaylist).mockResolvedValue(playlist);
+
+    renderSheet({ selectedPopularPlaceIds: [10, 20] });
+    await user.click(await screen.findByRole('button', { name: '새 추천 만들기' }));
+
+    expect(createRecommendationPlaylist).toHaveBeenCalledWith(
+      { latitude: 37.5, longitude: 127.03, placeIds: [10, 20] },
+      mocks.fetchAuthenticatedJson,
+      expect.any(AbortSignal),
+    );
   });
 
   it('생성 실패 후 재시도로 같은 위치 요청을 다시 보낸다', async () => {

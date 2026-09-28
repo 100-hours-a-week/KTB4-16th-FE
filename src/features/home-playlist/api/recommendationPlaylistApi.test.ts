@@ -61,6 +61,26 @@ describe('recommendationPlaylistApi', () => {
     });
   });
 
+  it('선택한 인기 장소가 있으면 placeIds를 추천 요청에 포함한다', async () => {
+    vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
+    const request = vi.fn().mockResolvedValue({
+      message: '추천 플레이리스트 생성 성공',
+      data: { playlist },
+    });
+
+    await createRecommendationPlaylist(
+      { latitude: 37.5665, longitude: 126.978, placeIds: [10, 20] },
+      request,
+    );
+
+    expect(request).toHaveBeenCalledWith('/recommendations/playlists', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': 'csrf-token' },
+      body: JSON.stringify({ latitude: 37.5665, longitude: 126.978, placeIds: [10, 20] }),
+    });
+  });
+
   it('잘못된 트랙 응답을 INVALID_RESPONSE 오류로 거부한다', async () => {
     const request = vi.fn().mockResolvedValue({
       message: '현재 추천 플레이리스트 조회 성공',

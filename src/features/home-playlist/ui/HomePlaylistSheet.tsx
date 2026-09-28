@@ -9,12 +9,14 @@ import {
 import type {
   RecommendationCoordinates,
   RecommendationPlaylist,
+  RecommendationRequest,
   RecommendationTrack,
 } from '../model/recommendationPlaylist.types';
 import './homePlaylistSheet.css';
 
 type HomePlaylistSheetProps = {
   currentLocation: RecommendationCoordinates | null;
+  selectedPopularPlaceIds: number[];
   isOpen: boolean;
   onExited: () => void;
 };
@@ -58,7 +60,12 @@ function RecommendationTrackItem({ track }: { track: RecommendationTrack }) {
 }
 
 /** 인증 상태와 실제 위치를 사용해 추천 조회·생성 상태를 관리하는 홈 시트다. */
-export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePlaylistSheetProps) {
+export function HomePlaylistSheet({
+  currentLocation,
+  selectedPopularPlaceIds,
+  isOpen,
+  onExited,
+}: HomePlaylistSheetProps) {
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const [playlist, setPlaylist] = useState<RecommendationPlaylist | null>(null);
   const [loadState, setLoadState] = useState<LoadState>(() =>
@@ -120,8 +127,12 @@ export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePla
     setFailedOperation(null);
 
     try {
+      const request: RecommendationRequest = {
+        ...currentLocation,
+        ...(selectedPopularPlaceIds.length > 0 ? { placeIds: selectedPopularPlaceIds } : {}),
+      };
       const nextPlaylist = await createRecommendationPlaylist(
-        currentLocation,
+        request,
         fetchAuthenticatedJson,
         controller.signal,
       );
@@ -135,7 +146,7 @@ export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePla
         setFailedOperation('create');
       }
     }
-  }, [currentLocation, fetchAuthenticatedJson]);
+  }, [currentLocation, fetchAuthenticatedJson, selectedPopularPlaceIds]);
 
   /** 마지막 실패 작업에 맞춰 조회 또는 생성 요청을 다시 시작한다. */
   function retry() {

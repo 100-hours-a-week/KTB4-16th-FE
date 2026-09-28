@@ -38,6 +38,7 @@ type HomeMapProps = {
   children?: ReactNode;
   onInitialCenterResolved?: (center: MapCenter) => void;
   onCurrentLocationResolved?: (location: MapCenter | null) => void;
+  onSelectedPopularPlaceIdsChange?: (placeIds: number[]) => void;
 };
 
 const DEFAULT_CENTER: MapCenter = {
@@ -185,6 +186,7 @@ export function HomeMap({
   children,
   onInitialCenterResolved,
   onCurrentLocationResolved,
+  onSelectedPopularPlaceIdsChange,
 }: HomeMapProps) {
   const navigate = useNavigate();
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
@@ -348,12 +350,13 @@ export function HomeMap({
 
       closeMyLocksSheetRef.current();
       setSelectedPopularPlaceIds(uniquePlaceIds);
+      onSelectedPopularPlaceIdsChange?.(uniquePlaceIds);
       setPopularTracksResult(null);
       setIsPopularTracksSheetVisible(true);
       requestAnimationFrame(() => setIsPopularTracksSheetOpen(true));
       void loadPopularTracks(uniquePlaceIds);
     },
-    [loadPopularTracks],
+    [loadPopularTracks, onSelectedPopularPlaceIdsChange],
   );
 
   const closePopularTracksSheet = useCallback(() => {
@@ -363,9 +366,10 @@ export function HomeMap({
     setIsPopularTracksSheetOpen(false);
     clearMapSelectionRef.current();
     setSelectedPopularPlaceIds([]);
+    onSelectedPopularPlaceIdsChange?.([]);
     setPopularTracksResult(null);
     setPopularTracksLoadState('loading');
-  }, []);
+  }, [onSelectedPopularPlaceIdsChange]);
 
   useEffect(() => {
     const mapElement = mapContainerRef.current;

@@ -4,6 +4,7 @@ import { getCsrfToken } from '../../../shared/api/csrf';
 import type {
   RecommendationCoordinates,
   RecommendationPlaylist,
+  RecommendationRequest,
   RecommendationTrack,
 } from '../model/recommendationPlaylist.types';
 
@@ -18,11 +19,11 @@ export async function getRecommendationPlaylist(
 
 /** 확인된 위치와 CSRF 토큰으로 새 추천을 생성하고 반환 계약을 검증한다. */
 export async function createRecommendationPlaylist(
-  coordinates: RecommendationCoordinates,
+  request: RecommendationRequest,
   fetchAuthenticatedJson: AuthenticatedApiClient['fetchJson'],
   signal?: AbortSignal,
 ): Promise<RecommendationPlaylist> {
-  if (!isCoordinates(coordinates)) {
+  if (!isCoordinates(request) || !isPlaceIds(request.placeIds)) {
     throw new ApiError(400, '현재 위치 정보를 확인할 수 없습니다.', 'INVALID_COORDINATES');
   }
 
@@ -31,7 +32,7 @@ export async function createRecommendationPlaylist(
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
-    body: JSON.stringify(coordinates),
+    body: JSON.stringify(request),
     signal,
   });
   const playlist = parseRecommendationPlaylistResponse(response);
@@ -102,6 +103,11 @@ function isCoordinates(value: RecommendationCoordinates): boolean {
     value.longitude >= -180 &&
     value.longitude <= 180
   );
+}
+
+/** 선택 장소 ID가 있다면 양의 안전 정수 목록인지 확인한다. */
+function isPlaceIds(value: number[] | undefined): boolean {
+  return value === undefined || value.every(isPositiveInteger);
 }
 
 /** 외부 JSON 값이 안전하게 필드를 읽을 수 있는 객체인지 판별한다. */

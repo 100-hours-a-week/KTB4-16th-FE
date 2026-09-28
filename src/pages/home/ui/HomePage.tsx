@@ -11,6 +11,7 @@ import './homePage.css';
 export function HomePage() {
   const [initialMapCenter, setInitialMapCenter] = useState<MapCenter | null>(null);
   const [currentLocation, setCurrentLocation] = useState<MapCenter | null>(null);
+  const [selectedPopularPlaceIds, setSelectedPopularPlaceIds] = useState<number[]>([]);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [isPlaylistVisible, setIsPlaylistVisible] = useState(false);
   const openAnimationFrameRef = useRef<number | null>(null);
@@ -87,10 +88,12 @@ export function HomePage() {
         <HomeMap
           onCurrentLocationResolved={setCurrentLocation}
           onInitialCenterResolved={setInitialMapCenter}
+          onSelectedPopularPlaceIdsChange={setSelectedPopularPlaceIds}
         >
           {isPlaylistVisible ? (
             <HomePlaylistSheet
               currentLocation={currentLocation}
+              selectedPopularPlaceIds={selectedPopularPlaceIds}
               isOpen={isPlaylistOpen}
               onExited={finishClosingPlaylist}
             />

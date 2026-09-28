@@ -4,6 +4,11 @@ export type RecommendationCoordinates = {
   longitude: number;
 };
 
+/** 사용자가 인기 지도 Marker·Cluster를 선택했을 때만 함께 보내는 장소 식별자다. */
+export type RecommendationRequest = RecommendationCoordinates & {
+  placeIds?: number[];
+};
+
 /** 추천 플레이리스트 안의 서버 저장 음악 한 곡을 표현한다. */
 export type RecommendationTrack = {
   musicTrackId: number;
