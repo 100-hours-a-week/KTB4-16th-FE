@@ -199,7 +199,7 @@ beforeEach(() => {
     return 1;
   });
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
-  setGeolocation(null);
+  useSuccessfulGeolocation(37.2, 127.1);
   mocks.getPopularMarkers.mockResolvedValue(popularMarkers);
   mocks.getPopularTracks.mockResolvedValue({
     recordCount: 1,
@@ -249,10 +249,17 @@ describe('HomeMap current location overlay', () => {
 
     renderHomeMap({ onInitialCenterResolved, onCurrentLocationResolved });
 
-    await waitFor(() => expect(mocks.mapOptions).toHaveLength(1));
+    expect(await screen.findByRole('alert')).toHaveTextContent('위치 권한이 필요해요');
+    expect(screen.getByRole('alert')).toHaveClass('home-map-notice--location');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '브라우저 설정에서 이 사이트의 위치 권한을 허용한 뒤 다시 확인해주세요.',
+    );
+    expect(screen.getByRole('button', { name: '브라우저 설정 후 다시 확인' })).toBeInTheDocument();
 
     expect(currentLocationOverlay()).toBeUndefined();
-    expect(onInitialCenterResolved).toHaveBeenCalledWith({ latitude: 37.2002, longitude: 127.098 });
+    expect(mocks.mapOptions).toHaveLength(0);
+    expect(mocks.getPopularMarkers).not.toHaveBeenCalled();
+    expect(onInitialCenterResolved).not.toHaveBeenCalled();
     expect(onCurrentLocationResolved).toHaveBeenCalledWith(null);
   });
 
@@ -270,25 +277,87 @@ describe('HomeMap current location overlay', () => {
     );
   });
 
-  it('does not show a current location overlay when geolocation fails', async () => {
-    useFailedGeolocation(2);
+  it.each([
+    { name: 'POSITION_UNAVAILABLE', code: 2 },
+    { name: 'TIMEOUT', code: 3 },
+  ])('does not use a fallback center for $name', async ({ code }) => {
+    useFailedGeolocation(code);
 
     renderHomeMap();
 
-    await waitFor(() => expect(mocks.mapOptions).toHaveLength(1));
+    expect(await screen.findByRole('alert')).toHaveTextContent('현재 위치를 확인할 수 없어요');
+    expect(screen.getByRole('alert')).toHaveClass('home-map-notice--location');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '권한 요청 창이 나타나면 브라우저에서 허용해주세요.',
+    );
 
+    expect(mocks.mapOptions).toHaveLength(0);
+    expect(mocks.getPopularMarkers).not.toHaveBeenCalled();
     expect(currentLocationOverlay()).toBeUndefined();
   });
 
-  it('does not show a current location overlay for the fallback center when geolocation is unavailable', async () => {
+  it('does not use a fallback center when geolocation is unavailable', async () => {
+    setGeolocation(null);
     renderHomeMap();
 
-    await waitFor(() => expect(mocks.mapOptions).toHaveLength(1));
+    expect(await screen.findByRole('alert')).toHaveTextContent('위치 기능을 사용할 수 없어요');
+    expect(screen.getByRole('alert')).toHaveClass('home-map-notice--location');
 
-    expect(mocks.mapOptions[0]).toMatchObject({
-      center: { latitude: 37.2002, longitude: 127.098 },
-    });
+    expect(mocks.mapOptions).toHaveLength(0);
+    expect(mocks.getPopularMarkers).not.toHaveBeenCalled();
     expect(currentLocationOverlay()).toBeUndefined();
+  });
+
+  it('retries location acquisition without using a fallback center', async () => {
+    const user = userEvent.setup();
+    const position: GeolocationPosition = {
+      coords: {
+        accuracy: 0,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        latitude: 37.501,
+        longitude: 127.031,
+        speed: null,
+        toJSON: () => ({}),
+      },
+      timestamp: 0,
+      toJSON: () => ({}),
+    };
+    const getCurrentPosition: Geolocation['getCurrentPosition'] = vi
+      .fn()
+      .mockImplementationOnce((_success, failure) => {
+        failure?.({
+          code: 2,
+          message: '위치 정보를 가져올 수 없습니다.',
+          PERMISSION_DENIED: 1,
+          POSITION_UNAVAILABLE: 2,
+          TIMEOUT: 3,
+        });
+      })
+      .mockImplementationOnce((success) => success(position));
+    setGeolocation(getCurrentPosition);
+
+    renderHomeMap();
+    await screen.findByRole('alert');
+    await user.click(screen.getByRole('button', { name: '위치 권한 허용하기' }));
+
+    await waitFor(() => expect(mocks.mapOptions).toHaveLength(1));
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(mocks.mapOptions[0]).toMatchObject({ center: { latitude: 37.501, longitude: 127.031 } });
+  });
+
+  it('shows the full-area location guidance when geolocation throws', async () => {
+    setGeolocation(() => {
+      throw new Error('Geolocation failed');
+    });
+    renderHomeMap();
+
+    const notice = await screen.findByRole('alert');
+    expect(notice).toHaveClass('home-map-notice--location');
+    expect(notice).toHaveTextContent('위치를 다시 요청합니다.');
+    expect(mocks.mapOptions).toHaveLength(0);
+    expect(mocks.getPopularMarkers).not.toHaveBeenCalled();
   });
 
   it('keeps the current location overlay while switching between popular and mine modes', async () => {
