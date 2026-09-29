@@ -20,7 +20,6 @@ import { uploadPhoto } from '../api/uploadPhoto';
 import type { RecordLocation, SelectedMusic } from '../model/recordCreate.types';
 import { PhotoMusicRecommendationModal } from './PhotoMusicRecommendationModal';
 
-const DEFAULT_LOCATION = { latitude: 37.2002, longitude: 127.098 };
 const HEIC_IMAGE_TYPE = 'image/heic';
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', HEIC_IMAGE_TYPE, 'image/webp']);
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
@@ -34,6 +33,18 @@ type Props = {
 };
 
 type Coordinates = { latitude: number; longitude: number };
+type LocationAccessState =
+  | 'loading'
+  | 'ready'
+  | 'permission-denied'
+  | 'position-unavailable'
+  | 'timeout'
+  | 'unsupported'
+  | 'map-error';
+
+type InitialCoordinatesResult =
+  | { kind: 'ready'; coordinates: Coordinates }
+  | { kind: Exclude<LocationAccessState, 'loading' | 'ready' | 'map-error'> };
 
 function createGpsLocationContent() {
   const content = document.createElement('span');
@@ -59,6 +70,9 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const recommendationRequestIdRef = useRef(0);
   const [location, setLocation] = useState<RecordLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationAccessState, setLocationAccessState] = useState<LocationAccessState>('loading');
+  const [locationRetryKey, setLocationRetryKey] = useState(0);
+  const [isMapReady, setIsMapReady] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<PhotoPreview | null>(null);
   const [uploadId, setUploadId] = useState<number | null>(null);
@@ -86,20 +100,34 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     let isActive = true;
     let gpsLocationOverlay: KakaoCustomOverlay | undefined;
     const resolveInitialCoordinates = () =>
-      new Promise<{ coordinates: Coordinates; isGps: boolean }>((resolve) => {
-        if (!navigator.geolocation) {
-          resolve({ coordinates: DEFAULT_LOCATION, isGps: false });
-          return;
+      new Promise<InitialCoordinatesResult>((resolve) => {
+        try {
+          const geolocation = navigator.geolocation;
+          if (!geolocation) {
+            resolve({ kind: 'unsupported' });
+            return;
+          }
+
+          geolocation.getCurrentPosition(
+            ({ coords }) =>
+              resolve({
+                kind: 'ready',
+                coordinates: { latitude: coords.latitude, longitude: coords.longitude },
+              }),
+            (error) => {
+              if (error.code === error.PERMISSION_DENIED) {
+                resolve({ kind: 'permission-denied' });
+              } else if (error.code === error.TIMEOUT) {
+                resolve({ kind: 'timeout' });
+              } else {
+                resolve({ kind: 'position-unavailable' });
+              }
+            },
+            { timeout: 10_000 },
+          );
+        } catch {
+          resolve({ kind: 'position-unavailable' });
         }
-        navigator.geolocation.getCurrentPosition(
-          ({ coords }) =>
-            resolve({
-              coordinates: { latitude: coords.latitude, longitude: coords.longitude },
-              isGps: true,
-            }),
-          () => resolve({ coordinates: DEFAULT_LOCATION, isGps: false }),
-          { timeout: 10_000 },
-        );
       });
     const resolveLegalDong = (kakao: KakaoMaps, coordinates: Coordinates) => {
       const { latitude, longitude } = coordinates;
@@ -149,38 +177,51 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         }
       }
     };
-    void resolveInitialCoordinates().then(async ({ coordinates, isGps }) => {
+    currentGpsLocationRef.current = null;
+
+    void resolveInitialCoordinates().then(async (locationResult) => {
+      if (!isActive) return;
+      if (locationResult.kind !== 'ready') {
+        setHasCurrentGpsLocation(false);
+        setLocationAccessState(locationResult.kind);
+        return;
+      }
+
+      const { coordinates } = locationResult;
       try {
         const kakao = await loadKakaoMapSdk(env.kakaoMapAppKey);
         if (!isActive || !mapContainerRef.current) return;
-        currentGpsLocationRef.current = isGps ? coordinates : null;
-        setHasCurrentGpsLocation(isGps);
+        currentGpsLocationRef.current = coordinates;
+        setHasCurrentGpsLocation(true);
         kakaoRef.current = kakao;
         const map = new kakao.maps.Map(mapContainerRef.current, {
           center: new kakao.maps.LatLng(coordinates.latitude, coordinates.longitude),
           level: 4,
         });
         mapRef.current = map;
-        if (isGps) {
-          const gpsLocationContent = createGpsLocationContent();
-          gpsLocationOverlay = new kakao.maps.CustomOverlay({
-            map,
-            position: new kakao.maps.LatLng(coordinates.latitude, coordinates.longitude),
-            content: gpsLocationContent,
-            xAnchor: 0.5,
-            yAnchor: 0.5,
-            clickable: false,
-            zIndex: 1,
-          });
-          gpsLocationContent.parentElement?.style.setProperty('pointer-events', 'none');
-        }
+        const gpsLocationContent = createGpsLocationContent();
+        gpsLocationOverlay = new kakao.maps.CustomOverlay({
+          map,
+          position: new kakao.maps.LatLng(coordinates.latitude, coordinates.longitude),
+          content: gpsLocationContent,
+          xAnchor: 0.5,
+          yAnchor: 0.5,
+          clickable: false,
+          zIndex: 1,
+        });
+        gpsLocationContent.parentElement?.style.setProperty('pointer-events', 'none');
+        setIsMapReady(true);
+        setLocationAccessState('ready');
         resolveLegalDong(kakao, coordinates);
         kakao.maps.event.addListener(map, 'idle', () => {
           const center = map.getCenter();
           resolveLegalDong(kakao, { latitude: center.getLat(), longitude: center.getLng() });
         });
       } catch {
-        if (isActive) setLocationError('지도를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        if (isActive) {
+          setLocationAccessState('map-error');
+          setLocationError('지도를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        }
       }
     });
     return () => {
@@ -191,7 +232,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
       lastRequestedCoordinatesRef.current = null;
       gpsLocationOverlay?.setMap(null);
     };
-  }, [onCoordinatesChange]);
+  }, [locationRetryKey, onCoordinatesChange]);
 
   useEffect(() => {
     if (photoPreview?.kind !== 'local') return;
@@ -232,6 +273,16 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     mapRef.current.setCenter(
       new kakao.maps.LatLng(currentGpsLocation.latitude, currentGpsLocation.longitude),
     );
+  }
+
+  function retryLocationAcquisition() {
+    setLocationAccessState('loading');
+    setLocationError(null);
+    setLocation(null);
+    setIsMapReady(false);
+    setHasCurrentGpsLocation(false);
+    currentGpsLocationRef.current = null;
+    setLocationRetryKey((key) => key + 1);
   }
 
   /** 검증을 통과한 최신 사진을 즉시 업로드하고 해당 선택의 uploadId만 반영한다. */
@@ -336,7 +387,14 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
       <div className="lock-create-context">
         <article className="surface-card lock-create-card">
           <small>📍 장소</small>
-          <strong>{location?.legalDongName ?? '현재 위치 확인 중'}</strong>
+          <strong>
+            {location?.legalDongName ??
+              (locationAccessState === 'permission-denied'
+                ? '위치 권한이 필요해요'
+                : locationAccessState === 'loading'
+                  ? '현재 위치 확인 중'
+                  : '현재 위치 확인 필요')}
+          </strong>
           <span>지도를 움직여 최종 위치를 조정하세요</span>
         </article>
         <article className="surface-card lock-create-card">
@@ -349,21 +407,60 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         <small>📍 최종 위치 *</small>
         <div className="lock-create-map-frame">
           <div className="lock-create-map" ref={mapContainerRef} />
-          <span className="lock-create-map-center-pin" aria-hidden="true">
-            <span />
-          </span>
-          {hasCurrentGpsLocation && (
-            <button
-              aria-label="현재 위치로 이동"
-              className="lock-create-current-location"
-              type="button"
-              onClick={moveToCurrentLocation}
+          {isMapReady ? (
+            <>
+              <span className="lock-create-map-center-pin" aria-hidden="true">
+                <span />
+              </span>
+              {hasCurrentGpsLocation ? (
+                <button
+                  aria-label="현재 위치로 이동"
+                  className="lock-create-current-location"
+                  type="button"
+                  onClick={moveToCurrentLocation}
+                >
+                  ◎
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <div
+              className="lock-create-location-notice"
+              role={locationAccessState === 'loading' ? 'status' : 'alert'}
             >
-              ◎
-            </button>
+              <strong>
+                {locationAccessState === 'loading'
+                  ? '현재 위치를 확인하는 중이에요'
+                  : locationAccessState === 'permission-denied'
+                    ? '위치 권한이 필요해요'
+                    : locationAccessState === 'unsupported'
+                      ? '위치 기능을 사용할 수 없어요'
+                      : '현재 위치를 확인할 수 없어요'}
+              </strong>
+              <p>
+                {locationAccessState === 'loading'
+                  ? '잠시만 기다려주세요.'
+                  : locationAccessState === 'permission-denied'
+                    ? '서비스를 이용하려면 현재 위치 접근 권한이 필요합니다. 브라우저 설정에서 이 사이트의 위치 권한을 허용한 뒤 다시 확인해주세요.'
+                    : locationAccessState === 'unsupported'
+                      ? '현재 브라우저에서는 위치 기반 기능을 이용할 수 없습니다.'
+                      : locationAccessState === 'map-error'
+                        ? locationError
+                        : '위치를 다시 요청합니다. 권한 요청 창이 나타나면 브라우저에서 허용해주세요.'}
+              </p>
+              {locationAccessState !== 'loading' && locationAccessState !== 'unsupported' ? (
+                <button type="button" onClick={retryLocationAcquisition}>
+                  {locationAccessState === 'permission-denied'
+                    ? '브라우저 설정 후 다시 확인'
+                    : locationAccessState === 'map-error'
+                      ? '다시 시도'
+                      : '위치 권한 허용하기'}
+                </button>
+              ) : null}
+            </div>
           )}
         </div>
-        {locationError && <p className="lock-create-error">{locationError}</p>}
+        {isMapReady && locationError && <p className="lock-create-error">{locationError}</p>}
       </section>
       <section className="surface-card lock-create-card">
         <small>🖼️ 사진 *</small>

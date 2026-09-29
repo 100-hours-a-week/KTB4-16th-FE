@@ -56,7 +56,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   latestMapControl = null;
   customOverlayOptions = [];
-  setGeolocation(null);
+  useSuccessfulGeolocation(37.5, 127.03);
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
     value: vi.fn(() => 'blob:photo-preview'),
@@ -117,13 +117,100 @@ describe('RecordCreateForm', () => {
     expect(customOverlayOptions[0]).toMatchObject({ clickable: false, zIndex: 1 });
   });
 
-  it('does not render the GPS dot or return button when geolocation fails', async () => {
-    renderForm();
+  it.each([
+    { name: 'permission is denied', code: 1, expectedMessage: '위치 권한이 필요해요' },
+    { name: 'position is unavailable', code: 2, expectedMessage: '현재 위치를 확인할 수 없어요' },
+    {
+      name: 'location request times out',
+      code: 3,
+      expectedMessage: '현재 위치를 확인할 수 없어요',
+    },
+  ])('blocks map-based record location when $name', async ({ code, expectedMessage }) => {
+    useFailedGeolocation(code);
+    const onCoordinatesChange = vi.fn();
+    renderForm(vi.fn(), onCoordinatesChange);
 
-    await screen.findByText('수원역');
+    expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage);
+    expect(screen.getByRole('alert')).toHaveClass('lock-create-location-notice');
+    if (code === 1) {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '브라우저 설정에서 이 사이트의 위치 권한을 허용한 뒤 다시 확인해주세요.',
+      );
+      expect(
+        screen.getByRole('button', { name: '브라우저 설정 후 다시 확인' }),
+      ).toBeInTheDocument();
+    } else {
+      expect(screen.getByRole('button', { name: '위치 권한 허용하기' })).toBeInTheDocument();
+    }
+
+    const map = document.querySelector('.lock-create-map');
+    expect(map).not.toBeNull();
+    if (map) fireEvent.click(map);
 
     expect(screen.queryByRole('button', { name: '현재 위치로 이동' })).not.toBeInTheDocument();
     expect(customOverlayOptions).toHaveLength(0);
+    expect(latestMapControl).toBeNull();
+    expect(mocks.loadKakaoMapSdk).not.toHaveBeenCalled();
+    expect(onCoordinatesChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '🔒 자물쇠 저장하기' })).toBeDisabled();
+    expect(mocks.createRecord).not.toHaveBeenCalled();
+  });
+
+  it('does not initialize or geocode a fallback location when geolocation is unsupported', async () => {
+    setGeolocation(null);
+    renderForm();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('위치 기능을 사용할 수 없어요');
+    expect(screen.getByRole('alert')).toHaveClass('lock-create-location-notice');
+    expect(mocks.loadKakaoMapSdk).not.toHaveBeenCalled();
+    expect(latestMapControl).toBeNull();
+    expect(screen.getByRole('button', { name: '🔒 자물쇠 저장하기' })).toBeDisabled();
+  });
+
+  it('retries location acquisition and only initializes the map after GPS succeeds', async () => {
+    const user = userEvent.setup();
+    const position: GeolocationPosition = {
+      coords: { latitude: 37.5, longitude: 127.03 } as GeolocationCoordinates,
+      timestamp: 0,
+    } as GeolocationPosition;
+    const getCurrentPosition: Geolocation['getCurrentPosition'] = vi
+      .fn()
+      .mockImplementationOnce((_success, failure) => {
+        failure?.({
+          code: 1,
+          message: '위치 권한이 거부되었습니다.',
+          PERMISSION_DENIED: 1,
+          POSITION_UNAVAILABLE: 2,
+          TIMEOUT: 3,
+        });
+      })
+      .mockImplementationOnce((success) => success(position));
+    setGeolocation(getCurrentPosition);
+    renderForm();
+
+    await screen.findByRole('alert');
+    expect(mocks.loadKakaoMapSdk).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '브라우저 설정 후 다시 확인' }));
+
+    expect(await screen.findByText('수원역')).toBeInTheDocument();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(mocks.loadKakaoMapSdk).toHaveBeenCalledOnce();
+    expect(latestMapControl).not.toBeNull();
+  });
+
+  it('keeps record location unavailable when geolocation throws', async () => {
+    setGeolocation(() => {
+      throw new Error('Geolocation failed');
+    });
+    const onCoordinatesChange = vi.fn();
+    renderForm(vi.fn(), onCoordinatesChange);
+
+    const notice = await screen.findByRole('alert');
+    expect(notice).toHaveClass('lock-create-location-notice');
+    expect(notice).toHaveTextContent('위치를 다시 요청합니다.');
+    expect(mocks.loadKakaoMapSdk).not.toHaveBeenCalled();
+    expect(onCoordinatesChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '🔒 자물쇠 저장하기' })).toBeDisabled();
   });
 
   it('provides named location and photo controls for keyboard users', async () => {
@@ -703,4 +790,23 @@ function setGeolocation(getCurrentPosition: Geolocation['getCurrentPosition'] | 
     configurable: true,
     value: getCurrentPosition ? { getCurrentPosition } : undefined,
   });
+}
+
+function useSuccessfulGeolocation(latitude: number, longitude: number) {
+  const position: GeolocationPosition = {
+    coords: { latitude, longitude } as GeolocationCoordinates,
+    timestamp: 0,
+  } as GeolocationPosition;
+  setGeolocation((success) => success(position));
+}
+
+function useFailedGeolocation(code: number) {
+  const error: GeolocationPositionError = {
+    code,
+    message: '위치 정보를 가져올 수 없습니다.',
+    PERMISSION_DENIED: 1,
+    POSITION_UNAVAILABLE: 2,
+    TIMEOUT: 3,
+  };
+  setGeolocation((_success, failure) => failure?.(error));
 }
