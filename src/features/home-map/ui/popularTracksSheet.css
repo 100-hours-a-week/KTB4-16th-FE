@@ -58,6 +58,11 @@
   line-height: 1;
 }
 
+.popular-tracks-sheet button:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 42%);
+  outline-offset: 2px;
+}
+
 .popular-tracks-sheet-status,
 .popular-tracks-sheet-error {
   margin: 0;

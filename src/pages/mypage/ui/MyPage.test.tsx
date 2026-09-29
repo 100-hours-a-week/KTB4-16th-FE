@@ -20,14 +20,16 @@ function CurrentPath() {
 
 /** 실제 Provider 세션이 로그아웃 후 비인증 상태가 되는지 관찰한다. */
 function SessionState() {
-  const { isAuthenticated, setAccessToken } = useSession();
+  const { isAuthenticated, isSessionRestoring, setAccessToken } = useSession();
 
   return (
     <>
       <button type="button" onClick={() => setAccessToken('access-token')}>
         세션 시작
       </button>
-      <div data-testid="session-state">{String(isAuthenticated)}</div>
+      <div data-testid="session-state">
+        {String(isAuthenticated)}:{String(isSessionRestoring)}
+      </div>
     </>
   );
 }
@@ -103,13 +105,14 @@ describe('MyPage', () => {
 
     renderMyPage();
 
+    await screen.findByText('false:false');
     await user.click(screen.getByRole('button', { name: '세션 시작' }));
-    expect(screen.getByTestId('session-state')).toHaveTextContent('true');
+    expect(screen.getByTestId('session-state')).toHaveTextContent('true:false');
 
     await user.click(await screen.findByRole('button', { name: /로그아웃/ }));
 
     expect(logout).toHaveBeenCalledOnce();
     expect(await screen.findByTestId('current-path')).toHaveTextContent('/login');
-    expect(screen.getByTestId('session-state')).toHaveTextContent('false');
+    expect(screen.getByTestId('session-state')).toHaveTextContent('false:false');
   });
 });
