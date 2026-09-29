@@ -6,6 +6,10 @@ ARG NODE_VERSION=24.21.0-alpine
 
 # 경량화된 Node.js 이미지를 빌드를 위해 사용
 FROM node:${NODE_VERSION} AS builder
+
+ARG VITE_SENTRY_DSN
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
  
 # 작업 디렉토리 설정
 WORKDIR /app
@@ -20,7 +24,11 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY . .
  
 # 리액트 앱 Build
-RUN npm run build
+RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
+    VITE_SENTRY_DSN="$VITE_SENTRY_DSN" \
+    SENTRY_ORG="$SENTRY_ORG" \
+    SENTRY_PROJECT="$SENTRY_PROJECT" \
+    npm run build
  
 # =========================================
 # 2: 서빙용 정적 파일 스테이지

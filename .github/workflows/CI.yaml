@@ -82,6 +82,10 @@ jobs:
       - name: Release frontend image
         env:
           GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           npx --yes \
             --package=semantic-release@25 \
@@ -134,4 +138,3 @@ jobs:
                   ]
                 }
               ]
-
