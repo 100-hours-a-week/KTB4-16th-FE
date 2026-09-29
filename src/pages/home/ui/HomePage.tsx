@@ -9,7 +9,6 @@ import './homePage.css';
 
 /** 목업의 홈 진입 화면을 기능 UI로 조립한다. */
 export function HomePage() {
-  const [initialMapCenter, setInitialMapCenter] = useState<MapCenter | null>(null);
   const [currentLocation, setCurrentLocation] = useState<MapCenter | null>(null);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [isPlaylistVisible, setIsPlaylistVisible] = useState(false);
@@ -57,7 +56,8 @@ export function HomePage() {
       <div className="home-page-content">
         <header className="home-topbar">
           <h1>MULO</h1>
-          <HomeWeather coordinates={initialMapCenter} />
+          {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
+          <HomeWeather coordinates={currentLocation} />
         </header>
 
         <button
@@ -91,10 +91,7 @@ export function HomePage() {
           </button>
         </section>
 
-        <HomeMap
-          onCurrentLocationResolved={setCurrentLocation}
-          onInitialCenterResolved={setInitialMapCenter}
-        >
+        <HomeMap onCurrentLocationResolved={setCurrentLocation}>
           {isPlaylistVisible ? (
             <HomePlaylistSheet
               currentLocation={currentLocation}
