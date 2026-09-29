@@ -23,7 +23,7 @@ export function LockCreatePage() {
           type="button"
           onClick={() => navigate(-1)}
         >
-          ‹
+          <span className="lock-create-back-icon">‹</span>
         </button>
         <h1 className="static-page-title">자물쇠 만들기</h1>
         <span aria-hidden="true" className="lock-create-header-spacer" />

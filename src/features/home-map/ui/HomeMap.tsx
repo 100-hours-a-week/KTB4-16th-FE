@@ -21,17 +21,14 @@ import './homeMap.css';
 
 type MapMode = 'popular' | 'mine';
 type MapLoadState = 'idle' | 'ready' | 'error';
+type LocationLoadState =
+  'loading' | 'ready' | 'permission-denied' | 'position-unavailable' | 'timeout' | 'unsupported';
 type MarkersLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 type MyLocksLoadState = 'loading' | 'ready' | 'empty' | 'error';
 type PopularTracksLoadState = 'loading' | 'ready' | 'empty' | 'error';
 export type MapCenter = {
   latitude: number;
   longitude: number;
-};
-
-type InitialMapLocation = {
-  center: MapCenter;
-  currentLocation: MapCenter | null;
 };
 
 type HomeMapProps = {
@@ -55,34 +52,39 @@ function withMapModeInLocationState(state: unknown, mapMode: MapMode) {
   };
 }
 
-const DEFAULT_CENTER: MapCenter = {
-  latitude: 37.2002,
-  longitude: 127.098,
-};
-
-/** 지도 중심과 실제 geolocation 성공 좌표를 구분해 반환한다. */
-function getInitialMapCenter(): Promise<InitialMapLocation> {
-  if (!navigator.geolocation) {
-    return Promise.resolve({ center: DEFAULT_CENTER, currentLocation: null });
-  }
-
+/** 위치 성공 좌표만 반환하고 실패 상태를 fallback 좌표로 바꾸지 않는다. */
+function getInitialMapCenter(): Promise<
+  { kind: 'ready'; center: MapCenter } | { kind: Exclude<LocationLoadState, 'loading' | 'ready'> }
+> {
   return new Promise((resolve) => {
     try {
-      navigator.geolocation.getCurrentPosition(
+      const geolocation = navigator.geolocation;
+      if (!geolocation) {
+        resolve({ kind: 'unsupported' });
+        return;
+      }
+
+      geolocation.getCurrentPosition(
         ({ coords }) => {
-          const currentLocation = {
+          const center = {
             latitude: coords.latitude,
             longitude: coords.longitude,
           };
-          resolve({ center: currentLocation, currentLocation });
+          resolve({ kind: 'ready', center });
         },
-        () => {
-          resolve({ center: DEFAULT_CENTER, currentLocation: null });
+        (error) => {
+          if (error.code === error.PERMISSION_DENIED) {
+            resolve({ kind: 'permission-denied' });
+          } else if (error.code === error.TIMEOUT) {
+            resolve({ kind: 'timeout' });
+          } else {
+            resolve({ kind: 'position-unavailable' });
+          }
         },
         { timeout: 10_000 },
       );
     } catch {
-      resolve({ center: DEFAULT_CENTER, currentLocation: null });
+      resolve({ kind: 'position-unavailable' });
     }
   });
 }
@@ -207,7 +209,6 @@ export function HomeMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const popularModeButtonRef = useRef<HTMLButtonElement>(null);
   const mineModeButtonRef = useRef<HTMLButtonElement>(null);
-  const initialCenterPromiseRef = useRef<Promise<InitialMapLocation> | null>(null);
   const mapModeRef = useRef<MapMode>('popular');
   const refreshMarkersRef = useRef<(() => void) | null>(null);
   const openMyLocksSheetRef = useRef<(placeIds: number[]) => void>(() => undefined);
@@ -222,6 +223,8 @@ export function HomeMap({
   const [mapMode, setMapMode] = useState<MapMode>(() =>
     getMapModeFromLocationState(location.state),
   );
+  const [locationLoadState, setLocationLoadState] = useState<LocationLoadState>('loading');
+  const [locationRetryKey, setLocationRetryKey] = useState(0);
   const [mapLoadState, setMapLoadState] = useState<MapLoadState>('idle');
   const [markersLoadState, setMarkersLoadState] = useState<MarkersLoadState>('idle');
   const [selectedPlaceIds, setSelectedPlaceIds] = useState<number[]>([]);
@@ -448,19 +451,27 @@ export function HomeMap({
       return error instanceof Error && error.name === 'AbortError';
     }
 
-    /** 현재 위치 또는 fallback 중심 좌표를 기준으로 지도를 생성한다. */
+    /** 실제 현재 위치를 확인한 뒤에만 지도를 초기화한다. */
     async function initializeMap() {
+      setLocationLoadState('loading');
+      setMapLoadState('idle');
       try {
-        const initialCenterPromise = initialCenterPromiseRef.current ?? getInitialMapCenter();
-        initialCenterPromiseRef.current = initialCenterPromise;
-        const { center: initialCenter, currentLocation } = await initialCenterPromise;
+        const locationResult = await getInitialMapCenter();
 
         if (!isMounted) {
           return;
         }
 
+        if (locationResult.kind !== 'ready') {
+          onCurrentLocationResolved?.(null);
+          setLocationLoadState(locationResult.kind);
+          return;
+        }
+
+        const initialCenter = locationResult.center;
         onInitialCenterResolved?.(initialCenter);
-        onCurrentLocationResolved?.(currentLocation);
+        onCurrentLocationResolved?.(initialCenter);
+        setLocationLoadState('ready');
 
         const kakao = await loadKakaoMapSdk(env.kakaoMapAppKey);
 
@@ -492,20 +503,18 @@ export function HomeMap({
           ],
         });
         markerClusterer = currentMarkerClusterer;
-        if (currentLocation) {
-          // 실제 geolocation 성공 좌표만 Place Marker·Clusterer와 독립적으로 표시한다.
-          const currentLocationContent = createCurrentLocationOverlayContent();
-          currentLocationOverlay = new kakao.maps.CustomOverlay({
-            map,
-            position: new kakao.maps.LatLng(currentLocation.latitude, currentLocation.longitude),
-            content: currentLocationContent,
-            xAnchor: 0.5,
-            yAnchor: 0.5,
-            clickable: false,
-            zIndex: 10,
-          });
-          currentLocationContent.parentElement?.style.setProperty('pointer-events', 'none');
-        }
+        // 실제 GPS 위치 표시는 Place Marker·Clusterer와 독립적으로 유지한다.
+        const currentLocationContent = createCurrentLocationOverlayContent();
+        currentLocationOverlay = new kakao.maps.CustomOverlay({
+          map,
+          position: new kakao.maps.LatLng(initialCenter.latitude, initialCenter.longitude),
+          content: currentLocationContent,
+          xAnchor: 0.5,
+          yAnchor: 0.5,
+          clickable: false,
+          zIndex: 10,
+        });
+        currentLocationContent.parentElement?.style.setProperty('pointer-events', 'none');
         const musicNoteMarkerImage = createMusicNoteMarkerImage(kakao);
         const selectedMusicNoteMarkerImage = createSelectedMusicNoteMarkerImage(kakao);
         resetSelectedMarkerImage = (marker) => marker.setImage(musicNoteMarkerImage);
@@ -701,7 +710,12 @@ export function HomeMap({
       removeMapMarkers();
       clearMapSelectionRef.current = () => undefined;
     };
-  }, [fetchAuthenticatedJson, onCurrentLocationResolved, onInitialCenterResolved]);
+  }, [
+    fetchAuthenticatedJson,
+    locationRetryKey,
+    onCurrentLocationResolved,
+    onInitialCenterResolved,
+  ]);
 
   const isMissingMapAppKey = !env.kakaoMapAppKey;
 
@@ -761,6 +775,7 @@ export function HomeMap({
           ref={popularModeButtonRef}
           className={mapMode === 'popular' ? 'is-active is-popular' : ''}
           type="button"
+          disabled={locationLoadState !== 'ready' || mapLoadState !== 'ready'}
           onClick={() => handleMapModeChange('popular')}
         >
           🔥 인기 자물쇠
@@ -769,6 +784,7 @@ export function HomeMap({
           ref={mineModeButtonRef}
           className={mapMode === 'mine' ? 'is-active is-mine' : ''}
           type="button"
+          disabled={locationLoadState !== 'ready' || mapLoadState !== 'ready'}
           onClick={() => handleMapModeChange('mine')}
         >
           🔒 내 자물쇠 보기
@@ -777,6 +793,39 @@ export function HomeMap({
 
       <div className="home-map-canvas">
         <div className="home-map-instance" ref={mapContainerRef} />
+        {locationLoadState !== 'ready' ? (
+          <div
+            className="home-map-notice home-map-notice--location"
+            role={locationLoadState === 'loading' ? 'status' : 'alert'}
+          >
+            <span aria-hidden="true">{locationLoadState === 'loading' ? '📍' : '⚠️'}</span>
+            <strong>
+              {locationLoadState === 'loading'
+                ? '현재 위치를 확인하는 중이에요'
+                : locationLoadState === 'permission-denied'
+                  ? '위치 권한이 필요해요'
+                  : locationLoadState === 'unsupported'
+                    ? '위치 기능을 사용할 수 없어요'
+                    : '현재 위치를 확인할 수 없어요'}
+            </strong>
+            <p>
+              {locationLoadState === 'permission-denied'
+                ? '브라우저 설정에서 이 사이트의 위치 권한을 허용한 뒤 아래 버튼을 눌러주세요.'
+                : locationLoadState === 'unsupported'
+                  ? '현재 브라우저에서는 위치 기반 기능을 이용할 수 없습니다.'
+                  : locationLoadState === 'loading'
+                    ? '잠시만 기다려주세요.'
+                    : '위치를 다시 요청합니다. 권한 요청 창이 나타나면 브라우저에서 허용해주세요.'}
+            </p>
+            {locationLoadState !== 'loading' && locationLoadState !== 'unsupported' ? (
+              <button type="button" onClick={() => setLocationRetryKey((key) => key + 1)}>
+                {locationLoadState === 'permission-denied'
+                  ? '위치 권한 다시 확인'
+                  : '위치 권한 허용하기'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {isMissingMapAppKey ? (
           <div className="home-map-notice" role="status">
             <span aria-hidden="true">🗺️</span>
@@ -802,7 +851,7 @@ export function HomeMap({
             <p>잠시 후 다시 시도해주세요.</p>
           </div>
         ) : null}
-        {!isMissingMapAppKey && mapLoadState === 'idle' ? (
+        {!isMissingMapAppKey && locationLoadState === 'ready' && mapLoadState === 'idle' ? (
           <div className="home-map-notice" role="status">
             <span aria-hidden="true">🗺️</span>
             <strong>지도를 불러오는 중이에요</strong>
