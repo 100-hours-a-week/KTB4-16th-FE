@@ -72,13 +72,14 @@ function parseRecommendationPlaylist(value: Record<string, unknown>): Recommenda
   };
 }
 
-/** 추천 음악의 식별자·표시 문자열·외부 링크 문자열을 검증한다. */
+/** 추천 음악의 식별자·표시 문자열·앨범 이미지 URL·외부 링크 문자열을 검증한다. */
 function parseRecommendationTrack(value: unknown): RecommendationTrack {
   if (
     !isRecord(value) ||
     !isPositiveInteger(value.musicTrackId) ||
     !isNonEmptyString(value.title) ||
     !isNonEmptyString(value.artistName) ||
+    !isNonEmptyString(value.albumImageUrl) ||
     !isNonEmptyString(value.externalUrl)
   ) {
     throw invalidResponse();
@@ -88,6 +89,7 @@ function parseRecommendationTrack(value: unknown): RecommendationTrack {
     musicTrackId: value.musicTrackId,
     title: value.title,
     artistName: value.artistName,
+    albumImageUrl: value.albumImageUrl,
     externalUrl: value.externalUrl,
   };
 }

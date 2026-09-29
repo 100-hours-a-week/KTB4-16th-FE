@@ -33,11 +33,32 @@ function isSafeExternalUrl(value: string): boolean {
   }
 }
 
-/** 한 트랙을 외부 링크 유무에 맞춰 접근 가능한 목록 항목으로 표시한다. */
+/** 앨범 이미지 요청에 실패하면 기존 그라데이션 커버를 대신 표시한다. */
+function RecommendationTrackCover({ track }: { track: RecommendationTrack }) {
+  const [isImageUnavailable, setIsImageUnavailable] = useState(false);
+
+  if (isImageUnavailable) {
+    return <span className="home-playlist-cover" aria-hidden="true" />;
+  }
+
+  return (
+    <img
+      alt={`${track.title} 앨범 커버`}
+      className="home-playlist-cover"
+      height={34}
+      loading="lazy"
+      onError={() => setIsImageUnavailable(true)}
+      src={track.albumImageUrl}
+      width={34}
+    />
+  );
+}
+
+/** 한 트랙을 앨범 커버와 외부 링크 유무에 맞춰 접근 가능한 목록 항목으로 표시한다. */
 function RecommendationTrackItem({ track }: { track: RecommendationTrack }) {
   const content = (
     <>
-      <span className="home-playlist-cover" aria-hidden="true" />
+      <RecommendationTrackCover track={track} />
       <span>
         <strong>{track.title}</strong>
         <small>{track.artistName}</small>

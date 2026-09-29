@@ -26,6 +26,7 @@ const playlist = {
       musicTrackId: 3,
       title: '비 오는 날엔',
       artistName: '헤이즈',
+      albumImageUrl: 'https://i.scdn.co/image/example',
       externalUrl: 'https://open.spotify.com/track/example',
     },
   ],
@@ -68,6 +69,22 @@ describe('HomePlaylistSheet', () => {
     expect(screen.getByRole('status')).toHaveTextContent('추천을 불러오는 중');
     expect(await screen.findByText('비 오는 날엔')).toBeInTheDocument();
     expect(screen.getByText('헤이즈')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '비 오는 날엔 앨범 커버' })).toHaveAttribute(
+      'src',
+      'https://i.scdn.co/image/example',
+    );
+  });
+
+  it('앨범 이미지 로드에 실패하면 기존 그라데이션 커버를 표시한다', async () => {
+    mocks.isAuthenticated = true;
+    vi.mocked(getRecommendationPlaylist).mockResolvedValue(playlist);
+
+    renderSheet();
+
+    fireEvent.error(await screen.findByRole('img', { name: '비 오는 날엔 앨범 커버' }));
+
+    expect(screen.queryByRole('img', { name: '비 오는 날엔 앨범 커버' })).not.toBeInTheDocument();
+    expect(document.querySelector('.home-playlist-cover')).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('저장된 추천이 있어도 실제 위치에서 새 추천을 다시 요청해 목록을 교체한다', async () => {
