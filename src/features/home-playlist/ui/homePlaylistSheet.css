@@ -93,11 +93,13 @@
   border-bottom: 0;
 }
 .home-playlist-cover {
+  display: block;
   width: 34px;
   height: 34px;
   flex: 0 0 auto;
   border-radius: 9px;
   background: linear-gradient(135deg, #c9b7ec, #a7e3d0);
+  object-fit: cover;
 }
 .home-playlist-track > span:last-child {
   display: grid;
