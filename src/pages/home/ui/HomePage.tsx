@@ -12,6 +12,7 @@ export function HomePage() {
   const [initialMapCenter, setInitialMapCenter] = useState<MapCenter | null>(null);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [isPlaylistVisible, setIsPlaylistVisible] = useState(false);
+  const playlistTriggerRef = useRef<HTMLButtonElement>(null);
   const openAnimationFrameRef = useRef<number | null>(null);
   const navigate = useNavigate();
 
@@ -25,11 +26,12 @@ export function HomePage() {
   );
 
   /** 시트를 먼저 렌더링한 뒤 다음 프레임에서 열어 CSS transition을 실행한다. */
-  function openPlaylist() {
+  function openPlaylist(trigger: HTMLButtonElement) {
     if (openAnimationFrameRef.current !== null) {
       cancelAnimationFrame(openAnimationFrameRef.current);
     }
 
+    playlistTriggerRef.current = trigger;
     setIsPlaylistVisible(true);
     openAnimationFrameRef.current = requestAnimationFrame(() => {
       setIsPlaylistOpen(true);
@@ -41,11 +43,16 @@ export function HomePage() {
   function finishClosingPlaylist() {
     if (!isPlaylistOpen) {
       setIsPlaylistVisible(false);
+      playlistTriggerRef.current?.focus();
     }
   }
 
+  function closePlaylist() {
+    setIsPlaylistOpen(false);
+  }
+
   return (
-    <main className="home-page" onClick={() => isPlaylistOpen && setIsPlaylistOpen(false)}>
+    <main className="home-page" onClick={() => isPlaylistOpen && closePlaylist()}>
       <div className="home-page-content">
         <header className="home-topbar">
           <h1>MULO</h1>
@@ -70,7 +77,7 @@ export function HomePage() {
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              openPlaylist();
+              openPlaylist(event.currentTarget);
             }}
           >
             <span className="home-shortcut-icon" aria-hidden="true">
@@ -85,7 +92,11 @@ export function HomePage() {
 
         <HomeMap onInitialCenterResolved={setInitialMapCenter}>
           {isPlaylistVisible ? (
-            <HomePlaylistSheet isOpen={isPlaylistOpen} onExited={finishClosingPlaylist} />
+            <HomePlaylistSheet
+              isOpen={isPlaylistOpen}
+              onClose={closePlaylist}
+              onExited={finishClosingPlaylist}
+            />
           ) : null}
         </HomeMap>
 

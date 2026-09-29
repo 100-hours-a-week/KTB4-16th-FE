@@ -1,6 +1,13 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HomeMap } from './HomeMap';
@@ -283,6 +290,83 @@ describe('HomeMap current location overlay', () => {
   });
 });
 
+describe('HomeMap mode history state', () => {
+  it.each([
+    { name: 'missing', state: undefined, expectedMode: 'popular' },
+    { name: 'mine', state: { mapMode: 'mine' }, expectedMode: 'mine' },
+    { name: 'popular', state: { mapMode: 'popular' }, expectedMode: 'popular' },
+    { name: 'invalid', state: { mapMode: 'unknown' }, expectedMode: 'popular' },
+  ])(
+    'initializes to $expectedMode when location state is $name',
+    async ({ state, expectedMode }) => {
+      renderHomeMap({ initialState: state });
+
+      const popularTab = screen.getByRole('button', { name: '🔥 인기 자물쇠' });
+      const mineTab = screen.getByRole('button', { name: '🔒 내 자물쇠 보기' });
+
+      expect(expectedMode === 'mine' ? mineTab : popularTab).toHaveClass('is-active');
+      expect(expectedMode === 'mine' ? popularTab : mineTab).not.toHaveClass('is-active');
+    },
+  );
+
+  it('replaces the current location state when either map mode changes', async () => {
+    const user = userEvent.setup();
+    renderHomeMap({ initialState: { source: 'existing', mapMode: 'popular' } });
+
+    await user.click(screen.getByRole('button', { name: '🔒 내 자물쇠 보기' }));
+
+    expect(screen.getByTestId('router-location-state')).toHaveTextContent(
+      '{"source":"existing","mapMode":"mine"}',
+    );
+    expect(screen.getByTestId('router-navigation-type')).toHaveTextContent('REPLACE');
+
+    await user.click(screen.getByRole('button', { name: '🔥 인기 자물쇠' }));
+
+    expect(screen.getByTestId('router-location-state')).toHaveTextContent(
+      '{"source":"existing","mapMode":"popular"}',
+    );
+    expect(screen.getByTestId('router-navigation-type')).toHaveTextContent('REPLACE');
+  });
+
+  it('restores mine after following a lock detail link and navigating back', async () => {
+    const user = userEvent.setup();
+    mocks.getMyPlaceRecords.mockResolvedValue({
+      records: [
+        {
+          recordId: 1356,
+          placeId: 22,
+          musicTrackId: 123,
+          title: 'REALLY REALLY',
+          artistName: 'WINNER',
+          albumImageUrl: null,
+          createdAt: '2026-09-26T11:30:43',
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<HomeMap />} />
+          <Route path="/records/:recordId" element={<DetailBackButton />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(mocks.markers).toHaveLength(2));
+    await user.click(screen.getByRole('button', { name: '🔒 내 자물쇠 보기' }));
+    await waitFor(() => expect(mocks.markers).toHaveLength(3));
+    act(() => mocks.triggerMarker(2));
+
+    await user.click(await screen.findByRole('link', { name: /REALLY REALLY/ }));
+    await user.click(screen.getByRole('button', { name: '자물쇠 상세 닫기' }));
+
+    expect(screen.getByRole('button', { name: '🔒 내 자물쇠 보기' })).toHaveClass('is-active');
+    expect(screen.getByRole('button', { name: '🔥 인기 자물쇠' })).not.toHaveClass('is-active');
+  });
+});
+
 describe('HomeMap popular music selection', () => {
   it('starts clustering at the initial map level so visually overlapping Places are selectable', async () => {
     renderHomeMap();
@@ -479,10 +563,39 @@ function currentLocationOverlay() {
 
 function renderHomeMap(props?: {
   onInitialCenterResolved?: (center: { latitude: number; longitude: number }) => void;
+  initialState?: unknown;
 }) {
+  const { initialState, ...homeMapProps } = props ?? {};
+  const initialEntry = initialState === undefined ? '/' : { pathname: '/', state: initialState };
+
   return render(
-    <MemoryRouter>
-      <HomeMap {...props} />
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <HomeMap {...homeMapProps} />
+      <RouterStateProbe />
     </MemoryRouter>,
+  );
+}
+
+function RouterStateProbe() {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+
+  return (
+    <>
+      <output data-testid="router-location-state">
+        {JSON.stringify(location.state) ?? 'null'}
+      </output>
+      <output data-testid="router-navigation-type">{navigationType}</output>
+    </>
+  );
+}
+
+function DetailBackButton() {
+  const navigate = useNavigate();
+
+  return (
+    <button type="button" aria-label="자물쇠 상세 닫기" onClick={() => navigate(-1)}>
+      닫기
+    </button>
   );
 }

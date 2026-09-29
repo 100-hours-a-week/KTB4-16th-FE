@@ -17,6 +17,15 @@ const defaultProps = {
 };
 
 describe('PopularTracksSheet', () => {
+  it('names the non-modal region, focuses close on open, and closes with Escape', () => {
+    render(<PopularTracksSheet {...defaultProps} />);
+
+    expect(screen.getByRole('region', { name: '선택 영역 인기 음악' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '인기 음악 목록 닫기' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(defaultProps.onClose).toHaveBeenCalledOnce();
+  });
+
   it('renders the API rank, title, artist, count, and total record count', () => {
     render(<PopularTracksSheet {...defaultProps} />);
 

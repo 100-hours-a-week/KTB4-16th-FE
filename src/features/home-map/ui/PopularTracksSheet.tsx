@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { PopularTracksResult } from '../api/getPopularTracks';
 
 import './popularTracksSheet.css';
@@ -22,10 +23,44 @@ export function PopularTracksSheet({
   onClose,
   onExited,
 }: Props) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const activeElement = document.activeElement;
+    const previousFocus =
+      activeElement instanceof HTMLElement && activeElement !== document.body
+        ? activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [isOpen]);
+
   return (
     <section
       className={`popular-tracks-sheet${isOpen ? ' is-open' : ''}`}
       aria-label="선택 영역 인기 음악"
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+      role="region"
       onClick={(event) => event.stopPropagation()}
       onTransitionEnd={(event) => {
         if (!isOpen && event.target === event.currentTarget && event.propertyName === 'transform') {
@@ -39,7 +74,12 @@ export function PopularTracksSheet({
           <h2>인기 음악</h2>
           <p>선택한 장소 {placeCount}곳</p>
         </div>
-        <button type="button" aria-label="인기 음악 목록 닫기" onClick={onClose}>
+        <button
+          ref={closeButtonRef}
+          type="button"
+          aria-label="인기 음악 목록 닫기"
+          onClick={onClose}
+        >
           ×
         </button>
       </div>

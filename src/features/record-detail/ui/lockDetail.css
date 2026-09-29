@@ -199,6 +199,7 @@
   font-size: 14px;
   font-style: italic;
   line-height: 1.65;
+  white-space: pre-line;
 }
 
 .lock-detail-comment .lock-detail-empty-comment {

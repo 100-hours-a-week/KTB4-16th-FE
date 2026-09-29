@@ -28,6 +28,40 @@ const record = {
 } satisfies MyPlaceRecord;
 
 describe('MyLocksSheet', () => {
+  it('names the non-modal region, focuses close on open, and supports Escape/restore', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <MemoryRouter>
+        <button type="button">지도 마커 열기</button>
+        <MyLocksSheet {...defaultProps} isOpen={false} onClose={onClose} records={[record]} />
+      </MemoryRouter>,
+    );
+    const opener = screen.getByRole('button', { name: '지도 마커 열기' });
+    opener.focus();
+
+    rerender(
+      <MemoryRouter>
+        <button type="button">지도 마커 열기</button>
+        <MyLocksSheet {...defaultProps} isOpen onClose={onClose} records={[record]} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('region', { name: '내 자물쇠 목록' })).toBeInTheDocument();
+    const closeButton = screen.getByRole('button', { name: '내 자물쇠 목록 닫기' });
+    expect(closeButton).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledOnce();
+
+    rerender(
+      <MemoryRouter>
+        <button type="button">지도 마커 열기</button>
+        <MyLocksSheet {...defaultProps} isOpen={false} onClose={onClose} records={[record]} />
+      </MemoryRouter>,
+    );
+    expect(opener).toHaveFocus();
+  });
+
   it('links a record row to its detail route and renders the album cover', async () => {
     const user = userEvent.setup();
     renderSheet([record]);

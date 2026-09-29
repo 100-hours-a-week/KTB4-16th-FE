@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { getMyMarkers } from '../api/getMyMarkers';
 import { getMyPlaceRecords, type MyPlaceRecord } from '../api/getMyPlaceRecords';
@@ -38,6 +38,21 @@ type HomeMapProps = {
   children?: ReactNode;
   onInitialCenterResolved?: (center: MapCenter) => void;
 };
+
+function getMapModeFromLocationState(state: unknown): MapMode {
+  if (typeof state !== 'object' || state === null || !('mapMode' in state)) {
+    return 'popular';
+  }
+
+  return state.mapMode === 'mine' || state.mapMode === 'popular' ? state.mapMode : 'popular';
+}
+
+function withMapModeInLocationState(state: unknown, mapMode: MapMode) {
+  return {
+    ...(typeof state === 'object' && state !== null ? state : {}),
+    mapMode,
+  };
+}
 
 const DEFAULT_CENTER: MapCenter = {
   latitude: 37.2002,
@@ -182,8 +197,11 @@ function createClusterPinBackground() {
 /** 홈의 지도 표시 기반과 목업의 지도 모드 선택 UI를 제공한다. */
 export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const popularModeButtonRef = useRef<HTMLButtonElement>(null);
+  const mineModeButtonRef = useRef<HTMLButtonElement>(null);
   const initialCenterPromiseRef = useRef<Promise<InitialMapLocation> | null>(null);
   const mapModeRef = useRef<MapMode>('popular');
   const refreshMarkersRef = useRef<(() => void) | null>(null);
@@ -196,7 +214,9 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   const myLocksRequestIdRef = useRef(0);
   const popularTracksRequestControllerRef = useRef<AbortController | null>(null);
   const popularTracksRequestIdRef = useRef(0);
-  const [mapMode, setMapMode] = useState<MapMode>('popular');
+  const [mapMode, setMapMode] = useState<MapMode>(() =>
+    getMapModeFromLocationState(location.state),
+  );
   const [mapLoadState, setMapLoadState] = useState<MapLoadState>('idle');
   const [markersLoadState, setMarkersLoadState] = useState<MarkersLoadState>('idle');
   const [selectedPlaceIds, setSelectedPlaceIds] = useState<number[]>([]);
@@ -691,6 +711,10 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       closePopularTracksSheet();
     }
 
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: withMapModeInLocationState(location.state, nextMapMode),
+    });
     setMapMode(nextMapMode);
   }
 
@@ -713,12 +737,14 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
   function finishClosingMyLocksSheet() {
     if (!isMyLocksSheetOpen) {
       setIsMyLocksSheetVisible(false);
+      (mapMode === 'popular' ? popularModeButtonRef : mineModeButtonRef).current?.focus();
     }
   }
 
   function finishClosingPopularTracksSheet() {
     if (!isPopularTracksSheetOpen) {
       setIsPopularTracksSheetVisible(false);
+      (mapMode === 'popular' ? popularModeButtonRef : mineModeButtonRef).current?.focus();
     }
   }
 
@@ -726,6 +752,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
     <section className="home-map-section" aria-label="자물쇠 지도">
       <div className="home-map-toggle" role="group" aria-label="지도 보기 모드">
         <button
+          ref={popularModeButtonRef}
           className={mapMode === 'popular' ? 'is-active is-popular' : ''}
           type="button"
           onClick={() => handleMapModeChange('popular')}
@@ -733,6 +760,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
           🔥 인기 자물쇠
         </button>
         <button
+          ref={mineModeButtonRef}
           className={mapMode === 'mine' ? 'is-active is-mine' : ''}
           type="button"
           onClick={() => handleMapModeChange('mine')}
