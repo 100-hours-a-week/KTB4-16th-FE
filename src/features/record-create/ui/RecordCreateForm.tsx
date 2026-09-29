@@ -73,6 +73,10 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasCurrentGpsLocation, setHasCurrentGpsLocation] = useState(false);
+  const missingRequiredItems: string[] = [];
+  if (!location) missingRequiredItems.push('위치 선택');
+  if (!uploadId) missingRequiredItems.push('사진 업로드');
+  if (!selectedMusic) missingRequiredItems.push('음악 선택');
 
   useEffect(() => {
     let isActive = true;
@@ -331,7 +335,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
           <span>최종 위치 기준 · 저장에는 자동 반영</span>
         </article>
       </div>
-      <section className="surface-card lock-create-card">
+      <section className="surface-card lock-create-card" aria-label="최종 위치 선택">
         <small>📍 최종 위치 *</small>
         <div className="lock-create-map-frame">
           <div className="lock-create-map" ref={mapContainerRef} />
@@ -362,6 +366,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
             </>
           )}
           <input
+            aria-label="사진 업로드"
             accept="image/jpeg,image/png,image/heic,image/webp"
             disabled={isUploading || isSubmitting}
             ref={photoInputRef}
@@ -433,13 +438,27 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
       <section className="surface-card lock-create-card">
         <small>✏️ 하고 싶은 말</small>
         <textarea
+          aria-label="하고 싶은 말"
+          aria-describedby="lock-create-comment-count"
           maxLength={80}
           placeholder="이 순간을 1~2문장으로 남겨보세요"
           value={comment}
           onChange={(event) => setComment(event.target.value)}
         />
-        <span className="lock-create-count">{comment.length} / 80</span>
+        <span className="lock-create-count" id="lock-create-comment-count">
+          {comment.length} / 80자
+        </span>
       </section>
+      <div
+        className="lock-create-required-hint-slot"
+        aria-hidden={missingRequiredItems.length === 0}
+      >
+        {missingRequiredItems.length > 0 ? (
+          <p className="lock-create-required-hint" aria-live="polite">
+            저장 전 필수 작성 항목 : {missingRequiredItems.join(', ')}
+          </p>
+        ) : null}
+      </div>
       <button
         className="lock-create-save"
         type="button"

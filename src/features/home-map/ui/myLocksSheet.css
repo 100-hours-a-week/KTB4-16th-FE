@@ -51,6 +51,11 @@
   font-size: 20px;
   line-height: 1;
 }
+.my-locks-sheet button:focus-visible,
+.my-locks-sheet a:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 42%);
+  outline-offset: 2px;
+}
 .my-locks-sheet-status {
   margin: 0;
   padding: 14px 0;

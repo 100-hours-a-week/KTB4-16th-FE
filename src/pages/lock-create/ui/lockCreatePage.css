@@ -109,6 +109,10 @@
   height: 1px;
   opacity: 0;
 }
+.lock-create-photo:focus-within {
+  outline: 3px solid rgb(122 92 190 / 48%);
+  outline-offset: 3px;
+}
 .lock-create-ai {
   width: 100%;
   margin-top: 3px;
@@ -206,6 +210,10 @@
   font: inherit;
   font-size: 12.5px;
 }
+.lock-create-card textarea:focus-visible {
+  border-color: #7a5cbe;
+  box-shadow: 0 0 0 3px rgb(122 92 190 / 20%);
+}
 .lock-create-count {
   text-align: right;
   color: #9a90b3;
@@ -219,6 +227,20 @@
   color: #fff;
   font-size: 13px;
   font-weight: 800;
+}
+.lock-create-required-hint {
+  margin: 0;
+  color: #e4674b;
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+}
+.lock-create-required-hint-slot {
+  display: flex;
+  height: 34px;
+  margin-bottom: 2px;
+  align-items: center;
+  justify-content: center;
 }
 .lock-create-save:disabled {
   cursor: default;
@@ -294,6 +316,10 @@
   font-size: 19px;
   line-height: 1;
   z-index: 3;
+}
+.lock-create-current-location:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 48%);
+  outline-offset: 3px;
 }
 .lock-create-gps-location {
   display: grid;

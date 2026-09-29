@@ -123,6 +123,71 @@ describe('RecordCreateForm', () => {
     expect(customOverlayOptions).toHaveLength(0);
   });
 
+  it('provides named location and photo controls for keyboard users', async () => {
+    setGeolocation((success) =>
+      success({
+        coords: { latitude: 37.5, longitude: 127.03 } as GeolocationCoordinates,
+        timestamp: 0,
+      } as GeolocationPosition),
+    );
+    renderForm();
+
+    expect(await screen.findByRole('region', { name: '최종 위치 선택' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '현재 위치로 이동' })).toBeInTheDocument();
+    expect(screen.getByLabelText('사진 업로드')).toHaveAttribute('type', 'file');
+    expect(screen.getByRole('textbox', { name: '하고 싶은 말' })).toHaveAttribute(
+      'aria-describedby',
+      'lock-create-comment-count',
+    );
+  });
+
+  it('shows the 80-character comment limit and prevents longer input', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const comment = screen.getByPlaceholderText('이 순간을 1~2문장으로 남겨보세요');
+    expect(comment).toHaveAttribute('maxLength', '80');
+    expect(comment).toHaveAttribute('aria-describedby', 'lock-create-comment-count');
+    expect(screen.getByText('0 / 80자')).toBeInTheDocument();
+
+    await user.type(comment, '가'.repeat(81));
+
+    expect(comment).toHaveValue('가'.repeat(80));
+    expect(screen.getByText('80 / 80자')).toBeInTheDocument();
+  });
+
+  it('lists only missing required inputs and hides the hint when all are ready', async () => {
+    const { container } = renderForm();
+
+    expect(screen.getByText(/저장 전 필수 작성 항목/)).toHaveTextContent(
+      '저장 전 필수 작성 항목 : 위치 선택, 사진 업로드, 음악 선택',
+    );
+    await screen.findByText('수원역');
+
+    expect(screen.getByText(/저장 전 필수 작성 항목/)).toHaveTextContent(
+      '저장 전 필수 작성 항목 : 사진 업로드, 음악 선택',
+    );
+    expect(screen.getByRole('button', { name: '🔒 자물쇠 저장하기' })).toBeDisabled();
+
+    const photoInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    await selectAndUploadPhoto(
+      photoInput,
+      new File(['photo'], 'memory.jpg', { type: 'image/jpeg' }),
+    );
+    expect(screen.getByText(/저장 전 필수 작성 항목/)).toHaveTextContent(
+      '저장 전 필수 작성 항목 : 음악 선택',
+    );
+
+    await completeRequiredInputs(container);
+
+    expect(screen.queryByText(/저장 전 필수 작성 항목/)).not.toBeInTheDocument();
+    expect(document.querySelector('.lock-create-required-hint-slot')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: '🔒 자물쇠 저장하기' })).toBeEnabled();
+  });
+
   it('shows a preview and uploads immediately after photo selection', async () => {
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');

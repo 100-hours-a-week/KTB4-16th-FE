@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { MyPlaceRecord } from '../api/getMyPlaceRecords';
 import { Link } from 'react-router';
 
@@ -27,10 +28,44 @@ export function MyLocksSheet({
   onClose,
   onExited,
 }: MyLocksSheetProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const activeElement = document.activeElement;
+    const previousFocus =
+      activeElement instanceof HTMLElement && activeElement !== document.body
+        ? activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [isOpen]);
+
   return (
     <section
       className={`my-locks-sheet${isOpen ? ' is-open' : ''}`}
       aria-label="내 자물쇠 목록"
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+      role="region"
       onClick={(event) => event.stopPropagation()}
       onTransitionEnd={(event) => {
         if (!isOpen && event.target === event.currentTarget && event.propertyName === 'transform') {
@@ -44,7 +79,12 @@ export function MyLocksSheet({
           <h2>내 자물쇠</h2>
           <p>선택한 장소 {placeCount}곳</p>
         </div>
-        <button type="button" aria-label="내 자물쇠 목록 닫기" onClick={onClose}>
+        <button
+          ref={closeButtonRef}
+          type="button"
+          aria-label="내 자물쇠 목록 닫기"
+          onClick={onClose}
+        >
           ×
         </button>
       </div>

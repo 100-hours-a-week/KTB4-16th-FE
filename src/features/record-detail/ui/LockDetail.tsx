@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { getMoodEmoji } from '../../../entities/record/model/mood';
 import type { LockDetailData } from '../model/lockDetail.types';
@@ -30,6 +30,9 @@ export function LockDetail({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
+  const cancelDeleteButtonRef = useRef<HTMLButtonElement>(null);
+  const deleteCompletedRef = useRef(false);
   const commentSaveInFlightRef = useRef(false);
   const deleteInFlightRef = useRef(false);
 
@@ -76,6 +79,7 @@ export function LockDetail({
 
     try {
       await onDelete();
+      deleteCompletedRef.current = true;
       setIsDeleteDialogOpen(false);
       onDeleted();
     } catch {
@@ -85,6 +89,31 @@ export function LockDetail({
       setIsDeleting(false);
     }
   };
+
+  useEffect(() => {
+    if (!isDeleteDialogOpen) return;
+
+    cancelDeleteButtonRef.current?.focus();
+    return () => {
+      if (!deleteCompletedRef.current && deleteTriggerRef.current?.isConnected) {
+        deleteTriggerRef.current.focus();
+      }
+    };
+  }, [isDeleteDialogOpen]);
+
+  useEffect(() => {
+    if (!isDeleteDialogOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isDeleting) {
+        event.preventDefault();
+        setIsDeleteDialogOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isDeleteDialogOpen, isDeleting]);
 
   return (
     <>
@@ -199,8 +228,10 @@ export function LockDetail({
               className="lock-detail-delete"
               type="button"
               disabled={isDeleting}
-              onClick={() => {
+              onClick={(event) => {
                 setDeleteError('');
+                deleteCompletedRef.current = false;
+                deleteTriggerRef.current = event.currentTarget;
                 setIsDeleteDialogOpen(true);
               }}
             >
@@ -218,6 +249,27 @@ export function LockDetail({
             aria-modal="true"
             className="lock-detail-dialog"
             role="dialog"
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              if (event.key !== 'Tab') return;
+
+              const buttons = Array.from(
+                event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+              );
+              const firstButton = buttons[0];
+              const lastButton = buttons[buttons.length - 1];
+
+              if (!firstButton || !lastButton) {
+                event.preventDefault();
+                event.currentTarget.focus();
+              } else if (event.shiftKey && document.activeElement === firstButton) {
+                event.preventDefault();
+                lastButton.focus();
+              } else if (!event.shiftKey && document.activeElement === lastButton) {
+                event.preventDefault();
+                firstButton.focus();
+              }
+            }}
           >
             <h2 id="lock-delete-title">이 자물쇠를 삭제하시겠어요?</h2>
             <p id="lock-delete-description">삭제한 자물쇠는 복구할 수 없어요.</p>
@@ -228,6 +280,7 @@ export function LockDetail({
             ) : null}
             <div>
               <button
+                ref={cancelDeleteButtonRef}
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setIsDeleteDialogOpen(false)}

@@ -16,6 +16,7 @@ import './homePlaylistSheet.css';
 type HomePlaylistSheetProps = {
   currentLocation: RecommendationCoordinates | null;
   isOpen: boolean;
+  onClose: () => void;
   onExited: () => void;
 };
 
@@ -58,7 +59,12 @@ function RecommendationTrackItem({ track }: { track: RecommendationTrack }) {
 }
 
 /** 인증 상태와 실제 위치를 사용해 추천 조회·생성 상태를 관리하는 홈 시트다. */
-export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePlaylistSheetProps) {
+export function HomePlaylistSheet({
+  currentLocation,
+  isOpen,
+  onClose,
+  onExited,
+}: HomePlaylistSheetProps) {
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const [playlist, setPlaylist] = useState<RecommendationPlaylist | null>(null);
   const [loadState, setLoadState] = useState<LoadState>(() =>
@@ -66,6 +72,36 @@ export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePla
   );
   const [failedOperation, setFailedOperation] = useState<FailedOperation>(null);
   const createControllerRef = useRef<AbortController | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const activeElement = document.activeElement;
+    const previousFocus =
+      activeElement instanceof HTMLElement && activeElement !== document.body
+        ? activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [isOpen]);
 
   /** 열린 시트에서만 현재 저장 추천을 조회하고 취소된 응답은 반영하지 않는다. */
   const loadPlaylist = useCallback(
@@ -152,6 +188,9 @@ export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePla
     <section
       className={`home-playlist-sheet${isOpen ? ' is-open' : ''}`}
       aria-label="AI 추천 플레이리스트"
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+      role="region"
       onClick={(event) => event.stopPropagation()}
       onTransitionEnd={(event) => {
         if (!isOpen && event.target === event.currentTarget && event.propertyName === 'transform') {
@@ -160,6 +199,15 @@ export function HomePlaylistSheet({ currentLocation, isOpen, onExited }: HomePla
       }}
     >
       <span className="home-playlist-handle" aria-hidden="true" />
+      <button
+        ref={closeButtonRef}
+        className="home-playlist-close"
+        type="button"
+        aria-label="플레이리스트 안내 닫기"
+        onClick={onClose}
+      >
+        ×
+      </button>
       <div className="home-playlist-title-row">
         <h2>AI 추천 플레이리스트</h2>
         <span>현재 추천</span>

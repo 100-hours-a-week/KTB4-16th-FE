@@ -17,6 +17,26 @@
   transform: translateY(0);
 }
 
+.home-playlist-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f3edfc;
+  color: #66539b;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.home-playlist-close:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 40%);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-playlist-sheet {
     transition-duration: 0.01ms;
