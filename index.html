@@ -2,6 +2,38 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- Google Analytics: 페이지 방문 이벤트를 G-HF5GWRDZS7로 전송 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HF5GWRDZS7"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+
+      // Google Analytics 명령을 dataLayer에 전달한다.
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+
+      gtag('js', new Date());
+      gtag('config', 'G-HF5GWRDZS7');
+    </script>
+
+    <!-- Microsoft Clarity: 사용자 행동 분석을 ypptowttqb 프로젝트로 전송 -->
+    <script type="text/javascript">
+      // Clarity 명령 큐와 비동기 로더를 초기화한다.
+      (function (c, l, a, r, i, t, y) {
+        c[a] =
+          c[a] ||
+          function () {
+            (c[a].q = c[a].q || []).push(arguments);
+          };
+        t = l.createElement(r);
+        t.async = 1;
+        t.src = 'https://www.clarity.ms/tag/' + i;
+        y = l.getElementsByTagName(r)[0];
+        y.parentNode.insertBefore(t, y);
+      })(window, document, 'clarity', 'script', 'ypptowttqb');
+    </script>
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="음악과 장소로 추억을 기록하는 MULO" />
     <title>MULO</title>
