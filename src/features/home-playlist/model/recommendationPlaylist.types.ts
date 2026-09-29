@@ -9,6 +9,7 @@ export type RecommendationTrack = {
   musicTrackId: number;
   title: string;
   artistName: string;
+  albumImageUrl: string;
   externalUrl: string;
 };
 

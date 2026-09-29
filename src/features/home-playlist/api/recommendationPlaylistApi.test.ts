@@ -16,6 +16,7 @@ const playlist = {
       musicTrackId: 3,
       title: '비 오는 날엔',
       artistName: '헤이즈',
+      albumImageUrl: 'https://i.scdn.co/image/example',
       externalUrl: 'https://open.spotify.com/track/example',
     },
   ],
