@@ -128,7 +128,7 @@ jobs:
                     },
                     {
                       "name": "브랜치",
-                      "value": ${{ toJSON(github.ref_name) }},
+                      "value": ${{ toJSON(github.ref_name) }}
                     }
                   ]
                 }
