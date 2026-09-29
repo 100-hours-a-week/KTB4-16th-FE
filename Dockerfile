@@ -38,8 +38,11 @@ RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
 FROM node:${NODE_VERSION} AS runner
  
 # Node.js가 프로덕션 모드로 실행되도록 한다
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    TZ=Asia/Seoul
  
+RUN apk add --no-cache tzdata
+
 # 작업 디렉토리 설정
 WORKDIR /app
  
