@@ -15,13 +15,17 @@ import {
   getPhotoMusicRecommendations,
   type PhotoMusicRecommendation,
 } from '../api/getPhotoMusicRecommendations';
+import { getUploadSignedUrl } from '../api/getUploadSignedUrl';
 import { uploadPhoto } from '../api/uploadPhoto';
 import type { RecordLocation, SelectedMusic } from '../model/recordCreate.types';
 import { PhotoMusicRecommendationModal } from './PhotoMusicRecommendationModal';
 
 const DEFAULT_LOCATION = { latitude: 37.2002, longitude: 127.098 };
-const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/webp']);
+const HEIC_IMAGE_TYPE = 'image/heic';
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', HEIC_IMAGE_TYPE, 'image/webp']);
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
+type PhotoPreview = { kind: 'local' | 'signed'; url: string };
 
 type Props = {
   onCoordinatesChange: (coordinates: { latitude: number; longitude: number }) => void;
@@ -56,7 +60,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const [location, setLocation] = useState<RecordLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<PhotoPreview | null>(null);
   const [uploadId, setUploadId] = useState<number | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -189,16 +193,14 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     };
   }, [onCoordinatesChange]);
 
-  useEffect(
-    () => () => {
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
-    },
-    [photoPreview],
-  );
+  useEffect(() => {
+    if (photoPreview?.kind !== 'local') return;
+    return () => URL.revokeObjectURL(photoPreview.url);
+  }, [photoPreview]);
 
   function selectPhoto(file: File | undefined) {
     setPhotoError(null);
-    if (!file || isUploading || isSubmitting) return;
+    if (!file || isSubmitting) return;
     if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
       setPhotoError('JPG, PNG, HEIC, WebP 사진만 선택할 수 있습니다.');
       return;
@@ -217,7 +219,9 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     setRecommendationError(null);
     setUploadId(null);
     setPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    setPhotoPreview(
+      file.type === HEIC_IMAGE_TYPE ? null : { kind: 'local', url: URL.createObjectURL(file) },
+    );
     void uploadSelectedPhoto(file, selectionId);
   }
 
@@ -236,8 +240,14 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     setPhotoError(null);
     try {
       const nextUploadId = await uploadPhoto(selectedPhoto, fetchAuthenticatedJson);
-      if (selectionId === photoSelectionIdRef.current) {
-        setUploadId(nextUploadId);
+      if (selectionId !== photoSelectionIdRef.current) return;
+      setUploadId(nextUploadId);
+
+      if (selectedPhoto.type === HEIC_IMAGE_TYPE) {
+        const signedUrl = await getUploadSignedUrl(nextUploadId, fetchAuthenticatedJson);
+        if (selectionId === photoSelectionIdRef.current) {
+          setPhotoPreview({ kind: 'signed', url: signedUrl });
+        }
       }
     } catch (error) {
       if (selectionId === photoSelectionIdRef.current) {
@@ -359,7 +369,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         <small>🖼️ 사진 *</small>
         <label className="lock-create-photo">
           {photoPreview ? (
-            <img alt="선택한 사진 미리보기" src={photoPreview} />
+            <img alt="선택한 사진 미리보기" src={photoPreview.url} />
           ) : (
             <>
               <span aria-hidden="true">▧</span>사진 추가하기
@@ -368,7 +378,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
           <input
             aria-label="사진 업로드"
             accept="image/jpeg,image/png,image/heic,image/webp"
-            disabled={isUploading || isSubmitting}
+            disabled={isSubmitting}
             ref={photoInputRef}
             type="file"
             onChange={(event) => {

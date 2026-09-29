@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   createRecord: vi.fn(),
   loadKakaoMapSdk: vi.fn(),
   uploadPhoto: vi.fn(),
+  getUploadSignedUrl: vi.fn(),
   getPhotoMusicRecommendations: vi.fn(),
 }));
 
@@ -23,6 +24,7 @@ vi.mock('../../home-map/lib/kakaoMap', () => ({ loadKakaoMapSdk: mocks.loadKakao
 vi.mock('../../music-search/api/musicSearchApi', () => ({ searchMusic: vi.fn() }));
 vi.mock('../api/createRecord', () => ({ createRecord: mocks.createRecord }));
 vi.mock('../api/uploadPhoto', () => ({ uploadPhoto: mocks.uploadPhoto }));
+vi.mock('../api/getUploadSignedUrl', () => ({ getUploadSignedUrl: mocks.getUploadSignedUrl }));
 vi.mock('../api/getPhotoMusicRecommendations', () => ({
   getPhotoMusicRecommendations: mocks.getPhotoMusicRecommendations,
 }));
@@ -65,6 +67,7 @@ beforeEach(() => {
   });
   mocks.loadKakaoMapSdk.mockResolvedValue(createKakaoMaps());
   mocks.uploadPhoto.mockResolvedValue(77);
+  mocks.getUploadSignedUrl.mockResolvedValue('https://storage.example/photo.jpg?signature=temp');
   mocks.getPhotoMusicRecommendations.mockResolvedValue([selectedMusic]);
   vi.mocked(searchMusic).mockResolvedValue([{ provider: 'SPOTIFY', ...selectedMusic }]);
 });
@@ -204,6 +207,82 @@ describe('RecordCreateForm', () => {
     expect(mocks.uploadPhoto).toHaveBeenCalledWith(photo, expect.any(Function));
     expect(screen.queryByRole('button', { name: '사진 업로드하기' })).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '사진 바꾸기' })).toBeEnabled();
+  });
+
+  it.each([
+    ['JPEG', 'photo.jpg', 'image/jpeg'],
+    ['JPG', 'photo.jpeg', 'image/jpeg'],
+    ['PNG', 'photo.png', 'image/png'],
+    ['WebP', 'photo.webp', 'image/webp'],
+  ])('%s keeps the local Blob preview and does not request a Signed URL', async (_, name, type) => {
+    const { container, unmount } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    fireEvent.change(input as HTMLInputElement, {
+      target: { files: [new File(['photo'], name, { type })] },
+    });
+
+    expect(await screen.findByRole('img', { name: '선택한 사진 미리보기' })).toHaveAttribute(
+      'src',
+      'blob:photo-preview',
+    );
+    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    expect(mocks.getUploadSignedUrl).not.toHaveBeenCalled();
+    unmount();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:photo-preview');
+  });
+
+  it('does not preview the raw HEIC Blob and displays the server JPEG Signed URL after upload', async () => {
+    let resolveSignedUrl: ((url: string) => void) | undefined;
+    mocks.getUploadSignedUrl.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveSignedUrl = resolve;
+        }),
+    );
+    const { container, unmount } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    fireEvent.change(input as HTMLInputElement, {
+      target: { files: [new File(['heic'], 'photo.heic', { type: 'image/heic' })] },
+    });
+
+    expect(screen.queryByRole('img', { name: '선택한 사진 미리보기' })).not.toBeInTheDocument();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(mocks.uploadPhoto).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(mocks.getUploadSignedUrl).toHaveBeenCalledWith(77, expect.any(Function)),
+    );
+    expect(screen.queryByRole('img', { name: '선택한 사진 미리보기' })).not.toBeInTheDocument();
+
+    resolveSignedUrl?.('https://storage.example/converted-photo.jpg?signature=temp');
+    expect(await screen.findByRole('img', { name: '선택한 사진 미리보기' })).toHaveAttribute(
+      'src',
+      'https://storage.example/converted-photo.jpg?signature=temp',
+    );
+    expect(mocks.uploadPhoto).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'photo.heic' }),
+      expect.any(Function),
+    );
+    unmount();
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('keeps a successful HEIC upload usable when Signed URL preview lookup fails', async () => {
+    mocks.getUploadSignedUrl.mockRejectedValueOnce(
+      new Error('사진 미리보기 URL을 가져오지 못했습니다.'),
+    );
+    const { container } = renderForm();
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    fireEvent.change(input as HTMLInputElement, {
+      target: { files: [new File(['heic'], 'photo.heic', { type: 'image/heic' })] },
+    });
+
+    expect(await screen.findByText('사진 미리보기 URL을 가져오지 못했습니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: '선택한 사진 미리보기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '✨ AI 음악 추천받기' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '✨ AI 음악 추천받기' }));
+    await waitFor(() =>
+      expect(mocks.getPhotoMusicRecommendations).toHaveBeenCalledWith(77, expect.any(Function)),
+    );
   });
 
   it('requests photo music recommendations only after an uploaded photo and selects one through selectedMusic', async () => {
@@ -373,30 +452,53 @@ describe('RecordCreateForm', () => {
     expect(screen.getByRole('button', { name: '🔒 자물쇠 저장하기' })).toBeDisabled();
   });
 
-  it('blocks another selection while a photo upload is pending', async () => {
-    let resolveUpload: ((uploadId: number) => void) | undefined;
-    mocks.uploadPhoto.mockImplementationOnce(
-      () =>
-        new Promise<number>((resolve) => {
-          resolveUpload = resolve;
-        }),
-    );
+  it('keeps only the newest photo preview when an earlier HEIC Signed URL resolves late', async () => {
+    let resolveFirstSignedUrl: ((url: string) => void) | undefined;
+    let resolveSecondSignedUrl: ((url: string) => void) | undefined;
+    mocks.uploadPhoto.mockResolvedValueOnce(77).mockResolvedValueOnce(88);
+    mocks.getUploadSignedUrl
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveFirstSignedUrl = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveSecondSignedUrl = resolve;
+          }),
+      );
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
 
     fireEvent.change(input as HTMLInputElement, {
-      target: { files: [new File(['first'], 'first.jpg', { type: 'image/jpeg' })] },
+      target: { files: [new File(['first'], 'first.heic', { type: 'image/heic' })] },
     });
-
-    expect(screen.getByRole('button', { name: '사진 업로드 중…' })).toBeDisabled();
-    expect(input).toBeDisabled();
+    await waitFor(() =>
+      expect(mocks.getUploadSignedUrl).toHaveBeenCalledWith(77, expect.any(Function)),
+    );
     fireEvent.change(input as HTMLInputElement, {
-      target: { files: [new File(['second'], 'second.jpg', { type: 'image/jpeg' })] },
+      target: { files: [new File(['second'], 'second.heic', { type: 'image/heic' })] },
     });
-    expect(mocks.uploadPhoto).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(mocks.getUploadSignedUrl).toHaveBeenCalledWith(88, expect.any(Function)),
+    );
 
-    resolveUpload?.(77);
-    expect(await screen.findByRole('button', { name: '사진 바꾸기' })).toBeEnabled();
+    resolveSecondSignedUrl?.('https://storage.example/second.jpg?signature=temp');
+    expect(await screen.findByRole('img', { name: '선택한 사진 미리보기' })).toHaveAttribute(
+      'src',
+      'https://storage.example/second.jpg?signature=temp',
+    );
+
+    resolveFirstSignedUrl?.('https://storage.example/first.jpg?signature=temp');
+    await waitFor(() =>
+      expect(screen.getByRole('img', { name: '선택한 사진 미리보기' })).toHaveAttribute(
+        'src',
+        'https://storage.example/second.jpg?signature=temp',
+      ),
+    );
+    expect(input).not.toBeDisabled();
   });
 
   it('searches exactly once when the search form is submitted with Enter', async () => {
