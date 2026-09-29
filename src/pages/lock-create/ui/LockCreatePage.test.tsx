@@ -24,12 +24,12 @@ describe('LockCreatePage', () => {
     const comment = screen.getByPlaceholderText('이 순간을 1~2문장으로 남겨보세요');
 
     await user.type(comment, '안녕');
-    expect(screen.getByText('2 / 80')).toBeInTheDocument();
+    expect(screen.getByText('2 / 80자')).toBeInTheDocument();
 
     await user.clear(comment);
     await user.type(comment, 'a'.repeat(81));
     expect(comment).toHaveValue('a'.repeat(80));
-    expect(screen.getByText('80 / 80')).toBeInTheDocument();
+    expect(screen.getByText('80 / 80자')).toBeInTheDocument();
   });
 
   it('changes the mood emoji at the mockup score boundaries', async () => {

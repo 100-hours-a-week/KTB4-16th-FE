@@ -66,7 +66,7 @@ X-XSRF-TOKEN: <cookie-value>
 
 - 로그인 성공 응답의 `accessToken`은 `SessionProvider`의 React 메모리 상태에만 저장한다.
 - 회원가입 성공 시 `/login`으로 이동하고 완료 안내를 route state로 전달한다.
-- 브라우저 새로고침으로 Provider가 다시 생성되면 access token은 사라진다. 공개 홈은 그대로 접근할 수 있고, 이후 보호 API의 401 응답에서 refresh Cookie를 사용해 세션을 복구할 수 있다.
+- 브라우저 새로고침으로 Provider가 다시 생성되면 access token은 사라진다. Provider는 앱 시작 시 refresh Cookie로 access token을 한 번 복원하며, 복원이 끝날 때까지 보호 라우트의 로그인 리다이렉트를 보류한다.
 - 보호 API는 `useSession()`이 제공하는 `fetchAuthenticatedJson`을 사용한다. 이 Context 함수는 `src/shared/api/authenticatedFetchJson.ts`의 공통 클라이언트를 사용하며 현재 메모리 access token을 `Authorization: Bearer <accessToken>` 헤더로 추가한다.
 - 로그인·회원가입·refresh와 공개 API는 `fetchAuthenticatedJson`을 사용하지 않는다.
 

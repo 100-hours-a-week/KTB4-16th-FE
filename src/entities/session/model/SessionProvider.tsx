@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useState,
   type Dispatch,
@@ -51,16 +52,36 @@ function createSessionController(
 export function SessionProvider({ children }: PropsWithChildren) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [sessionController] = useState(() => createSessionController(setAccessToken));
+  const [isSessionRestoring, setIsSessionRestoring] = useState(true);
+
+  /** 앱 시작 시 HttpOnly Refresh Cookie로 access token을 복원하고 라우팅 대기를 끝낸다. */
+  useEffect(() => {
+    let isActive = true;
+
+    void sessionController.authenticatedApi
+      .restoreSession()
+      .catch(() => undefined)
+      .finally(() => {
+        if (isActive) {
+          setIsSessionRestoring(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [sessionController]);
 
   const value = useMemo<SessionContextValue>(
     () => ({
       accessToken,
       isAuthenticated: accessToken !== null,
+      isSessionRestoring,
       setAccessToken: sessionController.updateAccessToken,
       clearSession: sessionController.clearSession,
       fetchAuthenticatedJson: sessionController.authenticatedApi.fetchJson,
     }),
-    [accessToken, sessionController],
+    [accessToken, isSessionRestoring, sessionController],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;

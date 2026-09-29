@@ -38,6 +38,7 @@ function renderSheet(props?: Partial<Parameters<typeof HomePlaylistSheet>[0]>) {
       <HomePlaylistSheet
         currentLocation={{ latitude: 37.5, longitude: 127.03 }}
         isOpen
+        onClose={vi.fn()}
         onExited={vi.fn()}
         {...props}
       />
@@ -172,5 +173,45 @@ describe('HomePlaylistSheet', () => {
     });
 
     expect(onExited).toHaveBeenCalledOnce();
+  });
+
+  it('provides a named non-modal region, close control, and Escape handling', () => {
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <MemoryRouter>
+        <button type="button">플레이리스트 열기</button>
+        <HomePlaylistSheet
+          currentLocation={null}
+          isOpen={false}
+          onClose={onClose}
+          onExited={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    const opener = screen.getByRole('button', { name: '플레이리스트 열기' });
+    opener.focus();
+    rerender(
+      <MemoryRouter>
+        <button type="button">플레이리스트 열기</button>
+        <HomePlaylistSheet currentLocation={null} isOpen onClose={onClose} onExited={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('region', { name: 'AI 추천 플레이리스트' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '플레이리스트 안내 닫기' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+    rerender(
+      <MemoryRouter>
+        <button type="button">플레이리스트 열기</button>
+        <HomePlaylistSheet
+          currentLocation={null}
+          isOpen={false}
+          onClose={onClose}
+          onExited={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    expect(opener).toHaveFocus();
   });
 });

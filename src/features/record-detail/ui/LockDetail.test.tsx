@@ -60,6 +60,14 @@ describe('LockDetail', () => {
     expect(screen.queryByText('10점')).not.toBeInTheDocument();
   });
 
+  it('preserves line breaks in the displayed comment', () => {
+    const multilineComment = '첫 번째 줄\n두 번째 줄\n세 번째 줄';
+    renderDetail({ ...detail, comment: multilineComment });
+
+    const commentElement = screen.getByText(/첫 번째 줄/);
+    expect(commentElement.textContent).toBe(`“${multilineComment}”`);
+  });
+
   it('edits a comment locally only after its save callback succeeds', async () => {
     const user = userEvent.setup();
     renderDetail();
@@ -140,6 +148,30 @@ describe('LockDetail', () => {
     expect(onDelete).toHaveBeenCalledOnce();
     expect(onDeleted).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('focuses and traps the delete dialog, closes with Escape, and restores focus', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+    const trigger = screen.getByRole('button', { name: '자물쇠 삭제' });
+
+    await user.click(trigger);
+
+    const dialog = screen.getByRole('dialog', { name: '이 자물쇠를 삭제하시겠어요?' });
+    const cancelButton = screen.getByRole('button', { name: '취소' });
+    const deleteButton = screen.getByRole('button', { name: '삭제' });
+    expect(cancelButton).toHaveFocus();
+
+    fireEvent.keyDown(cancelButton, { key: 'Tab', shiftKey: true });
+    expect(deleteButton).toHaveFocus();
+    fireEvent.keyDown(deleteButton, { key: 'Tab' });
+    expect(cancelButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(dialog).not.toBeInTheDocument();
   });
 
   it('keeps the detail dialog open and allows retrying after delete failure', async () => {
