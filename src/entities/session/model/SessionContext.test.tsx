@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useEffect, useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { StrictMode, useEffect, useState } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { env } from '../../../shared/config/env';
 import { SessionProvider } from './SessionProvider';
@@ -9,15 +9,25 @@ import { useSession } from './useSession';
 
 const createApiUrl = (path: string) => `${env.apiBaseUrl}${path}`;
 
+afterEach(() => {
+  document.cookie = 'XSRF-TOKEN=; Max-Age=0; Path=/';
+});
+
 /** 세션 공개 인터페이스를 사용자 동작으로 관찰한다. */
 function SessionProbe() {
-  const { accessToken, isAuthenticated, setAccessToken, clearSession, fetchAuthenticatedJson } =
-    useSession();
+  const {
+    accessToken,
+    isAuthenticated,
+    isSessionRestoring,
+    setAccessToken,
+    clearSession,
+    fetchAuthenticatedJson,
+  } = useSession();
 
   return (
     <>
       <output>
-        {accessToken ?? 'empty'}:{String(isAuthenticated)}
+        {accessToken ?? 'empty'}:{String(isAuthenticated)}:{String(isSessionRestoring)}
       </output>
       <button type="button" onClick={() => setAccessToken('token')}>
         login
@@ -25,7 +35,10 @@ function SessionProbe() {
       <button type="button" onClick={clearSession}>
         logout
       </button>
-      <button type="button" onClick={() => void fetchAuthenticatedJson('/users/me')}>
+      <button
+        type="button"
+        onClick={() => void fetchAuthenticatedJson('/users/me').catch(() => undefined)}
+      >
         보호 요청
       </button>
     </>
@@ -48,8 +61,72 @@ function ProtectedRequestOnMount() {
 }
 
 describe('SessionProvider', () => {
+  it('restores the in-memory access token from the refresh Cookie when it mounts', async () => {
+    document.cookie = 'XSRF-TOKEN=csrf-token';
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{"accessToken":"restored-token"}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <SessionProvider>
+        <SessionProbe />
+      </SessionProvider>,
+    );
+
+    expect(await screen.findByText('restored-token:true:false')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenNthCalledWith(1, createApiUrl('/csrf'), { credentials: 'include' });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, createApiUrl('/auth/refresh'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-XSRF-TOKEN': 'csrf-token' },
+    });
+  });
+
+  it('finishes restoring as anonymous when refresh fails', async () => {
+    document.cookie = 'XSRF-TOKEN=csrf-token';
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response('{"message":"유효한 Refresh Token이 없습니다."}', { status: 401 }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <SessionProvider>
+        <SessionProbe />
+      </SessionProvider>,
+    );
+
+    expect(await screen.findByText('empty:false:false')).toBeInTheDocument();
+  });
+
+  it('shares one refresh request when StrictMode restarts the mount effect', async () => {
+    document.cookie = 'XSRF-TOKEN=csrf-token';
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{"accessToken":"restored-token"}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <StrictMode>
+        <SessionProvider>
+          <SessionProbe />
+        </SessionProvider>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText('restored-token:true:false')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps token only for the provider lifetime without persistent storage', async () => {
     const storageSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
     const user = userEvent.setup();
     const view = render(
       <SessionProvider>
@@ -57,11 +134,11 @@ describe('SessionProvider', () => {
       </SessionProvider>,
     );
 
-    expect(screen.getByText('empty:false')).toBeInTheDocument();
+    expect(await screen.findByText('empty:false:false')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'login' }));
-    expect(screen.getByText('token:true')).toBeInTheDocument();
+    expect(screen.getByText('token:true:false')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'logout' }));
-    expect(screen.getByText('empty:false')).toBeInTheDocument();
+    expect(screen.getByText('empty:false:false')).toBeInTheDocument();
 
     view.unmount();
     render(
@@ -69,7 +146,7 @@ describe('SessionProvider', () => {
         <SessionProbe />
       </SessionProvider>,
     );
-    expect(screen.getByText('empty:false')).toBeInTheDocument();
+    expect(await screen.findByText('empty:false:false')).toBeInTheDocument();
     expect(storageSpy).not.toHaveBeenCalled();
   });
 
@@ -89,6 +166,7 @@ describe('SessionProvider', () => {
       </SessionProvider>,
     );
 
+    await screen.findByText('empty:false:false');
     await user.click(screen.getByRole('button', { name: 'login' }));
 
     await user.click(screen.getByRole('button', { name: '보호 요청' }));

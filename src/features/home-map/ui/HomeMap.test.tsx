@@ -245,13 +245,29 @@ describe('HomeMap current location overlay', () => {
   it('does not show a current location overlay when geolocation permission is denied', async () => {
     useFailedGeolocation(1);
     const onInitialCenterResolved = vi.fn();
+    const onCurrentLocationResolved = vi.fn();
 
-    renderHomeMap({ onInitialCenterResolved });
+    renderHomeMap({ onInitialCenterResolved, onCurrentLocationResolved });
 
     await waitFor(() => expect(mocks.mapOptions).toHaveLength(1));
 
     expect(currentLocationOverlay()).toBeUndefined();
     expect(onInitialCenterResolved).toHaveBeenCalledWith({ latitude: 37.2002, longitude: 127.098 });
+    expect(onCurrentLocationResolved).toHaveBeenCalledWith(null);
+  });
+
+  it('전달 콜백에는 fallback 중심이 아닌 실제 geolocation 좌표만 전달한다', async () => {
+    useSuccessfulGeolocation(37.501, 127.031);
+    const onCurrentLocationResolved = vi.fn();
+
+    renderHomeMap({ onCurrentLocationResolved });
+
+    await waitFor(() =>
+      expect(onCurrentLocationResolved).toHaveBeenCalledWith({
+        latitude: 37.501,
+        longitude: 127.031,
+      }),
+    );
   });
 
   it('does not show a current location overlay when geolocation fails', async () => {
@@ -564,6 +580,7 @@ function currentLocationOverlay() {
 function renderHomeMap(props?: {
   onInitialCenterResolved?: (center: { latitude: number; longitude: number }) => void;
   initialState?: unknown;
+  onCurrentLocationResolved?: (location: { latitude: number; longitude: number } | null) => void;
 }) {
   const { initialState, ...homeMapProps } = props ?? {};
   const initialEntry = initialState === undefined ? '/' : { pathname: '/', state: initialState };

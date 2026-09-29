@@ -37,6 +37,7 @@ type InitialMapLocation = {
 type HomeMapProps = {
   children?: ReactNode;
   onInitialCenterResolved?: (center: MapCenter) => void;
+  onCurrentLocationResolved?: (location: MapCenter | null) => void;
 };
 
 function getMapModeFromLocationState(state: unknown): MapMode {
@@ -195,7 +196,11 @@ function createClusterPinBackground() {
 }
 
 /** 홈의 지도 표시 기반과 목업의 지도 모드 선택 UI를 제공한다. */
-export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
+export function HomeMap({
+  children,
+  onInitialCenterResolved,
+  onCurrentLocationResolved,
+}: HomeMapProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
@@ -455,6 +460,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         }
 
         onInitialCenterResolved?.(initialCenter);
+        onCurrentLocationResolved?.(currentLocation);
 
         const kakao = await loadKakaoMapSdk(env.kakaoMapAppKey);
 
@@ -695,7 +701,7 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
       removeMapMarkers();
       clearMapSelectionRef.current = () => undefined;
     };
-  }, [fetchAuthenticatedJson, onInitialCenterResolved]);
+  }, [fetchAuthenticatedJson, onCurrentLocationResolved, onInitialCenterResolved]);
 
   const isMissingMapAppKey = !env.kakaoMapAppKey;
 
@@ -774,8 +780,8 @@ export function HomeMap({ children, onInitialCenterResolved }: HomeMapProps) {
         {isMissingMapAppKey ? (
           <div className="home-map-notice" role="status">
             <span aria-hidden="true">🗺️</span>
-            <strong>카카오맵 기능은 구현 예정입니다</strong>
-            <p>`.env`에 VITE_KAKAO_MAP_APP_KEY를 설정하면 지도가 표시됩니다.</p>
+            <strong>카카오맵을 불러오지 못했습니다</strong>
+            <p>잠시 후 다시 시도해주세요.</p>
           </div>
         ) : null}
         {mapLoadState === 'error' ? (

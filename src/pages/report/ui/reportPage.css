@@ -1,23 +1,24 @@
-.report-year {
+.report-year-tabs {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 14px;
   margin: 4px 0 16px;
 }
-.report-year button {
-  width: 28px;
-  height: 28px;
+.report-year-tabs button {
+  min-width: 76px;
+  min-height: 32px;
   border: 1px solid #dccbf0;
-  border-radius: 50%;
+  border-radius: 999px;
   background: #fff;
   color: #332b4a;
-  font-size: 20px;
+  font-size: 13px;
   line-height: 1;
 }
-.report-year strong {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 18px;
+.report-year-tabs button.is-selected {
+  border-color: #a78bde;
+  background: #efe7fa;
+  font-weight: 700;
 }
 .report-month-grid {
   display: grid;
@@ -55,6 +56,30 @@
 .report-month small {
   color: #6c6285;
   font-size: 9.5px;
+}
+.report-empty-state,
+.report-error-state {
+  margin: 24px 0;
+  padding: 20px 18px;
+  border: 1px solid #ece3f7;
+  border-radius: 18px;
+  background: #fff;
+  color: #6c6285;
+  text-align: center;
+}
+.report-empty-state a {
+  display: inline-block;
+  margin-top: 8px;
+  color: #7a5cbe;
+  font-weight: 700;
+}
+.report-error-state button {
+  margin-top: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #332b4a;
+  color: #fff;
+  font-weight: 700;
 }
 .report-recap {
   margin-bottom: 14px;

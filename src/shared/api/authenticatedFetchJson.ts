@@ -14,6 +14,7 @@ export interface AuthenticatedApiAdapter {
 
 export interface AuthenticatedApiClient {
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
+  restoreSession: () => Promise<void>;
 }
 
 /** 주입된 메모리 세션을 사용하는 보호 API 클라이언트를 생성한다. */
@@ -76,7 +77,7 @@ export function createAuthenticatedApi(adapter: AuthenticatedApiAdapter): Authen
     }
   }
 
-  return { fetchJson: fetchAuthenticatedJson };
+  return { fetchJson: fetchAuthenticatedJson, restoreSession: refreshAccessToken };
 }
 
 /** 기존 요청 옵션을 보존하면서 현재 access token만 Authorization 헤더에 추가한다. */

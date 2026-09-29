@@ -76,6 +76,19 @@
   padding: 8px 0;
   border-bottom: 1px solid #ece3f7;
 }
+.home-playlist-track-list {
+  /* 최대 10곡이 와도 하단의 새 추천 버튼을 가리지 않도록 목록 영역만 스크롤한다. */
+  max-height: min(232px, 38vh);
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0;
+  list-style: none;
+}
+.home-playlist-track-list a {
+  color: inherit;
+  text-decoration: none;
+}
 .home-playlist-track:last-child {
   border-bottom: 0;
 }
@@ -107,4 +120,22 @@
   color: #fff;
   font-size: 12.5px;
   font-weight: 800;
+}
+.home-playlist-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+.home-playlist-notice {
+  margin: 8px 0;
+  color: #6c6285;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+.home-playlist-notice button,
+.home-playlist-notice a {
+  display: inline-block;
+  margin-top: 6px;
+  color: #7a5cbe;
+  font-weight: 700;
 }

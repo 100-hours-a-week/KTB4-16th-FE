@@ -10,6 +10,7 @@ import './homePage.css';
 /** 목업의 홈 진입 화면을 기능 UI로 조립한다. */
 export function HomePage() {
   const [initialMapCenter, setInitialMapCenter] = useState<MapCenter | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<MapCenter | null>(null);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [isPlaylistVisible, setIsPlaylistVisible] = useState(false);
   const playlistTriggerRef = useRef<HTMLButtonElement>(null);
@@ -90,9 +91,13 @@ export function HomePage() {
           </button>
         </section>
 
-        <HomeMap onInitialCenterResolved={setInitialMapCenter}>
+        <HomeMap
+          onCurrentLocationResolved={setCurrentLocation}
+          onInitialCenterResolved={setInitialMapCenter}
+        >
           {isPlaylistVisible ? (
             <HomePlaylistSheet
+              currentLocation={currentLocation}
               isOpen={isPlaylistOpen}
               onClose={closePlaylist}
               onExited={finishClosingPlaylist}
