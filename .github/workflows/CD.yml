@@ -6,6 +6,8 @@ on:
   workflow_run:
     workflows: ["Frontend CI main"]
     types: [completed]
+    # main push로 제한한다.
+    branches: [main]
   workflow_dispatch:
 
 env:
