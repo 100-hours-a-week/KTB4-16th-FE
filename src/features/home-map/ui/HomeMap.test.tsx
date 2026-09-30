@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => {
   const customOverlayOptions: Array<Record<string, unknown>> = [];
   const customOverlayContainers: HTMLElement[] = [];
   const mapOptions: Array<Record<string, unknown>> = [];
+  const setCenter = vi.fn();
+  const setOverlayPosition = vi.fn();
 
   const addListener = (target: object, eventName: string, listener: Listener) => {
     const targetListeners = listeners.get(target) ?? new Map<string, Listener>();
@@ -50,6 +52,8 @@ const mocks = vi.hoisted(() => {
     customOverlayOptions,
     customOverlayContainers,
     mapOptions,
+    setCenter,
+    setOverlayPosition,
     reset() {
       listeners = new Map<object, Map<string, Listener>>();
       markers.splice(0);
@@ -151,11 +155,14 @@ vi.mock('../lib/kakaoMap', () => {
               getNorthEast: () => ({ getLat: () => 38, getLng: () => 128 }),
             };
           }
+
+          setCenter = mocks.setCenter;
         },
         Marker,
         CustomOverlay: class {
           setMap = vi.fn();
           setZIndex = vi.fn();
+          setPosition = mocks.setOverlayPosition;
 
           constructor(options: Record<string, unknown>) {
             mocks.customOverlayOptions.push(options);
@@ -219,6 +226,68 @@ beforeEach(() => {
 });
 
 describe('HomeMap current location overlay', () => {
+  it('rechecks GPS and recenters the map and location marker when requested', async () => {
+    const user = userEvent.setup();
+    const onCurrentLocationResolved = vi.fn();
+    renderHomeMap({ onCurrentLocationResolved });
+
+    const button = await screen.findByRole('button', { name: '내 위치로 이동' });
+    const getCurrentPosition = useSuccessfulGeolocation(37.501, 127.031);
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(getCurrentPosition).toHaveBeenCalledOnce();
+      expect(getCurrentPosition).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.any(Function),
+        expect.objectContaining({ maximumAge: 0 }),
+      );
+      expect(mocks.setCenter).toHaveBeenCalledWith({ latitude: 37.501, longitude: 127.031 });
+      expect(mocks.setOverlayPosition).toHaveBeenCalledWith({
+        latitude: 37.501,
+        longitude: 127.031,
+      });
+      expect(onCurrentLocationResolved).toHaveBeenLastCalledWith({
+        latitude: 37.501,
+        longitude: 127.031,
+      });
+    });
+  });
+
+  it('keeps the map in place after a GPS timeout and allows another attempt', async () => {
+    const user = userEvent.setup();
+    renderHomeMap();
+    const button = await screen.findByRole('button', { name: '내 위치로 이동' });
+
+    useFailedGeolocation(3);
+    await user.click(button);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '현재 위치를 다시 확인하지 못했어요.',
+    );
+    expect(mocks.setCenter).not.toHaveBeenCalled();
+    expect(button).toBeEnabled();
+
+    useSuccessfulGeolocation(37.501, 127.031);
+    await user.click(button);
+
+    await waitFor(() => expect(mocks.setCenter).toHaveBeenCalledOnce());
+    expect(screen.queryByText('현재 위치를 다시 확인하지 못했어요.')).not.toBeInTheDocument();
+  });
+
+  it('hides the recenter button if permission is revoked on recheck', async () => {
+    const user = userEvent.setup();
+    renderHomeMap();
+    const button = await screen.findByRole('button', { name: '내 위치로 이동' });
+
+    useFailedGeolocation(1);
+    await user.click(button);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('위치 권한이 필요해요');
+    expect(screen.queryByRole('button', { name: '내 위치로 이동' })).not.toBeInTheDocument();
+    expect(mocks.setCenter).not.toHaveBeenCalled();
+  });
+
   it('uses the successful geolocation coordinates for a separate current location overlay', async () => {
     const getCurrentPosition = useSuccessfulGeolocation(37.501, 127.031);
     const onInitialCenterResolved = vi.fn();
@@ -262,6 +331,7 @@ describe('HomeMap current location overlay', () => {
     expect(mocks.getPopularMarkers).not.toHaveBeenCalled();
     expect(onInitialCenterResolved).not.toHaveBeenCalled();
     expect(onCurrentLocationResolved).toHaveBeenCalledWith(null);
+    expect(screen.queryByRole('button', { name: '내 위치로 이동' })).not.toBeInTheDocument();
   });
 
   it('전달 콜백에는 fallback 중심이 아닌 실제 geolocation 좌표만 전달한다', async () => {
