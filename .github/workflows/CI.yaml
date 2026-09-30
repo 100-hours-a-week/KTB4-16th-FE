@@ -13,6 +13,9 @@ concurrency:
   group: frontend-develop-release
   cancel-in-progress: false
 
+env:
+  ZONE: asia-northeast3-a
+
 jobs:
   # 1. PR 검증 (develop 대상 PR 생성/업데이트 시 실행)
   pr-ci:
@@ -166,11 +169,97 @@ jobs:
             --package=@semantic-release/exec@7 \
             semantic-release
 
-  # 배포 결과 알림
-  notify-push:
-    name: Discord notification=
+  # 3. Develop VM에 프론트엔드 새 버전을 자동으로 배포한다.
+  deploy:
+    name: Deploy to Develop VM
     runs-on: ubuntu-latest
     needs: push-ci
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write   # GCP WIF 인증용 OIDC 토큰 발급 권한
+    outputs:
+      vm: ${{ steps.develop.outputs.vm }}
+
+    steps:
+      # WIF로 GCP 서비스 계정 인증 (키 파일 없이 임시 토큰 발급)
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID_Develop }}
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER_Develop }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT_Develop }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      # 1. 현재 role=develop 라벨이 붙은 VM을 찾는다.
+      - id: develop
+        run: |
+          VM=$(gcloud compute instances list \
+            --filter="labels.role=develop" \
+            --zones="${{ env.ZONE }}" \
+            --format="value(name)")
+          if [ -z "$VM" ]; then
+            echo "role=develop 라벨을 가진 VM을 찾을 수 없습니다."
+            exit 1
+          fi
+          echo "vm=$VM" >> "$GITHUB_OUTPUT"
+
+      # 2. CI(semantic-release)가 방금 push한 이미지 중 가장 최근 태그를 조회한다.
+      - id: image
+        run: |
+          TAG=$(gcloud artifacts docker images list \
+            "${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_Develop }}/${{ secrets.PROJECT_REPOSITORY }}/${{ secrets.IMAGE_NAME }}" \
+            --include-tags --sort-by="~UPDATE_TIME" --limit=1 \
+            --format="value(TAGS)" | cut -d',' -f1)
+          if [ -z "$TAG" ]; then
+            echo "조회된 Docker 이미지 태그가 없습니다."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # 3. 빈 env 파일 생성
+      - run: touch frontend.env
+
+      # 4. env 파일을 develop VM으로 전송하고, 새 이미지를 pull해서 frontend 컨테이너만 교체한다.
+      #    같은 VM 위의 backend/ai/nginx 컨테이너는 건드리지 않는다.
+      - run: |
+          gcloud compute scp frontend.env "${{ steps.develop.outputs.vm }}:~/app/frontend.env" \
+            --zone="${{ env.ZONE }}" --tunnel-through-iap
+
+          gcloud compute ssh "${{ steps.develop.outputs.vm }}" \
+            --zone="${{ env.ZONE }}" --tunnel-through-iap --command="
+              set -e
+              gcloud auth configure-docker '${{ secrets.GCP_REGION }}-docker.pkg.dev' --quiet
+              cd ~/app
+              export IMAGE_TAG=${{ steps.image.outputs.tag }}
+              export GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID_Develop }}
+              docker compose pull frontend
+              docker compose up -d frontend
+            "
+
+      # 5. 컨테이너가 healthy 상태가 될 때까지 대기
+      - name: "Wait for frontend container to be healthy"
+        run: |
+          gcloud compute ssh "${{ steps.develop.outputs.vm }}" --zone="${{ env.ZONE }}" --tunnel-through-iap --command="
+            for i in \$(seq 1 20); do
+              status=\$(sudo docker inspect frontend --format='{{.State.Health.Status}}' 2>/dev/null || echo 'unhealthy')
+              if [ \"\$status\" = \"healthy\" ]; then
+                echo \"frontend healthy (시도 \$i/20)\"
+                exit 0
+              fi
+              echo \"대기 중... (\$i/20) 현재 상태: \$status\"
+              sleep 3
+            done
+            echo \"frontend가 60초 안에 healthy가 되지 않았습니다.\"
+            exit 1
+          "
+
+  # push CI 및 배포 결과 알림
+  notify-push:
+    name: Discord notification
+    runs-on: ubuntu-latest
+    needs: [push-ci, deploy]
     if: ${{ always() && github.event_name == 'push' }}
     permissions: {}
 
@@ -182,20 +271,20 @@ jobs:
         if: ${{ env.DISCORD_WEBHOOK != '' }}
         uses: Ilshidur/action-discord@0.3.2
         with:
-          args: "Frontend develop push 결과 알림"
+          args: "백엔드 Develop push CI 및 개발 서버 배포 결과 알림"
         env:
           DISCORD_USERNAME: MURO_BOT
           DISCORD_EMBEDS: |
             [
               {
-                "title": "Frontend Release: ${{ needs.push-ci.result }}",
+                "title": "Backend Develop 배포: ${{ needs.deploy.result }} (CI: ${{ needs.push-ci.result }})",
                 "description": ${{ toJSON(github.event.head_commit.message || '커밋 메시지 없음') }},
                 "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-                "color": ${{ needs.push-ci.result == 'success' && 3066993 || 15158332 }},
+                "color": ${{ (needs.push-ci.result == 'success' && needs.deploy.result == 'success') && 3066993 || 15158332 }},
                 "fields": [
                   {
                     "name": "커밋",
-                    "value": "[커밋 확인](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})",
+                    "value": "[커밋 확인",
                     "inline": true
                   },
                   {
@@ -211,3 +300,4 @@ jobs:
                 ]
               }
             ]
+          
