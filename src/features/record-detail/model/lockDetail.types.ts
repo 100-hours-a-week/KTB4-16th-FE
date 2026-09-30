@@ -1,3 +1,5 @@
+import type { WeatherCondition } from '../../../entities/weather/model/weather';
+
 export type LockDetailData = {
   recordId: number;
   userId: number;
@@ -22,6 +24,3 @@ export type LockDetailData = {
   photoUrl: string;
   createdAt: string;
 };
-
-export type WeatherCondition =
-  'CLEAR' | 'CLOUDY' | 'OVERCAST' | 'RAIN' | 'SNOW' | 'RAIN_SNOW' | 'SHOWER';

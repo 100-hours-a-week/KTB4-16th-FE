@@ -51,7 +51,8 @@ describe('ReportDetailPage', () => {
     expect(screen.getByText('15개')).toBeInTheDocument();
     expect(screen.getByText('역삼동')).toBeInTheDocument();
     expect(screen.getByText('아이유')).toBeInTheDocument();
-    expect(screen.getByText('24.3점')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '평균 기분' })).toHaveTextContent('😊');
+    expect(screen.queryByText('24.3점')).not.toBeInTheDocument();
     expect(screen.getByText('야경 3개 · 60%')).toBeInTheDocument();
     expect(screen.getByText('이번 달의 기록입니다.')).toBeInTheDocument();
   });

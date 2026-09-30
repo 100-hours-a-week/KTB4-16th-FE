@@ -33,8 +33,17 @@ export type MapCenter = {
 
 type HomeMapProps = {
   children?: ReactNode;
+  isPlaylistRequested?: boolean;
+  isPlaylistVisible?: boolean;
+  onPlaylistReady?: () => void;
+  onClosePlaylist?: () => void;
   onInitialCenterResolved?: (center: MapCenter) => void;
   onCurrentLocationResolved?: (location: MapCenter | null) => void;
+};
+
+type PendingMapSheet = {
+  mapMode: MapMode;
+  placeIds: number[];
 };
 
 function getMapModeFromLocationState(state: unknown): MapMode {
@@ -200,6 +209,10 @@ function createClusterPinBackground() {
 /** 홈의 지도 표시 기반과 목업의 지도 모드 선택 UI를 제공한다. */
 export function HomeMap({
   children,
+  isPlaylistRequested = false,
+  isPlaylistVisible = false,
+  onPlaylistReady = () => undefined,
+  onClosePlaylist = () => undefined,
   onInitialCenterResolved,
   onCurrentLocationResolved,
 }: HomeMapProps) {
@@ -215,6 +228,7 @@ export function HomeMap({
   const closeMyLocksSheetRef = useRef<() => void>(() => undefined);
   const openPopularTracksSheetRef = useRef<(placeIds: number[]) => void>(() => undefined);
   const closePopularTracksSheetRef = useRef<() => void>(() => undefined);
+  const pendingMapSheetRef = useRef<PendingMapSheet | null>(null);
   const clearMapSelectionRef = useRef<() => void>(() => undefined);
   const myLocksRequestControllerRef = useRef<AbortController | null>(null);
   const myLocksRequestIdRef = useRef(0);
@@ -309,6 +323,13 @@ export function HomeMap({
         return;
       }
 
+      if (isPlaylistVisible) {
+        pendingMapSheetRef.current = { mapMode: 'mine', placeIds: uniquePlaceIds };
+        onClosePlaylist();
+        return;
+      }
+
+      closePopularTracksSheetRef.current();
       setSelectedPlaceIds(uniquePlaceIds);
       setMyLocksRecords([]);
       setNextMyLocksCursor(null);
@@ -316,7 +337,7 @@ export function HomeMap({
       requestAnimationFrame(() => setIsMyLocksSheetOpen(true));
       void loadMyLocks(uniquePlaceIds, null, false);
     },
-    [loadMyLocks],
+    [isPlaylistVisible, loadMyLocks, onClosePlaylist],
   );
 
   const closeMyLocksSheet = useCallback(() => {
@@ -369,6 +390,12 @@ export function HomeMap({
         return;
       }
 
+      if (isPlaylistVisible) {
+        pendingMapSheetRef.current = { mapMode: 'popular', placeIds: uniquePlaceIds };
+        onClosePlaylist();
+        return;
+      }
+
       closeMyLocksSheetRef.current();
       setSelectedPopularPlaceIds(uniquePlaceIds);
       setPopularTracksResult(null);
@@ -376,8 +403,45 @@ export function HomeMap({
       requestAnimationFrame(() => setIsPopularTracksSheetOpen(true));
       void loadPopularTracks(uniquePlaceIds);
     },
-    [loadPopularTracks],
+    [isPlaylistVisible, loadPopularTracks, onClosePlaylist],
   );
+
+  useEffect(() => {
+    if (!isPlaylistRequested) return;
+
+    if (isMyLocksSheetOpen) closeMyLocksSheetRef.current();
+    if (isPopularTracksSheetOpen) closePopularTracksSheetRef.current();
+
+    if (
+      !isMyLocksSheetVisible &&
+      !isPopularTracksSheetVisible &&
+      !isMyLocksSheetOpen &&
+      !isPopularTracksSheetOpen
+    ) {
+      onPlaylistReady();
+    }
+  }, [
+    isPlaylistRequested,
+    isMyLocksSheetOpen,
+    isMyLocksSheetVisible,
+    isPopularTracksSheetOpen,
+    isPopularTracksSheetVisible,
+    onPlaylistReady,
+  ]);
+
+  useEffect(() => {
+    if (isPlaylistVisible) return;
+
+    const pendingSheet = pendingMapSheetRef.current;
+    if (pendingSheet === null) return;
+
+    pendingMapSheetRef.current = null;
+    if (pendingSheet.mapMode === 'mine') {
+      openMyLocksSheet(pendingSheet.placeIds);
+    } else {
+      openPopularTracksSheet(pendingSheet.placeIds);
+    }
+  }, [isPlaylistVisible, openMyLocksSheet, openPopularTracksSheet]);
 
   const closePopularTracksSheet = useCallback(() => {
     popularTracksRequestControllerRef.current?.abort();

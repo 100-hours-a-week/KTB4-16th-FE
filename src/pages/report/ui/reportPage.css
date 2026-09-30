@@ -109,6 +109,10 @@
   line-height: 1;
   text-decoration: none;
 }
+.report-back-icon {
+  display: inline-block;
+  transform: translateY(-2px);
+}
 .report-header-spacer {
   width: 30px;
   height: 30px;
