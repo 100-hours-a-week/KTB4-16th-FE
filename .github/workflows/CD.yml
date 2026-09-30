@@ -151,6 +151,10 @@ jobs:
           gcloud compute instances add-labels "$STANDBY_VM" --zone="${{ env.ZONE }}" --labels=role=active
           gcloud compute instances add-labels "$ACTIVE_VM" --zone="${{ env.ZONE }}" --labels=role=standby
 
+          # 임시 외부 IP를 다시 붙여서 인터넷 접속을 유지시켜준다.
+          gcloud compute instances add-access-config "$ACTIVE_VM" \
+            --zone="${{ env.ZONE }}" --access-config-name="External NAT"
+
           # 9. nginx는 backend/frontend를 도커 서비스명(예: server frontend:3000)으로 프록시하는데,
           #    시작/리로드 시점에 한 번만 DNS를 해석해 캐싱한다. 방금 재배포로 frontend 컨테이너의
           #    IP가 바뀌었으므로, 지금 active가 된 이 VM의 nginx를 reload해 새 IP를 반영한다
