@@ -29,6 +29,19 @@
   box-shadow: 0 0 34px rgb(122 92 190 / 8%);
 }
 
+@media (max-width: 480px) {
+  .home-page {
+    height: 100vh;
+    min-height: 0;
+  }
+
+  @supports (height: 100dvh) {
+    .home-page {
+      height: 100dvh;
+    }
+  }
+}
+
 .home-page-content {
   display: flex;
   min-height: 0;
