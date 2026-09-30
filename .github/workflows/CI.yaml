@@ -6,7 +6,7 @@ on:
       - develop
   push:
     branches:
-      - main
+      - develop
 
 # 배포 작업 중 동시성 제어 (push 배포 간 충돌 방지)
 concurrency:
