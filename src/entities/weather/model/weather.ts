@@ -10,11 +10,14 @@ export const WEATHER_CONDITIONS = [
 
 export type WeatherCondition = (typeof WEATHER_CONDITIONS)[number];
 
-/** Converts a validated weather condition to the emoji used across MULO. */
-export function getWeatherEmoji(weatherCondition: WeatherCondition): string {
+/** Converts a weather condition to MULO's emoji using the browser's local time for clear skies. */
+export function getWeatherEmoji(
+  weatherCondition: WeatherCondition,
+  localTime: Date = new Date(),
+): string {
   switch (weatherCondition) {
     case 'CLEAR':
-      return '☀️';
+      return localTime.getHours() >= 6 && localTime.getHours() < 19 ? '☀️' : '🌙';
     case 'CLOUDY':
     case 'OVERCAST':
       return '☁️';

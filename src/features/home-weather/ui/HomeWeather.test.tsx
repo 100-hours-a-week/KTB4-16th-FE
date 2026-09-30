@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCurrentWeather } from '../api/getCurrentWeather';
 import { HomeWeather } from './HomeWeather';
@@ -9,9 +9,12 @@ vi.mock('../api/getCurrentWeather', () => ({
 }));
 
 beforeEach(() => vi.clearAllMocks());
+afterEach(() => vi.useRealTimers());
 
 describe('HomeWeather', () => {
   it('keeps the existing weather emoji and temperature, with a readable label without raw condition codes', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 30, 12, 0));
     vi.mocked(getCurrentWeather).mockResolvedValue({
       forecastAt: '2026-09-30T12:00:00',
       temperature: 19,

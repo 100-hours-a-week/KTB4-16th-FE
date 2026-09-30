@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LockDetailData } from '../model/lockDetail.types';
 import { LockDetail } from './LockDetail';
@@ -43,9 +43,12 @@ beforeEach(() => {
   onDelete.mockResolvedValue();
   onDeleted.mockReset();
 });
+afterEach(() => vi.useRealTimers());
 
 describe('LockDetail', () => {
   it('shows the weather emoji and temperature instead of the raw condition', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 30, 12, 0));
     renderDetail({ ...detail, weatherCondition: 'CLEAR', temperature: 19 });
 
     expect(screen.getByText('☀️ · 19°C')).toBeInTheDocument();
