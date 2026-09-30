@@ -80,6 +80,7 @@ export type KakaoCluster = {
 
 export type KakaoCustomOverlay = {
   setMap: (map: KakaoMap | null) => void;
+  setPosition: (position: KakaoLatLng) => void;
   setZIndex: (zIndex: number) => void;
 };
 

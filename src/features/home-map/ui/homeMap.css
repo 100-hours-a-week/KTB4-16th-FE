@@ -64,6 +64,47 @@
   inset: 0;
 }
 
+.home-map-recenter {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 2;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #dccbf0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 2px 7px rgb(90 72 132 / 18%);
+  color: #8f6fda;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.home-map-recenter:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 42%);
+  outline-offset: 2px;
+}
+
+.home-map-recenter:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.home-map-recenter-error {
+  position: absolute;
+  bottom: 54px;
+  right: 12px;
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgb(51 43 74 / 18%);
+  color: var(--mulo-ink-900);
+}
+
 .home-map-selected-cluster-halo {
   display: block;
   width: 54px;
