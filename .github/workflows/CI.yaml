@@ -10,7 +10,7 @@ on:
 
 # 배포 작업 중 동시성 제어 (push 배포 간 충돌 방지)
 concurrency:
-  group: frontend-main-release
+  group: frontend-develop-release
   cancel-in-progress: false
 
 jobs:
@@ -105,7 +105,7 @@ jobs:
   # 2. 개발 서버 빌드 (develop 브랜치 머지 시 실행)
   push-ci:
     if: github.event_name == 'push'
-    name: Frontend Main Release
+    name: Frontend develop Release
     runs-on: ubuntu-latest
 
     permissions:
