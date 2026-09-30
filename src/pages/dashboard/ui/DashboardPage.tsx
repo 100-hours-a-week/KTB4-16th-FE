@@ -21,7 +21,7 @@ export function DashboardPage() {
               aria-label="자물쇠 만들기"
               onClick={() => navigate('/locks/create')}
             >
-              +
+              <span className="dashboard-create-icon">+</span>
             </button>
           </div>
         </header>

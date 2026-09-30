@@ -1,4 +1,5 @@
 import type { MonthlyReportDetail as MonthlyReportDetailData } from '../model/monthlyReport.types';
+import { getMoodEmoji } from '../../../entities/record/model/mood';
 
 type MonthlyReportDetailProps = {
   report: MonthlyReportDetailData;
@@ -17,8 +18,7 @@ function getAiRecapText(report: MonthlyReportDetailData): string {
 export function MonthlyReportDetail({ report }: MonthlyReportDetailProps) {
   const topPlace = report.stats.topPlace?.legalDongName ?? '기록 없음';
   const topArtist = report.stats.topArtistName ?? '기록 없음';
-  const averageMood =
-    report.stats.averageMoodScore === null ? '기록 없음' : `${report.stats.averageMoodScore}점`;
+  const averageMoodScore = report.stats.averageMoodScore;
 
   return (
     <article className="report-detail-content">
@@ -40,8 +40,16 @@ export function MonthlyReportDetail({ report }: MonthlyReportDetailProps) {
           <strong>{topArtist}</strong>
         </article>
         <article>
-          <small>평균 기분 점수</small>
-          <strong>{averageMood}</strong>
+          <small>평균 기분</small>
+          <strong>
+            {averageMoodScore === null ? (
+              '기록 없음'
+            ) : (
+              <span role="img" aria-label="평균 기분">
+                {getMoodEmoji(averageMoodScore)}
+              </span>
+            )}
+          </strong>
         </article>
       </section>
       <section className="report-photo" aria-label="사진 장면 분석">

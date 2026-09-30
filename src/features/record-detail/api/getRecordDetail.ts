@@ -1,15 +1,6 @@
+import { WEATHER_CONDITIONS, type WeatherCondition } from '../../../entities/weather/model/weather';
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
-import type { LockDetailData, WeatherCondition } from '../model/lockDetail.types';
-
-const WEATHER_CONDITIONS: ReadonlyArray<WeatherCondition> = [
-  'CLEAR',
-  'CLOUDY',
-  'OVERCAST',
-  'RAIN',
-  'SNOW',
-  'RAIN_SNOW',
-  'SHOWER',
-];
+import type { LockDetailData } from '../model/lockDetail.types';
 
 /** 로그인 사용자가 소유한 활성 자물쇠의 상세 정보를 조회한다. */
 export async function getRecordDetail(
