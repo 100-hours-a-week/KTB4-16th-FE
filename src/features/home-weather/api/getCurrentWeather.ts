@@ -1,21 +1,10 @@
+import { WEATHER_CONDITIONS, type WeatherCondition } from '../../../entities/weather/model/weather';
 import { env } from '../../../shared/config/env';
 
 export type WeatherCoordinates = {
   latitude: number;
   longitude: number;
 };
-
-const WEATHER_CONDITIONS = [
-  'CLEAR',
-  'CLOUDY',
-  'OVERCAST',
-  'RAIN',
-  'SNOW',
-  'RAIN_SNOW',
-  'SHOWER',
-] as const;
-
-export type WeatherCondition = (typeof WEATHER_CONDITIONS)[number];
 
 export type CurrentWeather = {
   forecastAt: string;

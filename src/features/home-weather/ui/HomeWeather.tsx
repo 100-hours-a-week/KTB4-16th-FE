@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
+import { getWeatherEmoji } from '../../../entities/weather/model/weather';
 import {
   getCurrentWeather,
   type CurrentWeather,
-  type WeatherCondition,
   type WeatherCoordinates,
 } from '../api/getCurrentWeather';
 
@@ -49,7 +49,7 @@ export function HomeWeather({ coordinates }: HomeWeatherProps) {
     ? weatherResult.weather
     : null;
   const isError = weather === null && isSameCoordinates(failedCoordinates, coordinates);
-  const icon = weather ? weatherIcon(weather.weatherCondition) : '☁️';
+  const icon = weather ? getWeatherEmoji(weather.weatherCondition) : '☁️';
   const temperature = weather ? `${formatTemperature(weather.temperature)}°C` : '--°C';
   const label = getWeatherLabel(weather, isError);
 
@@ -59,24 +59,6 @@ export function HomeWeather({ coordinates }: HomeWeatherProps) {
       <strong>{temperature}</strong>
     </span>
   );
-}
-
-/** 기상청 내부 상태를 홈 UI에서 사용하는 단순한 날씨 emoji로 변환한다. */
-function weatherIcon(weatherCondition: WeatherCondition): string {
-  switch (weatherCondition) {
-    case 'CLEAR':
-      return '☀️';
-    case 'CLOUDY':
-    case 'OVERCAST':
-      return '☁️';
-    case 'RAIN':
-    case 'SHOWER':
-      return '🌧️';
-    case 'SNOW':
-      return '❄️';
-    case 'RAIN_SNOW':
-      return '🌨️';
-  }
 }
 
 /** API의 소수점 한 자리 기온을 홈 chip에 읽기 쉬운 형태로 표시한다. */
@@ -97,7 +79,7 @@ function getWeatherLabel(weather: CurrentWeather | null, isError: boolean): stri
     return '현재 날씨를 불러오는 중입니다.';
   }
 
-  return `${weather.weatherCondition}, ${formatTemperature(weather.temperature)}도`;
+  return `현재 날씨 ${getWeatherEmoji(weather.weatherCondition)}, 기온 ${formatTemperature(weather.temperature)}도`;
 }
 
 /** 응답이 현재 선택된 지도 중심을 위한 것인지 확인한다. */

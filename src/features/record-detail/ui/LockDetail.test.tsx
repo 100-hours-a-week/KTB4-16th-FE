@@ -45,6 +45,43 @@ beforeEach(() => {
 });
 
 describe('LockDetail', () => {
+  it('shows the weather emoji and temperature instead of the raw condition', () => {
+    renderDetail({ ...detail, weatherCondition: 'CLEAR', temperature: 19 });
+
+    expect(screen.getByText('☀️ · 19°C')).toBeInTheDocument();
+    expect(screen.queryByText(/CLEAR/)).not.toBeInTheDocument();
+  });
+
+  it('preserves weather fallbacks when condition or temperature is unavailable', () => {
+    const { rerender } = renderDetail({ ...detail, weatherCondition: null, temperature: 19 });
+
+    expect(screen.getByText('19°C')).toBeInTheDocument();
+
+    rerender(
+      <LockDetail
+        detail={{ ...detail, weatherCondition: 'RAIN', temperature: null }}
+        isOwner
+        onClose={vi.fn()}
+        onSaveComment={onSaveComment}
+        onDelete={onDelete}
+        onDeleted={onDeleted}
+      />,
+    );
+    expect(screen.getByText('🌧️')).toBeInTheDocument();
+
+    rerender(
+      <LockDetail
+        detail={{ ...detail, weatherCondition: null, temperature: null }}
+        isOwner
+        onClose={vi.fn()}
+        onSaveComment={onSaveComment}
+        onDelete={onDelete}
+        onDeleted={onDeleted}
+      />,
+    );
+    expect(screen.getByText('날씨 정보 없음')).toBeInTheDocument();
+  });
+
   it('renders the detailed photo, album cover, and shared mood emoji', () => {
     renderDetail();
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { getWeatherEmoji } from '../../../entities/weather/model/weather';
 import { getMoodEmoji } from '../../../entities/record/model/mood';
 import type { LockDetailData } from '../model/lockDetail.types';
 import './lockDetail.css';
@@ -313,7 +314,7 @@ function formatWeather(
   temperature: number | null,
 ): string {
   const values: string[] = [];
-  if (weatherCondition !== null) values.push(weatherCondition);
+  if (weatherCondition !== null) values.push(getWeatherEmoji(weatherCondition));
   if (temperature !== null) values.push(`${temperature}°C`);
   return values.length > 0 ? values.join(' · ') : '날씨 정보 없음';
 }

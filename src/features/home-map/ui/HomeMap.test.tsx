@@ -1,4 +1,5 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import {
   MemoryRouter,
@@ -252,9 +253,9 @@ describe('HomeMap current location overlay', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('위치 권한이 필요해요');
     expect(screen.getByRole('alert')).toHaveClass('home-map-notice--location');
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '브라우저 설정에서 이 사이트의 위치 권한을 허용한 뒤 다시 확인해주세요.',
+      '브라우저 설정에서 이 사이트의 위치 권한을 허용한 뒤 아래 버튼을 눌러주세요.',
     );
-    expect(screen.getByRole('button', { name: '브라우저 설정 후 다시 확인' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '위치 권한 다시 확인' })).toBeInTheDocument();
 
     expect(currentLocationOverlay()).toBeUndefined();
     expect(mocks.mapOptions).toHaveLength(0);
@@ -477,6 +478,85 @@ describe('HomeMap popular music selection', () => {
     expect(mocks.fetchAuthenticatedJson).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { mapMode: 'popular' as const, markerIndex: 0, sheetName: '선택 영역 인기 음악' },
+    { mapMode: 'mine' as const, markerIndex: 2, sheetName: '내 자물쇠 목록' },
+  ])(
+    'closes the $mapMode map sheet before showing the playlist sheet',
+    async ({ mapMode, markerIndex, sheetName }) => {
+      const user = userEvent.setup();
+      render(
+        <HomeBottomSheetHarness initialState={mapMode === 'popular' ? { mapMode } : undefined} />,
+      );
+      await waitFor(() => expect(mocks.markers).toHaveLength(2));
+
+      if (mapMode === 'mine') {
+        await user.click(screen.getByRole('button', { name: '🔒 내 자물쇠 보기' }));
+        await waitFor(() => expect(mocks.markers).toHaveLength(3));
+      }
+
+      act(() => mocks.triggerMarker(markerIndex));
+      const mapSheet = await screen.findByRole('region', { name: sheetName });
+      if (mapMode === 'popular') {
+        expect(await screen.findByText('밤편지')).toBeInTheDocument();
+      } else {
+        await waitFor(() => expect(mocks.getMyPlaceRecords).toHaveBeenCalledOnce());
+      }
+
+      await user.click(screen.getByRole('button', { name: '플레이리스트 열기' }));
+
+      expect(mapSheet).toHaveAttribute('aria-hidden', 'true');
+      expect(document.querySelector('[aria-label="AI 추천 플레이리스트"]')).not.toBeInTheDocument();
+      fireEvent.transitionEnd(mapSheet, { propertyName: 'transform' });
+
+      expect(
+        await screen.findByRole('region', { name: 'AI 추천 플레이리스트' }),
+      ).toBeInTheDocument();
+      expect(document.querySelector(`[aria-label="${sheetName}"]`)).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    { mapMode: 'popular' as const, markerIndex: 0, sheetName: '선택 영역 인기 음악' },
+    { mapMode: 'mine' as const, markerIndex: 2, sheetName: '내 자물쇠 목록' },
+  ])(
+    'closes the playlist before opening a $mapMode map sheet',
+    async ({ mapMode, markerIndex, sheetName }) => {
+      const user = userEvent.setup();
+      render(
+        <HomeBottomSheetHarness
+          initialState={mapMode === 'popular' ? { mapMode } : undefined}
+          initialPlaylistVisible
+        />,
+      );
+
+      await waitFor(() => expect(mocks.markers).toHaveLength(2));
+      expect(screen.getByRole('region', { name: 'AI 추천 플레이리스트' })).toBeInTheDocument();
+
+      if (mapMode === 'mine') {
+        await user.click(screen.getByRole('button', { name: '🔒 내 자물쇠 보기' }));
+        await waitFor(() => expect(mocks.markers).toHaveLength(3));
+      }
+
+      act(() => mocks.triggerMarker(markerIndex));
+
+      const playlistSheet = document.querySelector('[aria-label="AI 추천 플레이리스트"]');
+      expect(playlistSheet).not.toBeNull();
+      if (!playlistSheet) throw new Error('Playlist sheet should be mounted before it closes.');
+      expect(playlistSheet).toHaveAttribute('aria-hidden', 'true');
+      expect(document.querySelector(`[aria-label="${sheetName}"]`)).not.toBeInTheDocument();
+      fireEvent.transitionEnd(playlistSheet, { propertyName: 'transform' });
+
+      expect(await screen.findByRole('region', { name: sheetName })).toBeInTheDocument();
+      expect(document.querySelector('[aria-label="AI 추천 플레이리스트"]')).not.toBeInTheDocument();
+      if (mapMode === 'mine') {
+        expect(mocks.getMyPlaceRecords).toHaveBeenCalledOnce();
+      } else {
+        expect(mocks.getPopularTracks).toHaveBeenCalledOnce();
+      }
+    },
+  );
+
   it('deduplicates Cluster place IDs before loading popular tracks', async () => {
     renderHomeMap();
     await waitFor(() => expect(mocks.markers).toHaveLength(2));
@@ -659,6 +739,53 @@ function renderHomeMap(props?: {
       <HomeMap {...homeMapProps} />
       <RouterStateProbe />
     </MemoryRouter>,
+  );
+}
+
+function HomeBottomSheetHarness({
+  initialState,
+  initialPlaylistVisible = false,
+}: {
+  initialState?: unknown;
+  initialPlaylistVisible?: boolean;
+}) {
+  const [isPlaylistRequested, setIsPlaylistRequested] = useState(false);
+  const [isPlaylistVisible, setIsPlaylistVisible] = useState(initialPlaylistVisible);
+  const [isPlaylistOpen, setIsPlaylistOpen] = useState(initialPlaylistVisible);
+
+  function showPlaylist() {
+    setIsPlaylistRequested(false);
+    setIsPlaylistVisible(true);
+    requestAnimationFrame(() => setIsPlaylistOpen(true));
+  }
+
+  function finishClosingPlaylist() {
+    if (!isPlaylistOpen) setIsPlaylistVisible(false);
+  }
+
+  return (
+    <MemoryRouter
+      initialEntries={[initialState === undefined ? '/' : { pathname: '/', state: initialState }]}
+    >
+      <button type="button" onClick={() => setIsPlaylistRequested(true)}>
+        플레이리스트 열기
+      </button>
+      {isPlaylistVisible ? (
+        <section
+          aria-label="AI 추천 플레이리스트"
+          aria-hidden={!isPlaylistOpen}
+          onTransitionEnd={(event) => {
+            if (!isPlaylistOpen && event.target === event.currentTarget) finishClosingPlaylist();
+          }}
+        />
+      ) : null}
+      <HomeMap
+        isPlaylistRequested={isPlaylistRequested}
+        isPlaylistVisible={isPlaylistVisible}
+        onPlaylistReady={showPlaylist}
+        onClosePlaylist={() => setIsPlaylistOpen(false)}
+      />
+    </MemoryRouter>
   );
 }
 

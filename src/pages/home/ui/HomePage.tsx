@@ -10,6 +10,7 @@ import './homePage.css';
 /** 목업의 홈 진입 화면을 기능 UI로 조립한다. */
 export function HomePage() {
   const [currentLocation, setCurrentLocation] = useState<MapCenter | null>(null);
+  const [isPlaylistRequested, setIsPlaylistRequested] = useState(false);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [isPlaylistVisible, setIsPlaylistVisible] = useState(false);
   const playlistTriggerRef = useRef<HTMLButtonElement>(null);
@@ -32,6 +33,12 @@ export function HomePage() {
     }
 
     playlistTriggerRef.current = trigger;
+    setIsPlaylistRequested(true);
+  }
+
+  /** 지도 sheet가 완전히 닫힌 뒤 playlist sheet를 연다. */
+  function showPlaylistAfterMapSheetExit() {
+    setIsPlaylistRequested(false);
     setIsPlaylistVisible(true);
     openAnimationFrameRef.current = requestAnimationFrame(() => {
       setIsPlaylistOpen(true);
@@ -48,6 +55,11 @@ export function HomePage() {
   }
 
   function closePlaylist() {
+    setIsPlaylistRequested(false);
+    if (openAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(openAnimationFrameRef.current);
+      openAnimationFrameRef.current = null;
+    }
     setIsPlaylistOpen(false);
   }
 
@@ -91,7 +103,13 @@ export function HomePage() {
           </button>
         </section>
 
-        <HomeMap onCurrentLocationResolved={setCurrentLocation}>
+        <HomeMap
+          isPlaylistRequested={isPlaylistRequested}
+          isPlaylistVisible={isPlaylistVisible}
+          onPlaylistReady={showPlaylistAfterMapSheetExit}
+          onClosePlaylist={closePlaylist}
+          onCurrentLocationResolved={setCurrentLocation}
+        >
           {isPlaylistVisible ? (
             <HomePlaylistSheet
               currentLocation={currentLocation}
