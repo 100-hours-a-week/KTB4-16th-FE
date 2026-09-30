@@ -419,7 +419,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
                   type="button"
                   onClick={moveToCurrentLocation}
                 >
-                  ◎
+                  <span aria-hidden="true">◎</span>
                 </button>
               ) : null}
             </>
