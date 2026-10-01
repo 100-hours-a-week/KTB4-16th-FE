@@ -47,15 +47,20 @@ const anotherMusic = {
 let latestMapControl: {
   center: { getLat: () => number; getLng: () => number };
   setCenter: ReturnType<typeof vi.fn>;
+  getCurrentCenter: () => { getLat: () => number; getLng: () => number };
   setCurrentCenter: (center: { getLat: () => number; getLng: () => number }) => void;
   triggerIdle: () => void;
 } | null = null;
 let customOverlayOptions: Array<Record<string, unknown>> = [];
+let customOverlayControls: Array<{ setPosition: ReturnType<typeof vi.fn> }> = [];
+let deferInitialRegionLookup = false;
 
 beforeEach(() => {
   vi.clearAllMocks();
   latestMapControl = null;
   customOverlayOptions = [];
+  customOverlayControls = [];
+  deferInitialRegionLookup = false;
   useSuccessfulGeolocation(37.5, 127.03);
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
@@ -73,7 +78,7 @@ beforeEach(() => {
 });
 
 describe('RecordCreateForm', () => {
-  it('uses the map center as the final location after movement settles', async () => {
+  it('commits a moved map center only after the user confirms the enlarged map', async () => {
     const onCoordinatesChange = vi.fn();
     setGeolocation((success) =>
       success({
@@ -85,6 +90,9 @@ describe('RecordCreateForm', () => {
 
     await screen.findByText('수원역');
     expect(document.querySelector('.lock-create-map-center-pin')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '위치 조정' }));
+    expect(screen.getByRole('dialog', { name: '위치 조정' })).toBeInTheDocument();
+    await waitFor(() => expect(customOverlayControls[0]?.setPosition).toHaveBeenCalled());
     const nextCenter = {
       getLat: () => 37.51,
       getLng: () => 127.04,
@@ -93,12 +101,129 @@ describe('RecordCreateForm', () => {
     latestMapControl.setCurrentCenter(nextCenter);
     latestMapControl?.triggerIdle();
 
-    await waitFor(() =>
-      expect(onCoordinatesChange).toHaveBeenLastCalledWith({ latitude: 37.51, longitude: 127.04 }),
-    );
+    expect(await screen.findByText('서울역')).toBeInTheDocument();
+    expect(onCoordinatesChange).toHaveBeenLastCalledWith({ latitude: 37.5, longitude: 127.03 });
+    fireEvent.click(screen.getByRole('button', { name: '이 위치로 설정' }));
+
+    expect(screen.queryByRole('dialog', { name: '위치 조정' })).not.toBeInTheDocument();
+    expect(screen.getByText('서울역')).toBeInTheDocument();
+    expect(onCoordinatesChange).toHaveBeenLastCalledWith({ latitude: 37.51, longitude: 127.04 });
   });
 
-  it('reuses the acquired GPS location without requesting geolocation again', async () => {
+  it('resolves the map center when adjustment opens before the initial place name arrives', async () => {
+    deferInitialRegionLookup = true;
+    renderForm();
+
+    fireEvent.click(await screen.findByRole('button', { name: '위치 조정' }));
+
+    expect(
+      await within(screen.getByRole('dialog', { name: '위치 조정' })).findByText('수원역'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '이 위치로 설정' })).toBeEnabled();
+  });
+
+  it('keeps the current GPS location centered when opening and closing the editor', async () => {
+    renderForm();
+    await screen.findByText('수원역');
+    if (!latestMapControl) throw new Error('지도 테스트 제어 객체가 없습니다.');
+
+    fireEvent.click(screen.getByRole('button', { name: '위치 조정' }));
+
+    await waitFor(() => expect(latestMapControl?.getCurrentCenter().getLat()).toBe(37.5));
+    expect(latestMapControl.getCurrentCenter().getLng()).toBe(127.03);
+
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+    await waitFor(() => expect(latestMapControl?.getCurrentCenter().getLat()).toBe(37.5));
+    expect(latestMapControl.getCurrentCenter().getLng()).toBe(127.03);
+  });
+
+  it('waits for the fresh GPS result before enabling map movement', async () => {
+    let resolveFreshPosition: PositionCallback | undefined;
+    const getCurrentPosition = vi.fn((success: PositionCallback) => {
+      if (getCurrentPosition.mock.calls.length === 1) {
+        success({
+          coords: { latitude: 37.5, longitude: 127.03 } as GeolocationCoordinates,
+          timestamp: 0,
+        } as GeolocationPosition);
+      } else {
+        resolveFreshPosition = success;
+      }
+    });
+    setGeolocation(getCurrentPosition);
+    renderForm();
+    await screen.findByText('수원역');
+
+    fireEvent.click(screen.getByRole('button', { name: '위치 조정' }));
+
+    expect(document.querySelector('.lock-create-map')).not.toHaveClass('is-editing');
+    expect(screen.getByText('현재 위치를 확인하고 있어요')).toBeInTheDocument();
+    resolveFreshPosition?.({
+      coords: { latitude: 37.51, longitude: 127.04 } as GeolocationCoordinates,
+      timestamp: 0,
+    } as GeolocationPosition);
+
+    await within(screen.getByRole('dialog', { name: '위치 조정' })).findByText('서울역');
+    expect(document.querySelector('.lock-create-map')).toHaveClass('is-editing');
+  });
+
+  it('discards a moved location on close and returns focus to the adjust button', async () => {
+    const onCoordinatesChange = vi.fn();
+    renderForm(vi.fn(), onCoordinatesChange);
+    await screen.findByText('수원역');
+
+    const adjustButton = screen.getByRole('button', { name: '위치 조정' });
+    fireEvent.click(adjustButton);
+    await waitFor(() => expect(customOverlayControls[0]?.setPosition).toHaveBeenCalled());
+    if (!latestMapControl) throw new Error('지도 테스트 제어 객체가 없습니다.');
+    latestMapControl.setCurrentCenter({ getLat: () => 37.51, getLng: () => 127.04 });
+    latestMapControl.triggerIdle();
+    expect(await screen.findByText('서울역')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+    expect(screen.queryByRole('dialog', { name: '위치 조정' })).not.toBeInTheDocument();
+    expect(screen.getByText('수원역')).toBeInTheDocument();
+    await waitFor(() => expect(onCoordinatesChange).toHaveBeenCalledTimes(2));
+    expect(onCoordinatesChange).toHaveBeenLastCalledWith({ latitude: 37.5, longitude: 127.03 });
+    expect(screen.getByRole('button', { name: '위치 조정' })).toHaveFocus();
+  });
+
+  it('closes the enlarged map with Escape and keeps keyboard focus inside it', async () => {
+    renderForm();
+    await screen.findByText('수원역');
+    fireEvent.click(screen.getByRole('button', { name: '위치 조정' }));
+
+    const dialog = screen.getByRole('dialog', { name: '위치 조정' });
+    const confirmButton = screen.getByRole('button', { name: '이 위치로 설정' });
+    confirmButton.focus();
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(screen.getByRole('button', { name: '닫기' })).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: '위치 조정' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '위치 조정' })).toHaveFocus();
+  });
+
+  it('keeps the previous location when the enlarged map cannot resolve a legal region', async () => {
+    const onCoordinatesChange = vi.fn();
+    renderForm(vi.fn(), onCoordinatesChange);
+    await screen.findByText('수원역');
+    fireEvent.click(screen.getByRole('button', { name: '위치 조정' }));
+    await waitFor(() => expect(customOverlayControls[0]?.setPosition).toHaveBeenCalled());
+
+    if (!latestMapControl) throw new Error('지도 테스트 제어 객체가 없습니다.');
+    latestMapControl.setCurrentCenter({ getLat: () => 37.52, getLng: () => 127.05 });
+    latestMapControl.triggerIdle();
+
+    expect(await screen.findByText('위치를 선택할 수 없어요')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '이 위치로 설정' })).toBeDisabled();
+    expect(onCoordinatesChange).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+    expect(screen.getByText('수원역')).toBeInTheDocument();
+  });
+
+  it('recenters the compact map at the acquired GPS point without opening the editor or requesting geolocation again', async () => {
     const getCurrentPosition = vi.fn((success: PositionCallback) => {
       success({
         coords: { latitude: 37.5, longitude: 127.03 } as GeolocationCoordinates,
@@ -111,10 +236,74 @@ describe('RecordCreateForm', () => {
     const button = await screen.findByRole('button', { name: '현재 위치로 이동' });
     fireEvent.click(button);
 
+    expect(screen.queryByRole('dialog', { name: '위치 조정' })).not.toBeInTheDocument();
     expect(getCurrentPosition).toHaveBeenCalledOnce();
     expect(latestMapControl?.setCenter).toHaveBeenCalledOnce();
     expect(customOverlayOptions).toHaveLength(1);
     expect(customOverlayOptions[0]).toMatchObject({ clickable: false, zIndex: 1 });
+  });
+
+  it('resolves the GPS place inside the editor without waiting for another map idle event', async () => {
+    const onCoordinatesChange = vi.fn();
+    renderForm(vi.fn(), onCoordinatesChange);
+    await screen.findByText('수원역');
+    fireEvent.click(screen.getByRole('button', { name: '위치 조정' }));
+    await waitFor(() => expect(customOverlayControls[0]?.setPosition).toHaveBeenCalled());
+    if (!latestMapControl) throw new Error('지도 테스트 제어 객체가 없습니다.');
+    latestMapControl.setCurrentCenter({ getLat: () => 37.51, getLng: () => 127.04 });
+    latestMapControl.triggerIdle();
+    expect(await screen.findByText('서울역')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '현재 위치로 이동' }));
+
+    expect(
+      await within(screen.getByRole('dialog', { name: '위치 조정' })).findByText('수원역'),
+    ).toBeInTheDocument();
+    expect(onCoordinatesChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes GPS on open and close and aligns the map center pin with the GPS marker', async () => {
+    const positions = [
+      { latitude: 37.5, longitude: 127.03 },
+      { latitude: 37.51, longitude: 127.04 },
+      { latitude: 37.54, longitude: 127.07 },
+    ];
+    const getCurrentPosition = vi.fn((success: PositionCallback) => {
+      const coordinates = positions[getCurrentPosition.mock.calls.length - 1];
+      if (!coordinates) throw new Error('예상하지 못한 위치 조회입니다.');
+      success({
+        coords: coordinates as GeolocationCoordinates,
+        timestamp: 0,
+      } as GeolocationPosition);
+    });
+    setGeolocation(getCurrentPosition);
+    const onCoordinatesChange = vi.fn();
+    renderForm(vi.fn(), onCoordinatesChange);
+    await screen.findByText('수원역');
+    if (!latestMapControl) throw new Error('지도 테스트 제어 객체가 없습니다.');
+
+    fireEvent.click(screen.getByRole('button', { name: '위치 조정' }));
+
+    await within(screen.getByRole('dialog', { name: '위치 조정' })).findByText('서울역');
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(latestMapControl.getCurrentCenter().getLat()).toBe(37.51);
+    expect(latestMapControl.getCurrentCenter().getLng()).toBe(127.04);
+    const openGpsPosition = customOverlayControls[0]?.setPosition.mock.lastCall?.[0] as
+      { getLat: () => number; getLng: () => number } | undefined;
+    expect(openGpsPosition?.getLat()).toBe(37.51);
+    expect(openGpsPosition?.getLng()).toBe(127.04);
+
+    latestMapControl.setCurrentCenter({ getLat: () => 37.53, getLng: () => 127.06 });
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+    await waitFor(() => expect(getCurrentPosition).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(latestMapControl?.getCurrentCenter().getLat()).toBe(37.54));
+    expect(latestMapControl.getCurrentCenter().getLng()).toBe(127.07);
+    const closeGpsPosition = customOverlayControls[0]?.setPosition.mock.lastCall?.[0] as
+      { getLat: () => number; getLng: () => number } | undefined;
+    expect(closeGpsPosition?.getLat()).toBe(37.54);
+    expect(closeGpsPosition?.getLng()).toBe(127.07);
+    expect(onCoordinatesChange).toHaveBeenLastCalledWith({ latitude: 37.54, longitude: 127.07 });
   });
 
   it.each([
@@ -728,6 +917,7 @@ function createKakaoMaps(): KakaoMaps {
 
   class Map {
     private center: LatLng;
+    relayout = vi.fn();
     setCenter = vi.fn((center: LatLng) => {
       this.center = center;
     });
@@ -737,6 +927,7 @@ function createKakaoMaps(): KakaoMaps {
       latestMapControl = {
         center: this.center,
         setCenter: this.setCenter,
+        getCurrentCenter: () => this.center,
         setCurrentCenter: (center) => {
           this.center = new LatLng(center.getLat(), center.getLng());
         },
@@ -755,7 +946,24 @@ function createKakaoMaps(): KakaoMaps {
       _latitude: number,
       callback: (regions: KakaoRegion[], status: string) => void,
     ) {
-      callback([{ region_type: 'B', code: '4111710100', region_3depth_name: '수원역' }], 'OK');
+      if (deferInitialRegionLookup) {
+        deferInitialRegionLookup = false;
+        return;
+      }
+      if (_latitude === 37.52) {
+        callback([], 'ERROR');
+        return;
+      }
+      callback(
+        [
+          {
+            region_type: 'B',
+            code: _latitude === 37.51 ? '1114010100' : '4111710100',
+            region_3depth_name: _latitude === 37.51 ? '서울역' : '수원역',
+          },
+        ],
+        'OK',
+      );
     }
   }
 
@@ -771,10 +979,12 @@ function createKakaoMaps(): KakaoMaps {
       },
       CustomOverlay: class {
         setMap = vi.fn();
+        setPosition = vi.fn();
         setZIndex = vi.fn();
 
         constructor(options: Record<string, unknown>) {
           customOverlayOptions.push(options);
+          customOverlayControls.push({ setPosition: this.setPosition });
           if (options.content instanceof HTMLElement) {
             const wrapper = document.createElement('div');
             wrapper.append(options.content);

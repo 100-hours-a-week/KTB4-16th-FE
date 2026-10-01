@@ -55,6 +55,7 @@ export type KakaoMap = {
   getBounds: () => KakaoLatLngBounds;
   getCenter: () => KakaoLatLng;
   setCenter: (center: KakaoLatLng) => void;
+  relayout: () => void;
 };
 
 export type KakaoMouseEvent = {
