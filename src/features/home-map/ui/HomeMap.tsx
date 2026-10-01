@@ -61,8 +61,8 @@ function withMapModeInLocationState(state: unknown, mapMode: MapMode) {
   };
 }
 
-/** 위치 성공 좌표만 반환하고 실패 상태를 fallback 좌표로 바꾸지 않는다. */
-function getInitialMapCenter(): Promise<
+/** GPS를 요청하고 성공 좌표 또는 위치 실패 이유를 반환한다. */
+function getCurrentLocation(): Promise<
   { kind: 'ready'; center: MapCenter } | { kind: Exclude<LocationLoadState, 'loading' | 'ready'> }
 > {
   return new Promise((resolve) => {
@@ -90,7 +90,7 @@ function getInitialMapCenter(): Promise<
             resolve({ kind: 'position-unavailable' });
           }
         },
-        { timeout: 10_000 },
+        { timeout: 10_000, maximumAge: 0 },
       );
     } catch {
       resolve({ kind: 'position-unavailable' });
@@ -230,6 +230,7 @@ export function HomeMap({
   const closePopularTracksSheetRef = useRef<() => void>(() => undefined);
   const pendingMapSheetRef = useRef<PendingMapSheet | null>(null);
   const clearMapSelectionRef = useRef<() => void>(() => undefined);
+  const recenterMapRef = useRef<((center: MapCenter) => void) | null>(null);
   const myLocksRequestControllerRef = useRef<AbortController | null>(null);
   const myLocksRequestIdRef = useRef(0);
   const popularTracksRequestControllerRef = useRef<AbortController | null>(null);
@@ -239,6 +240,8 @@ export function HomeMap({
   );
   const [locationLoadState, setLocationLoadState] = useState<LocationLoadState>('loading');
   const [locationRetryKey, setLocationRetryKey] = useState(0);
+  const [isRecentering, setIsRecentering] = useState(false);
+  const [recenterFailed, setRecenterFailed] = useState(false);
   const [mapLoadState, setMapLoadState] = useState<MapLoadState>('idle');
   const [markersLoadState, setMarkersLoadState] = useState<MarkersLoadState>('idle');
   const [selectedPlaceIds, setSelectedPlaceIds] = useState<number[]>([]);
@@ -520,7 +523,7 @@ export function HomeMap({
       setLocationLoadState('loading');
       setMapLoadState('idle');
       try {
-        const locationResult = await getInitialMapCenter();
+        const locationResult = await getCurrentLocation();
 
         if (!isMounted) {
           return;
@@ -579,6 +582,12 @@ export function HomeMap({
           zIndex: 10,
         });
         currentLocationContent.parentElement?.style.setProperty('pointer-events', 'none');
+        // 지도 이동과 현재 위치 표시가 항상 같은 새 GPS 좌표를 가리키도록 유지한다.
+        recenterMapRef.current = (newCenter) => {
+          const position = new kakao.maps.LatLng(newCenter.latitude, newCenter.longitude);
+          currentLocationOverlay?.setPosition(position);
+          map.setCenter(position);
+        };
         const musicNoteMarkerImage = createMusicNoteMarkerImage(kakao);
         const selectedMusicNoteMarkerImage = createSelectedMusicNoteMarkerImage(kakao);
         resetSelectedMarkerImage = (marker) => marker.setImage(musicNoteMarkerImage);
@@ -768,6 +777,7 @@ export function HomeMap({
       removeMapClickListener?.();
       removeClusterClickListener?.();
       currentLocationOverlay?.setMap(null);
+      recenterMapRef.current = null;
       if (refreshMarkersRef.current) {
         refreshMarkersRef.current = null;
       }
@@ -782,6 +792,30 @@ export function HomeMap({
   ]);
 
   const isMissingMapAppKey = !env.kakaoMapAppKey;
+
+  /** 버튼 클릭 시 GPS를 새로 조회하고 성공한 좌표로 지도와 홈 위치 정보를 갱신한다. */
+  async function handleRecenterToCurrentLocation() {
+    if (!recenterMapRef.current || isRecentering) return;
+
+    setIsRecentering(true);
+    setRecenterFailed(false);
+    try {
+      const result = await getCurrentLocation();
+      if (!recenterMapRef.current) return;
+
+      if (result.kind === 'ready') {
+        recenterMapRef.current(result.center);
+        onCurrentLocationResolved?.(result.center);
+      } else if (result.kind === 'permission-denied') {
+        onCurrentLocationResolved?.(null);
+        setLocationLoadState(result.kind);
+      } else {
+        setRecenterFailed(true);
+      }
+    } finally {
+      setIsRecentering(false);
+    }
+  }
 
   function handleMapModeChange(nextMapMode: MapMode) {
     if (nextMapMode === 'mine' && !isAuthenticated) {
@@ -857,6 +891,22 @@ export function HomeMap({
 
       <div className="home-map-canvas">
         <div className="home-map-instance" ref={mapContainerRef} />
+        {locationLoadState === 'ready' && mapLoadState === 'ready' ? (
+          <button
+            className="home-map-recenter"
+            type="button"
+            aria-label="내 위치로 이동"
+            disabled={isRecentering}
+            onClick={() => void handleRecenterToCurrentLocation()}
+          >
+            <span aria-hidden="true">◎</span>
+          </button>
+        ) : null}
+        {recenterFailed ? (
+          <p className="home-map-recenter-error" role="alert">
+            현재 위치를 다시 확인하지 못했어요.
+          </p>
+        ) : null}
         {locationLoadState !== 'ready' ? (
           <div
             className="home-map-notice home-map-notice--location"

@@ -25,6 +25,14 @@ body,
   margin: 0;
 }
 
+@supports (min-height: 100dvh) {
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+  }
+}
+
 body {
   background:
     radial-gradient(circle at 15% 5%, rgb(255 158 109 / 10%), transparent 42%),
