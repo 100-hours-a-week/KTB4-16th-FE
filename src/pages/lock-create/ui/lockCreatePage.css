@@ -1,6 +1,5 @@
 .lock-create-page {
-  height: 100vh;
-  height: 100dvh;
+  position: relative;
   min-height: 0;
   overflow: hidden;
 }
@@ -263,11 +262,123 @@
   border-radius: 14px;
   isolation: isolate;
 }
-.lock-create-map-frame .lock-create-map {
+.lock-create-map-stage {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+.lock-create-map-stage .lock-create-map {
   position: relative;
   z-index: 0;
   height: 100%;
   border-radius: 0;
+  pointer-events: none;
+}
+.lock-create-map-stage .lock-create-map.is-editing {
+  pointer-events: auto;
+}
+.lock-create-map-frame.is-expanded {
+  /* 작성 화면을 기준으로 펼쳐 모바일 화면과 데스크톱 480px 셸을 넘지 않는다. */
+  position: absolute;
+  inset: 0;
+  height: auto; /* The expanded editor must outgrow the compact map's fixed height. */
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  background: #faf6ff;
+}
+.lock-create-map-frame.is-expanded .lock-create-map-stage {
+  flex: 1 1 0;
+}
+.lock-create-map-editor-header {
+  display: grid;
+  min-height: 62px;
+  flex: 0 0 auto;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  padding: max(10px, env(safe-area-inset-top)) 14px 8px;
+  background: #faf6ff;
+  text-align: center;
+}
+.lock-create-map-editor-header button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  color: #332b4a;
+  font-size: 28px;
+}
+.lock-create-map-editor-header strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+.lock-create-map-instruction {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 3;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  margin: 0;
+  padding: 9px 12px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 2px 8px rgb(90 72 132 / 14%);
+  color: #332b4a;
+  font-size: 11px;
+  text-align: center;
+}
+.lock-create-adjust-location {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 3;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #dccbf0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 2px 7px rgb(90 72 132 / 18%);
+  color: #8f6fda;
+  font-size: 11px;
+  font-weight: 700;
+}
+.lock-create-adjust-location:focus-visible,
+.lock-create-map-editor-header button:focus-visible,
+.lock-create-map-editor-footer button:focus-visible {
+  outline: 3px solid rgb(122 92 190 / 48%);
+  outline-offset: 2px;
+}
+.lock-create-map-editor-footer {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 16px 18px max(20px, env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4px 16px rgb(90 72 132 / 10%);
+}
+.lock-create-map-editor-footer small {
+  color: #8f6fda;
+  font-size: 11px;
+  font-weight: 700;
+}
+.lock-create-map-editor-footer strong {
+  color: #332b4a;
+  font-size: 15px;
+}
+.lock-create-map-editor-footer button {
+  min-height: 46px;
+  margin-top: 4px;
+  border-radius: 13px;
+  background: linear-gradient(120deg, #a78bde, #8f6fda);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+.lock-create-map-editor-footer button:disabled {
+  opacity: 0.45;
 }
 .lock-create-location-notice {
   position: absolute;
