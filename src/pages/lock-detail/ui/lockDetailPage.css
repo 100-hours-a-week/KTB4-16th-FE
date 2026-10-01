@@ -8,6 +8,11 @@
   padding-left: 14px;
 }
 
+.lock-detail-page-content > .lock-detail {
+  /* 부모가 flex 컨테이너여도 카드 내부 overflow가 삭제 버튼을 자르지 않게 한다. */
+  flex: 0 0 auto;
+}
+
 .lock-detail-page-status {
   display: grid;
   min-height: 180px;
