@@ -1,8 +1,16 @@
 .lock-detail-page-content {
-  display: grid;
-  align-content: start;
+  /* 상세 카드 높이를 유지해 아래 삭제 버튼까지 콘텐츠 영역에서 스크롤한다. */
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0;
   padding-right: 14px;
   padding-left: 14px;
+}
+
+.lock-detail-page-content > .lock-detail {
+  /* 부모가 flex 컨테이너여도 카드 내부 overflow가 삭제 버튼을 자르지 않게 한다. */
+  flex: 0 0 auto;
 }
 
 .lock-detail-page-status {
