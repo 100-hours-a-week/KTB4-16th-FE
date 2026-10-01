@@ -1,6 +1,9 @@
 .lock-detail-page-content {
-  display: grid;
-  align-content: start;
+  /* 상세 카드 높이를 유지해 아래 삭제 버튼까지 콘텐츠 영역에서 스크롤한다. */
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0;
   padding-right: 14px;
   padding-left: 14px;
 }

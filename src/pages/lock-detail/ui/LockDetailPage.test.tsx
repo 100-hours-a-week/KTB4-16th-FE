@@ -67,6 +67,9 @@ describe('LockDetailPage', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('자물쇠를 불러오는 중이에요.');
     expect(await screen.findByText('📍 매산로1가')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '자물쇠 상세 내용' })).toContainElement(
+      screen.getByRole('button', { name: '자물쇠 삭제' }),
+    );
     expect(screen.getByText('2026.09.26 · 18:30')).toBeInTheDocument();
     expect(mocks.getRecordDetail).toHaveBeenCalledWith(
       585,

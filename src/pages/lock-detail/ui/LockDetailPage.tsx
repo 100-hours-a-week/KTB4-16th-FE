@@ -63,7 +63,11 @@ export function LockDetailPage() {
 
   return (
     <main className="static-page">
-      <div className="static-page-content lock-detail-page-content">
+      <div
+        aria-label="자물쇠 상세 내용"
+        className="static-page-content lock-detail-page-content"
+        role="region"
+      >
         {loadState === 'loading' ? (
           <section
             className="surface-card lock-detail-page-status"
