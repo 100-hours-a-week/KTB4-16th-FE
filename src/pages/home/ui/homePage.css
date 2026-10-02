@@ -61,19 +61,10 @@
 .home-topbar h1 {
   display: flex;
   align-items: center;
-  gap: 6px;
   margin: 0;
   color: var(--mulo-lilac-500);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 18px;
-}
-
-.home-topbar__logo {
-  display: block;
-  width: 16px;
-  height: 21px;
-  flex: none;
-  object-fit: contain;
 }
 
 .home-weather-chip {
