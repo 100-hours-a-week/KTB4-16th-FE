@@ -1,4 +1,4 @@
-name: Frontend CI develop
+name: Frontend CI main
 
 on:
   push:
