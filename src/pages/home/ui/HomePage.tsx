@@ -67,7 +67,7 @@ export function HomePage() {
     <main className="home-page" onClick={() => isPlaylistOpen && closePlaylist()}>
       <div className="home-page-content">
         <header className="home-topbar">
-          <h1>MULO</h1>
+          <h1 className="home-topbar__brand">MULO</h1>
           {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
           <HomeWeather coordinates={currentLocation} />
         </header>

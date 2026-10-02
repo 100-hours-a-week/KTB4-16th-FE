@@ -59,6 +59,8 @@
 }
 
 .home-topbar h1 {
+  display: flex;
+  align-items: center;
   margin: 0;
   color: var(--mulo-lilac-500);
   font-family: Georgia, 'Times New Roman', serif;

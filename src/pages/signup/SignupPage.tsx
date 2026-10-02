@@ -7,7 +7,10 @@ import type {
   AuthFieldErrors,
   SignupValues,
 } from '../../features/auth/model/auth.types';
-import { validateSignup } from '../../features/auth/model/auth.validation';
+import {
+  SIGNUP_PASSWORD_FORMAT_MESSAGE,
+  validateSignup,
+} from '../../features/auth/model/auth.validation';
 import { FormField } from '../../shared/ui/FormField';
 import { ApiError } from '../../shared/api/apiError';
 
@@ -52,12 +55,20 @@ export function SignupPage() {
   const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [nicknameBlurred, setNicknameBlurred] = useState(false);
+  const [emailBlurred, setEmailBlurred] = useState(false);
   const liveErrors = validateSignup(values);
 
   /** 지정한 필드만 갱신해 입력별 상태 책임을 유지한다. */
   const handleChange = (field: keyof SignupValues) => (event: ChangeEvent<HTMLInputElement>) => {
     setValues((current) => ({ ...current, [field]: event.target.value }));
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
+
+    if (field === 'nickname') {
+      setNicknameBlurred(false);
+    } else if (field === 'email') {
+      setEmailBlurred(false);
+    }
   };
 
   /** 검증을 통과한 가입 요청을 한 번만 전송하고 결과를 화면 상태로 반영한다. */
@@ -83,7 +94,10 @@ export function SignupPage() {
       await signup(values);
       navigate('/login', {
         replace: true,
-        state: { signupMessage: '가입이 완료되었습니다. 로그인해 주세요.' },
+        state: {
+          signupMessage: '가입이 완료되었습니다. 로그인해 주세요.',
+          email: values.email.trim().toLowerCase(),
+        },
       });
     } catch (error: unknown) {
       if (error instanceof ApiError) {
@@ -113,13 +127,16 @@ export function SignupPage() {
             type="text"
             value={values.nickname}
             onChange={handleChange('nickname')}
+            onBlur={() => setNicknameBlurred(true)}
             error={
               fieldErrors.nickname ??
-              (values.nickname && liveErrors.nickname ? '2~10자로 입력해주세요.' : undefined)
+              (nicknameBlurred && values.nickname ? liveErrors.nickname : undefined)
             }
-            helperText="2~10자로 입력해주세요."
+            helperText="한글, 영문, 숫자로 2~10자까지 입력해 주세요."
             successText={
-              values.nickname && !liveErrors.nickname ? '사용할 수 있는 닉네임입니다.' : undefined
+              nicknameBlurred && values.nickname && !liveErrors.nickname
+                ? '닉네임 형식을 통과하였습니다.'
+                : undefined
             }
             placeholder="닉네임 입력"
             maxLength={10}
@@ -131,11 +148,14 @@ export function SignupPage() {
             type="email"
             value={values.email}
             onChange={handleChange('email')}
+            onBlur={() => setEmailBlurred(true)}
             error={
-              fieldErrors.email ??
-              (values.email && liveErrors.email
-                ? '올바른 이메일 형식으로 입력해주세요.'
-                : undefined)
+              fieldErrors.email ?? (emailBlurred && values.email ? liveErrors.email : undefined)
+            }
+            successText={
+              emailBlurred && values.email && !liveErrors.email
+                ? '이메일 형식을 통과하였습니다.'
+                : undefined
             }
             placeholder="example@mulo.com"
             maxLength={254}
@@ -149,11 +169,9 @@ export function SignupPage() {
             onChange={handleChange('password')}
             error={
               fieldErrors.password ??
-              (values.password && liveErrors.password
-                ? '영문 대소문자, 숫자, 특수문자를 포함해 8~16자로 입력해주세요.'
-                : undefined)
+              (values.password && liveErrors.password ? SIGNUP_PASSWORD_FORMAT_MESSAGE : undefined)
             }
-            helperText="영문 대소문자, 숫자, 특수문자를 포함해 8~16자로 입력해주세요."
+            helperText={SIGNUP_PASSWORD_FORMAT_MESSAGE}
             successText={
               values.password && !liveErrors.password ? '사용할 수 있는 비밀번호입니다.' : undefined
             }
