@@ -127,6 +127,10 @@ a:hover {
   gap: 16px;
 }
 
+.auth-card--signup .auth-form {
+  gap: 12px;
+}
+
 .form-field {
   display: grid;
   gap: 6px;
@@ -218,6 +222,10 @@ a:hover {
   color: #9a90b3;
   font-size: 0.72rem;
   line-height: 1.45;
+}
+
+.form-field-message {
+  min-height: 1.45em;
 }
 
 .form-field-message--error,

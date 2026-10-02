@@ -24,6 +24,32 @@ describe('FormField', () => {
     );
   });
 
+  it('선택적인 onBlur handler를 input에 전달하고 빈 메시지 영역을 접근성 트리에서 숨긴다', async () => {
+    const user = userEvent.setup();
+    const onBlur = vi.fn();
+
+    render(
+      <FormField
+        autoComplete="email"
+        id="email"
+        label="이메일"
+        onBlur={onBlur}
+        onChange={() => undefined}
+        type="email"
+        value=""
+      />,
+    );
+
+    const input = screen.getByLabelText('이메일');
+    expect(input).not.toHaveAttribute('aria-describedby');
+    expect(document.getElementById('email-message')).toHaveAttribute('aria-hidden', 'true');
+    expect(document.getElementById('email-message')).toHaveClass('form-field-message');
+
+    await user.click(input);
+    await user.tab();
+    expect(onBlur).toHaveBeenCalledTimes(1);
+  });
+
   it('오류가 있으면 성공과 도움말보다 오류를 우선 표시한다', () => {
     render(
       <FormField

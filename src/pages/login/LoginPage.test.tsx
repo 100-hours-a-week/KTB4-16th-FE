@@ -18,9 +18,9 @@ function SessionDestination() {
 }
 
 /** 로그인 화면을 실제 세션 Provider와 이동 목적지까지 포함해 렌더링한다. */
-function renderLoginPage(signupMessage?: unknown) {
+function renderLoginPage(state?: { email?: unknown; signupMessage?: unknown }) {
   return render(
-    <MemoryRouter initialEntries={[{ pathname: '/login', state: { signupMessage } }]}>
+    <MemoryRouter initialEntries={[state ? { pathname: '/login', state } : '/login']}>
       <SessionProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -46,7 +46,19 @@ describe('LoginPage', () => {
     expect(screen.getByRole('heading', { name: 'mulo' })).toBeInTheDocument();
     expect(screen.getByText('장소에 음악을 걸어두는 앱')).toBeInTheDocument();
     expect(screen.getByLabelText('이메일')).toHaveAttribute('placeholder', 'example@mulo.com');
+    expect(screen.getByLabelText('이메일')).toHaveValue('');
     expect(screen.getByLabelText('비밀번호')).toHaveAttribute('placeholder', '비밀번호 입력');
+    expect(screen.getByLabelText('비밀번호')).toHaveValue('');
+  });
+
+  it('initializes only the email from signup navigation state', () => {
+    renderLoginPage({
+      email: 'user@example.com',
+      signupMessage: '가입이 완료되었습니다. 로그인해 주세요.',
+    });
+
+    expect(screen.getByLabelText('이메일')).toHaveValue('user@example.com');
+    expect(screen.getByLabelText('비밀번호')).toHaveValue('');
   });
 
   it('shows both client errors without calling the API', async () => {
@@ -62,7 +74,7 @@ describe('LoginPage', () => {
   });
 
   it('announces a signup message only when route state contains a string', () => {
-    renderLoginPage('가입이 완료되었습니다. 로그인해 주세요.');
+    renderLoginPage({ signupMessage: '가입이 완료되었습니다. 로그인해 주세요.' });
 
     expect(screen.getByRole('status')).toHaveTextContent('가입이 완료되었습니다. 로그인해 주세요.');
   });

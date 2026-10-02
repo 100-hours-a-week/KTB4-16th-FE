@@ -1,6 +1,7 @@
 import {
   useState,
   type ChangeEventHandler,
+  type FocusEventHandler,
   type HTMLInputAutoCompleteAttribute,
   type HTMLInputTypeAttribute,
 } from 'react';
@@ -11,6 +12,7 @@ interface FormFieldProps {
   type: HTMLInputTypeAttribute;
   value: string;
   onChange: ChangeEventHandler<HTMLInputElement>;
+  onBlur?: FocusEventHandler<HTMLInputElement>;
   error?: string;
   helperText?: string;
   successText?: string;
@@ -26,6 +28,7 @@ export function FormField({
   type,
   value,
   onChange,
+  onBlur,
   error,
   helperText,
   successText,
@@ -51,6 +54,7 @@ export function FormField({
           type={isPassword && isPasswordVisible ? 'text' : type}
           value={value}
           onChange={onChange}
+          onBlur={onBlur}
           autoComplete={autoComplete}
           placeholder={placeholder}
           maxLength={maxLength}
@@ -79,11 +83,13 @@ export function FormField({
           </button>
         ) : null}
       </div>
-      {message ? (
-        <p id={messageId} className={`form-field-message form-field-message--${messageTone}`}>
-          {message}
-        </p>
-      ) : null}
+      <p
+        id={messageId}
+        aria-hidden={!message}
+        className={`form-field-message form-field-message--${messageTone}`}
+      >
+        {message || '\u00a0'}
+      </p>
     </div>
   );
 }

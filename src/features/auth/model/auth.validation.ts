@@ -3,6 +3,8 @@ import type { AuthFieldErrors, LoginValues, SignupValues } from './auth.types';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NICKNAME_PATTERN = /^[A-Za-z0-9가-힣]{2,10}$/;
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,16}$/;
+export const SIGNUP_PASSWORD_FORMAT_MESSAGE =
+  '영문 대·소문자, 숫자, 특수문자를 포함해 8~16자로 입력해 주세요.';
 
 /** 로그인 폼의 이메일 형식과 필수 입력을 검증한다. */
 export function validateLogin(values: LoginValues): AuthFieldErrors {
@@ -31,7 +33,7 @@ export function validateSignup(values: SignupValues): AuthFieldErrors {
   }
 
   if (!PASSWORD_PATTERN.test(values.password)) {
-    errors.password = '비밀번호는 영문 대·소문자, 숫자, 특수문자를 포함해 8~16자로 입력해 주세요.';
+    errors.password = SIGNUP_PASSWORD_FORMAT_MESSAGE;
   }
 
   if (values.passwordConfirm !== values.password) {
