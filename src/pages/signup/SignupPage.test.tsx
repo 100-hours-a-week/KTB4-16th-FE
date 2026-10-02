@@ -12,10 +12,16 @@ vi.mock('../../features/auth/api/authApi', () => ({ signup: vi.fn() }));
 /** 회원가입 완료 이동과 route state 안내를 실제 Router에서 관찰한다. */
 function LoginDestination() {
   const location = useLocation();
-  const state = location.state as { signupMessage?: unknown } | null;
+  const state = location.state as { email?: unknown; signupMessage?: unknown } | null;
   const message = typeof state?.signupMessage === 'string' ? state.signupMessage : '';
+  const email = typeof state?.email === 'string' ? state.email : '';
 
-  return <p role="status">{message}</p>;
+  return (
+    <>
+      <p role="status">{message}</p>
+      <p data-testid="login-email-state">{email}</p>
+    </>
+  );
 }
 
 /** 회원가입 페이지와 성공 목적지를 실제 메모리 라우터로 렌더링한다. */
@@ -41,24 +47,110 @@ async function fillValidSignupForm(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => vi.clearAllMocks());
 
 describe('SignupPage', () => {
-  it('shows mockup helpers and changes them to success feedback for valid input', async () => {
+  it('shows nickname and email format success only after blur', async () => {
     const user = userEvent.setup();
     renderSignupPage();
 
     expect(screen.getByLabelText('닉네임')).toHaveAttribute('placeholder', '닉네임 입력');
-    expect(screen.getByLabelText('비밀번호')).toHaveAccessibleDescription(
-      '영문 대소문자, 숫자, 특수문자를 포함해 8~16자로 입력해주세요.',
-    );
-
-    await user.type(screen.getByLabelText('닉네임'), '뮤로');
-    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
-
     expect(screen.getByLabelText('닉네임')).toHaveAccessibleDescription(
-      '사용할 수 있는 닉네임입니다.',
+      '한글, 영문, 숫자로 2~10자까지 입력해 주세요.',
     );
+    expect(screen.queryByText('올바른 이메일 형식으로 입력해 주세요.')).not.toBeInTheDocument();
+    expect(document.getElementById('email-message')).toHaveAttribute('aria-hidden', 'true');
+    expect(document.getElementById('email-message')).toHaveClass('form-field-message');
     expect(screen.getByLabelText('비밀번호')).toHaveAccessibleDescription(
-      '사용할 수 있는 비밀번호입니다.',
+      '영문 대·소문자, 숫자, 특수문자를 포함해 8~16자로 입력해 주세요.',
     );
+
+    const nickname = screen.getByLabelText('닉네임');
+    const email = screen.getByLabelText('이메일');
+    await user.type(nickname, '뮤로');
+    expect(screen.queryByText('닉네임 형식을 통과하였습니다.')).not.toBeInTheDocument();
+    await user.tab();
+
+    expect(nickname).toHaveAccessibleDescription('닉네임 형식을 통과하였습니다.');
+
+    await user.type(email, 'ji@gm.com');
+    expect(screen.queryByText('이메일 형식을 통과하였습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByText('이메일 형식이 올바르지 않습니다.')).not.toBeInTheDocument();
+    await user.tab();
+
+    expect(email).toHaveAccessibleDescription('이메일 형식을 통과하였습니다.');
+  });
+
+  it('shows existing nickname and email validation errors after blur', async () => {
+    const user = userEvent.setup();
+    renderSignupPage();
+
+    const nickname = screen.getByLabelText('닉네임');
+    await user.type(nickname, '!');
+    expect(
+      screen.queryByText('닉네임은 한글, 영문, 숫자로 2~10자까지 입력해 주세요.'),
+    ).not.toBeInTheDocument();
+    await user.tab();
+    expect(nickname).toHaveAccessibleDescription(
+      '닉네임은 한글, 영문, 숫자로 2~10자까지 입력해 주세요.',
+    );
+
+    const email = screen.getByLabelText('이메일');
+    await user.type(email, 'invalid');
+    expect(screen.queryByText('이메일 형식이 올바르지 않습니다.')).not.toBeInTheDocument();
+    await user.tab();
+    expect(email).toHaveAccessibleDescription('이메일 형식이 올바르지 않습니다.');
+  });
+
+  it('keeps signup password guidance identical in helper and validation error styling', async () => {
+    const user = userEvent.setup();
+    renderSignupPage();
+
+    const password = screen.getByLabelText('비밀번호');
+    const message = document.getElementById('password-message');
+    const guidance = '영문 대·소문자, 숫자, 특수문자를 포함해 8~16자로 입력해 주세요.';
+
+    expect(password).toHaveAccessibleDescription(guidance);
+    await user.type(password, 'weak');
+
+    expect(password).toHaveAttribute('aria-invalid', 'true');
+    expect(password).toHaveAccessibleDescription(guidance);
+    expect(message).toHaveClass('form-field-message--error');
+  });
+
+  it('resets nickname and email blur feedback when their values change', async () => {
+    const user = userEvent.setup();
+    renderSignupPage();
+
+    const nickname = screen.getByLabelText('닉네임');
+    await user.type(nickname, '뮤로');
+    await user.tab();
+    expect(nickname).toHaveAccessibleDescription('닉네임 형식을 통과하였습니다.');
+
+    await user.click(nickname);
+    await user.type(nickname, '2');
+    expect(nickname).toHaveAccessibleDescription('한글, 영문, 숫자로 2~10자까지 입력해 주세요.');
+    await user.tab();
+    expect(nickname).toHaveAccessibleDescription('닉네임 형식을 통과하였습니다.');
+
+    const email = screen.getByLabelText('이메일');
+    await user.type(email, 'ji@gm.com');
+    await user.tab();
+    expect(email).toHaveAccessibleDescription('이메일 형식을 통과하였습니다.');
+
+    await user.click(email);
+    await user.clear(email);
+    await user.type(email, 'invalid');
+    expect(email).not.toHaveAccessibleDescription('이메일 형식이 올바르지 않습니다.');
+    expect(screen.queryByText('올바른 이메일 형식으로 입력해 주세요.')).not.toBeInTheDocument();
+    await user.tab();
+    expect(email).toHaveAccessibleDescription('이메일 형식이 올바르지 않습니다.');
+
+    await user.click(email);
+    await user.clear(email);
+    await user.type(email, 'again@example.com');
+    expect(screen.queryByText('이메일 형식이 올바르지 않습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByText('이메일 형식을 통과하였습니다.')).not.toBeInTheDocument();
+    expect(document.getElementById('email-message')).toHaveAttribute('aria-hidden', 'true');
+    await user.tab();
+    expect(email).toHaveAccessibleDescription('이메일 형식을 통과하였습니다.');
   });
 
   it('shows all client field errors without calling the API', async () => {
@@ -78,17 +170,21 @@ describe('SignupPage', () => {
     expect(signup).not.toHaveBeenCalled();
   });
 
-  it('moves to login with a success message after signup', async () => {
+  it('moves to login with a success message and normalized signup email after signup', async () => {
     const user = userEvent.setup();
     vi.mocked(signup).mockResolvedValue({ message: '가입 완료' });
     renderSignupPage();
-    await fillValidSignupForm(user);
+    await user.type(screen.getByLabelText('닉네임'), '뮬로');
+    await user.type(screen.getByLabelText('이메일'), 'User@Example.COM');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
 
     await user.click(screen.getByRole('button', { name: '가입 완료' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(
       '가입이 완료되었습니다. 로그인해 주세요.',
     );
+    expect(screen.getByTestId('login-email-state')).toHaveTextContent('user@example.com');
   });
 
   it('shows server validation on the matching field', async () => {

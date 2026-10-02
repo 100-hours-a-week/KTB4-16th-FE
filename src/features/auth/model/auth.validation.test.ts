@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateLogin, validateSignup } from './auth.validation';
+import { SIGNUP_PASSWORD_FORMAT_MESSAGE, validateLogin, validateSignup } from './auth.validation';
 
 describe('validateLogin', () => {
   it.each([
@@ -41,6 +41,20 @@ describe('validateSignup', () => {
       ).toBeDefined();
     },
   );
+
+  it('uses the signup password format guidance for validation errors', () => {
+    expect(
+      validateSignup({
+        nickname: '뮬로',
+        email: 'user@example.com',
+        password: 'weak',
+        passwordConfirm: 'weak',
+      }).password,
+    ).toBe(SIGNUP_PASSWORD_FORMAT_MESSAGE);
+    expect(SIGNUP_PASSWORD_FORMAT_MESSAGE).toBe(
+      '영문 대·소문자, 숫자, 특수문자를 포함해 8~16자로 입력해 주세요.',
+    );
+  });
 
   it('rejects mismatched confirmation', () => {
     expect(

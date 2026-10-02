@@ -19,6 +19,21 @@ function getSignupMessage(state: unknown): string | null {
   return typeof state.signupMessage === 'string' ? state.signupMessage : null;
 }
 
+/** 회원가입 직후 전달된 이메일만 로그인 초기값으로 사용한다. */
+function getSignupEmail(state: unknown): string | null {
+  if (
+    typeof state !== 'object' ||
+    state === null ||
+    !('email' in state) ||
+    !('signupMessage' in state) ||
+    typeof state.signupMessage !== 'string'
+  ) {
+    return null;
+  }
+
+  return typeof state.email === 'string' ? state.email : null;
+}
+
 /** 로그인 API 실패를 상태별 사용자 안내로 변환한다. */
 function getLoginErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -43,7 +58,10 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setAccessToken } = useSession();
-  const [values, setValues] = useState<LoginValues>(INITIAL_VALUES);
+  const [values, setValues] = useState<LoginValues>(() => ({
+    ...INITIAL_VALUES,
+    email: getSignupEmail(location.state) ?? '',
+  }));
   const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -127,6 +127,10 @@ a:hover {
   gap: 16px;
 }
 
+.auth-card--signup .auth-form {
+  gap: 12px;
+}
+
 .form-field {
   display: grid;
   gap: 6px;
@@ -154,6 +158,49 @@ a:hover {
     background-color 160ms ease;
 }
 
+.form-field-input-wrap {
+  position: relative;
+}
+
+.form-field-input-wrap--password input {
+  padding-right: 48px;
+}
+
+.form-field-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #7f6aae;
+  cursor: pointer;
+}
+
+.form-field-password-toggle:hover {
+  background: rgb(201 183 236 / 20%);
+}
+
+.form-field-password-toggle:focus-visible {
+  outline: 2px solid #a78bde;
+  outline-offset: 2px;
+}
+
+.form-field-password-toggle svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
 .form-field input:hover {
   border-color: #c9b7ec;
 }
@@ -175,6 +222,10 @@ a:hover {
   color: #9a90b3;
   font-size: 0.72rem;
   line-height: 1.45;
+}
+
+.form-field-message {
+  min-height: 1.45em;
 }
 
 .form-field-message--error,
@@ -256,6 +307,10 @@ a:focus-visible {
   line-height: 1;
   place-items: center;
   text-decoration: none;
+}
+.back-button > span {
+  display: inline-block;
+  transform: translate(0px, -2px);
 }
 
 .auth-switch {
