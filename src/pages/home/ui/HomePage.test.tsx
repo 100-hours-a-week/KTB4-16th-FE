@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -45,5 +45,13 @@ describe('HomePage weather location handling', () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0));
 
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('shows the brand logo decoratively beside the MULO heading', () => {
+    const { container } = render(<HomePage />);
+
+    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+    expect(container.querySelector('.home-topbar__logo')).toHaveAttribute('alt', '');
+    expect(container.querySelector('.home-topbar__logo')).toHaveAttribute('aria-hidden', 'true');
   });
 });

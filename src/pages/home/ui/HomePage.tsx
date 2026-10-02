@@ -5,6 +5,7 @@ import { HomeMap, type MapCenter } from '../../../features/home-map/ui/HomeMap';
 import { HomePlaylistSheet } from '../../../features/home-playlist/ui/HomePlaylistSheet';
 import { HomeWeather } from '../../../features/home-weather/ui/HomeWeather';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
+import muloLogo from '../assets/mulo_logo_lock_only.png';
 import './homePage.css';
 
 /** 목업의 홈 진입 화면을 기능 UI로 조립한다. */
@@ -67,7 +68,10 @@ export function HomePage() {
     <main className="home-page" onClick={() => isPlaylistOpen && closePlaylist()}>
       <div className="home-page-content">
         <header className="home-topbar">
-          <h1>MULO</h1>
+          <h1 className="home-topbar__brand">
+            <img aria-hidden="true" alt="" className="home-topbar__logo" src={muloLogo} />
+            <span>MULO</span>
+          </h1>
           {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
           <HomeWeather coordinates={currentLocation} />
         </header>
