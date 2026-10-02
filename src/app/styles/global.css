@@ -308,6 +308,10 @@ a:focus-visible {
   place-items: center;
   text-decoration: none;
 }
+.back-button > span {
+  display: inline-block;
+  transform: translate(0px, -2px);
+}
 
 .auth-switch {
   margin: 26px 0 0;
