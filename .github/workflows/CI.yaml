@@ -4,313 +4,137 @@ on:
   push:
     branches:
       - main
-      - develop
-  pull_request:
-    branches:
-      - develop
-
-
-# 배포 작업 중 동시성 제어 (push 배포 간 충돌 방지)
+      
+# 버전 작업 동시에 실행되지 않게 
 concurrency:
-  group: frontend-develop-release
+  group: frontend-main-release
   cancel-in-progress: false
 
-env:
-  ZONE: asia-northeast3-a
-
 jobs:
-  # ============================================================
-  # develop PR: 머지 전 검증만 (배포 없음)
-  # ============================================================
-  pr-ci:
-    if: github.event_name == 'pull_request'
-    name: Frontend develop PR Check
+  ci:
+    name: Frontend CI
     runs-on: ubuntu-latest
 
+    # 워크플로우 권한 정의
     permissions:
-      contents: read
+      contents: write      # Git 태그, Release 생성
+      id-token: write      # GCP Workload Identity와 통신하기 위한 OIDC 토큰 발행 권한
+
+    env:
+      IMAGE_BASE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.PROJECT_REPOSITORY }}/${{ secrets.IMAGE_NAME }}
 
     steps:
+      # 1. 코드 체크아웃
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          # PR 검증은 최신 커밋만 검사하므로 얕은 복사(shallow clone) 사용
-          fetch-depth: 1
+            fetch-depth: 0
 
+      # 2. Node.js 
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: "npm"
 
+      # 3. 의존성 설치    
       - name: Install dependencies
-        run: npm ci
+        run: npm ci      
 
-      # Phase 1: 스타일 검사
-      - name: Run Prettier
+      # Phase 1: Prettier
+      - name: Run Prettier 
         run: npm run prettier
 
-      # Phase 2: Lint 검사
-      - name: Run ESLint
+      # Phase 2: Lint (ESlint)
+      - name: Run ESlint
         run: npm run lint
 
-      # Phase 3: TypeScript 타입 검사
+      # Phase 3: TypeScript 타입 오류 검사
       - name: Typecheck
         run: npm run typecheck
 
-  # PR 검증 결과 알림
-  notify-pr:
-    name: Discord notification (Develop PR)
-    runs-on: ubuntu-latest
-    needs: pr-ci
-    if: ${{ always() && github.event_name == 'pull_request' }}
-    permissions: {}
-
-    env:
-      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-
-    steps:
-      - name: Send CI result to Discord
-        if: ${{ env.DISCORD_WEBHOOK != '' }}
-        uses: Ilshidur/action-discord@0.3.2
-        with:
-          args: "Frontend develop PR 검증 결과 알림"
-        env:
-          DISCORD_USERNAME: MURO_BOT
-          DISCORD_EMBEDS: |
-            [
-              {
-                "title": "Frontend PR CI: ${{ needs.pr-ci.result }}",
-                "description": ${{ toJSON(github.event.pull_request.title) }},
-                "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-                "color": ${{ needs.pr-ci.result == 'success' && 3066993 || 15158332 }},
-                "fields": [
-                  {
-                    "name": "PR",
-                    "value": "[#${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})",
-                    "inline": true
-                  },
-                  {
-                    "name": "작성자",
-                    "value": ${{ toJSON(github.event.pull_request.user.login) }},
-                    "inline": true
-                  },
-                  {
-                    "name": "작업 브랜치",
-                    "value": ${{ toJSON(github.head_ref) }},
-                    "inline": true
-                  },
-                  {
-                    "name": "대상 브랜치",
-                    "value": ${{ toJSON(github.base_ref) }},
-                    "inline": true
-                  }
-                ]
-              }
-            ]
-
-  # 2. 개발 서버 빌드 (develop 브랜치 머지 시 실행)
-  push-ci:
-    if: github.event_name == 'push'
-    name: Frontend develop Release
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write   # Git 태그 및 GitHub Release 생성 권한
-      id-token: write   # GCP Workload Identity OIDC 인증 권한
-      issues: write
-      pull-requests: write
-
-    env:
-      IMAGE_BASE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_Develop }}/${{ secrets.PROJECT_REPOSITORY }}/${{ secrets.IMAGE_NAME }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          # semantic-release가 커밋 로그와 태그를 추적해야 하므로 전체 히스토리 필요
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      # Phase 1: 애플리케이션 빌드
+      # Phase 4: Build
       - name: Build
         run: npm run build
 
-      # Phase 2: Docker Buildx 설정
+      # Phase 5: Docker Build 준비
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      # Phase 3: GCP 인증 (OIDC)
+      # Phase 6: OIDC를 이용한 서비스 계정 인증
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID_Develop }}
-          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER_Develop }}
-          service_account: ${{ secrets.SERVICE_ACCOUNT_Develop }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
 
-      # Phase 4: gcloud CLI 준비
+      # Phase 7: gcloud 명령어 사용 준비
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v3
+        
 
-      # Phase 5: Artifact Registry Docker 인증
+      # Phase 8: Docker가 GCP 인증 정보를 사용하도록 연결
       - name: Configure Docker authentication
         run: |
-          gcloud auth configure-docker "${{ secrets.GCP_REGION }}-docker.pkg.dev" --quiet
+            gcloud auth configure-docker "${{ secrets.GCP_REGION }}-docker.pkg.dev" --quiet
 
-      # release.config.develop.json을 .releaserc.json으로 복사해서 쓴다 (main-ci와 동일한 이유).
+      # Phase 9: 버전 계산 -> image build, push -> Git 태그, Release 생성
       - name: Release frontend image
         env:
           GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
+          # .releaserc.json의 prepareCmd(docker buildx build)가 이 값들을 참조
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
-          cp release.config.develop.json .releaserc.json
           npx --yes \
             --package=semantic-release@25 \
             --package=@semantic-release/exec@7 \
             semantic-release
+            
+  notify:
+      name: Discord notification
+      runs-on: ubuntu-latest
+      needs: ci
 
-  # 3. Develop VM에 프론트엔드 새 버전을 자동으로 배포한다.
-  deploy:
-    name: Deploy to Develop VM
-    runs-on: ubuntu-latest
-    needs: push-ci
-    if: github.event_name == 'push'
-    permissions:
-      contents: read
-      id-token: write   # GCP WIF 인증용 OIDC 토큰 발급 권한
-    outputs:
-      vm: ${{ steps.develop.outputs.vm }}
+      # CI가 실패해도 알림 작업 실행
+      if: ${{ always() }}
+      permissions: {}
 
-    steps:
-      # WIF로 GCP 서비스 계정 인증 (키 파일 없이 임시 토큰 발급)
-      - id: auth
-        uses: google-github-actions/auth@v3
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID_Develop }}
-          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER_Develop }}
-          service_account: ${{ secrets.SERVICE_ACCOUNT_Develop }}
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
-      - uses: google-github-actions/setup-gcloud@v3
-
-      # 1. 현재 role=develop 라벨이 붙은 VM을 찾는다.
-      - id: develop
-        run: |
-          VM=$(gcloud compute instances list \
-            --filter="labels.role=develop" \
-            --zones="${{ env.ZONE }}" \
-            --format="value(name)")
-          if [ -z "$VM" ]; then
-            echo "role=develop 라벨을 가진 VM을 찾을 수 없습니다."
-            exit 1
-          fi
-          echo "vm=$VM" >> "$GITHUB_OUTPUT"
-
-      # 2. CI(semantic-release)가 방금 push한 이미지 중 가장 최근 태그를 조회한다.
-      - id: image
-        run: |
-          TAG=$(gcloud artifacts docker images list \
-            "${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_Develop }}/${{ secrets.PROJECT_REPOSITORY }}/${{ secrets.IMAGE_NAME }}" \
-            --include-tags --sort-by="~UPDATE_TIME" --limit=1 \
-            --format="value(TAGS)" | cut -d',' -f1)
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          
-      # 3. 빈 env 파일 생성
-      - run: touch frontend.env
-
-      # 4. env 파일을 develop VM으로 전송하고, 새 이미지를 pull해서 frontend 컨테이너만 교체한다.
-      #    같은 VM 위의 backend/ai/nginx 컨테이너는 건드리지 않는다.
-      - run: |
-          gcloud compute scp frontend.env "${{ steps.develop.outputs.vm }}:~/app/frontend.env" \
-            --zone="${{ env.ZONE }}" --tunnel-through-iap
-
-          gcloud compute ssh "${{ steps.develop.outputs.vm }}" \
-            --zone="${{ env.ZONE }}" --tunnel-through-iap --command="
-              set -e
-              sudo gcloud auth configure-docker '${{ secrets.GCP_REGION }}-docker.pkg.dev' --quiet
-              cd ~/app
-              export IMAGE_TAG=${{ steps.image.outputs.tag }}
-              export GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID_Develop }}
-              sudo --preserve-env=IMAGE_TAG,GCP_PROJECT_ID docker compose pull frontend
-              sudo --preserve-env=IMAGE_TAG,GCP_PROJECT_ID docker compose up -d frontend
-            "
-
-      # 5. 컨테이너가 healthy 상태가 될 때까지 대기
-      - name: "Wait for frontend container to be healthy"
-        run: |
-          gcloud compute ssh "${{ steps.develop.outputs.vm }}" --zone="${{ env.ZONE }}" --tunnel-through-iap --command="
-            for i in \$(seq 1 20); do
-              status=\$(sudo docker inspect frontend --format='{{.State.Health.Status}}' 2>/dev/null || echo 'unhealthy')
-              if [ \"\$status\" = \"healthy\" ]; then
-                echo \"frontend healthy (시도 \$i/20)\"
-                exit 0
-              fi
-              echo \"대기 중... (\$i/20) 현재 상태: \$status\"
-              sleep 3
-            done
-            echo \"frontend가 60초 안에 healthy가 되지 않았습니다.\"
-            exit 1
-          "
-
-      # 6. nginx는 컨테이너 DNS를 시작/리로드 시점에만 캐싱하므로, 방금 재생성된
-      #    frontend의 새 IP를 반영하도록 reload한다. 개발서버는 VM이 하나뿐이라
-      #    트래픽 전환 과정이 없어 이 단계가 빠져있었고, 그래서 이미지는 최신인데
-      #    실제로는 화면에 반영이 안 되는 문제가 있었다(2026-10-01 실제 발생).
-      - name: "Reload nginx to pick up new container IP"
-        run: |
-          gcloud compute ssh "${{ steps.develop.outputs.vm }}" --zone="${{ env.ZONE }}" --tunnel-through-iap --command="
-            sudo docker exec nginx nginx -s reload
-          "
-
-  # push CI 및 배포 결과 알림
-  notify-push:
-    name: Discord notification
-    runs-on: ubuntu-latest
-    needs: [push-ci, deploy]
-    if: ${{ always() && github.event_name == 'push' }}
-    permissions: {}
-
-    env:
-      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-
-    steps:
-      - name: Send CI result to Discord
-        if: ${{ env.DISCORD_WEBHOOK != '' }}
-        uses: Ilshidur/action-discord@0.3.2
-        with:
-          args: "Frontend Develop push CI 및 개발 서버 배포 결과 알림"
-        env:
-          DISCORD_USERNAME: MURO_BOT
-          DISCORD_EMBEDS: |
-            [
-              {
-                "title": "Frontend Develop 배포: ${{ needs.deploy.result }} (CI: ${{ needs.push-ci.result }})",
-                "description": ${{ toJSON(github.event.head_commit.message || '커밋 메시지 없음') }},
-                "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-                "color": ${{ (needs.push-ci.result == 'success' && needs.deploy.result == 'success') && 3066993 || 15158332 }},
-                "fields": [
-                  {
-                    "name": "커밋",
-                    "value": "[커밋 확인]",
-                    "inline": true
-                  },
-                  {
-                    "name": "푸시한 사람",
-                    "value": ${{ toJSON(github.actor) }},
-                    "inline": true
-                  },
-                  {
-                    "name": "브랜치",
-                    "value": ${{ toJSON(github.ref_name) }},
-                    "inline": true
-                  }
-                ]
-              }
-            ]
-          
+      steps:
+        - name: Send CI result to Discord
+          if: ${{ env.DISCORD_WEBHOOK != '' }}
+          uses: Ilshidur/action-discord@0.3.2
+          with:
+            args: "Frontend develop CI 결과 알림"
+          env:
+            DISCORD_USERNAME: MURO_BOT
+            DISCORD_EMBEDS: |
+              [
+                {
+                  "title": "Frontend CI: ${{ needs.ci.result }}",
+                  "description": ${{ toJSON(github.event.head_commit.message || '커밋 메시지 없음') }},
+                  "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                  "color": ${{ needs.ci.result == 'success' && 3066993 || 15158332 }},
+                  "fields": [
+                    {
+                      "name": "커밋",
+                      "value": "[커밋 확인](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})",
+                      "inline": true
+                    },
+                    {
+                      "name": "푸시한 사람",
+                      "value": ${{ toJSON(github.actor) }},
+                      "inline": true
+                    },
+                    {
+                      "name": "브랜치",
+                      "value": ${{ toJSON(github.ref_name) }}
+                    }
+                  ]
+                }
+              ] 
