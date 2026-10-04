@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -37,6 +37,29 @@ describe('PhotoMusicRecommendationModal', () => {
     await user.click(screen.getByRole('button', { name: /REALLY REALLY/ }));
 
     expect(onSelect).toHaveBeenCalledWith(recommendation);
+  });
+
+  it('renders all five recommendations and allows selecting the fifth', async () => {
+    const user = userEvent.setup();
+    const recommendations = Array.from({ length: 5 }, (_, index) => ({
+      ...recommendation,
+      externalTrackId: `spotify-track-${index + 1}`,
+      title: `추천곡 ${index + 1}`,
+    }));
+    const onSelect = vi.fn();
+    render(
+      <PhotoMusicRecommendationModal
+        {...defaultProps}
+        onSelect={onSelect}
+        recommendations={recommendations}
+      />,
+    );
+
+    const list = screen.getByRole('list', { name: '사진 음악 추천 결과' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(5);
+    await user.click(screen.getByRole('button', { name: /추천곡 5/ }));
+
+    expect(onSelect).toHaveBeenCalledWith(recommendations[4]);
   });
 
   it('keeps the gradient fallback after an album cover fails to load', () => {

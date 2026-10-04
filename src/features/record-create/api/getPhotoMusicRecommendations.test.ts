@@ -9,15 +9,13 @@ afterEach(() => vi.clearAllMocks());
 
 const response = {
   message: '사진 기반 음악 추천 성공',
-  data: [
-    {
-      externalTrackId: 'spotify-track',
-      title: 'REALLY REALLY',
-      artistName: 'WINNER',
-      albumImageUrl: 'https://image.test/really-really.jpg',
-      externalUrl: 'https://music.test/really-really',
-    },
-  ],
+  data: Array.from({ length: 5 }, (_, index) => ({
+    externalTrackId: `spotify-track-${index + 1}`,
+    title: index === 0 ? 'REALLY REALLY' : `추천곡 ${index + 1}`,
+    artistName: index === 0 ? 'WINNER' : '테스트 아티스트',
+    albumImageUrl: 'https://image.test/really-really.jpg',
+    externalUrl: `https://music.test/really-really-${index + 1}`,
+  })),
 };
 
 describe('getPhotoMusicRecommendations', () => {
@@ -39,30 +37,48 @@ describe('getPhotoMusicRecommendations', () => {
     });
   });
 
-  it('accepts an empty result', async () => {
-    vi.mocked(getCsrfToken).mockResolvedValue('csrf');
-    const fetchAuthenticatedJson = vi.fn().mockResolvedValue({
-      message: '사진 기반 음악 추천 성공',
-      data: [],
-    });
+  it.each([4, 6])(
+    'rejects a success response with %i tracks instead of exactly five',
+    async (count) => {
+      vi.mocked(getCsrfToken).mockResolvedValue('csrf');
+      const fetchAuthenticatedJson = vi.fn().mockResolvedValue({
+        ...response,
+        data: Array.from({ length: count }, (_, index) => response.data[index % 5]),
+      });
 
-    await expect(getPhotoMusicRecommendations(77, fetchAuthenticatedJson)).resolves.toEqual([]);
-  });
+      await expect(getPhotoMusicRecommendations(77, fetchAuthenticatedJson)).rejects.toThrow(
+        '음악 추천 응답 형식이 올바르지 않습니다.',
+      );
+    },
+  );
 
-  it('rejects missing, nullable, blank, malformed, or over-limit recommendation responses', async () => {
+  it('rejects malformed recommendation items in an otherwise five-track response', async () => {
     vi.mocked(getCsrfToken).mockResolvedValue('csrf');
     const fetchAuthenticatedJson = vi
       .fn()
       .mockResolvedValueOnce({
         ...response,
-        data: [{ ...response.data[0], albumImageUrl: undefined }],
+        data: response.data.map((track, index) =>
+          index === 0 ? { ...track, albumImageUrl: undefined } : track,
+        ),
       })
-      .mockResolvedValueOnce({ ...response, data: [{ ...response.data[0], albumImageUrl: null }] })
-      .mockResolvedValueOnce({ ...response, data: [{ ...response.data[0], albumImageUrl: '   ' }] })
-      .mockResolvedValueOnce({ ...response, data: [{ title: 'missing fields' }] })
       .mockResolvedValueOnce({
         ...response,
-        data: Array.from({ length: 4 }, () => response.data[0]),
+        data: response.data.map((track, index) =>
+          index === 0 ? { ...track, albumImageUrl: null } : track,
+        ),
+      })
+      .mockResolvedValueOnce({
+        ...response,
+        data: response.data.map((track, index) =>
+          index === 0 ? { ...track, albumImageUrl: '   ' } : track,
+        ),
+      })
+      .mockResolvedValueOnce({
+        ...response,
+        data: response.data.map((track, index) =>
+          index === 0 ? { title: 'missing fields' } : track,
+        ),
       });
 
     await expect(getPhotoMusicRecommendations(77, fetchAuthenticatedJson)).rejects.toThrow(
@@ -76,9 +92,6 @@ describe('getPhotoMusicRecommendations', () => {
     );
     await expect(getPhotoMusicRecommendations(77, fetchAuthenticatedJson)).rejects.toThrow(
       '음악 추천 항목 형식이 올바르지 않습니다.',
-    );
-    await expect(getPhotoMusicRecommendations(77, fetchAuthenticatedJson)).rejects.toThrow(
-      '음악 추천 응답 형식이 올바르지 않습니다.',
     );
   });
 });
