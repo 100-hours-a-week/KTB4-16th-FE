@@ -29,6 +29,13 @@ const playlist = {
       albumImageUrl: 'https://i.scdn.co/image/example',
       externalUrl: 'https://open.spotify.com/track/example',
     },
+    ...Array.from({ length: 4 }, (_, index) => ({
+      musicTrackId: index + 4,
+      title: `추천곡 ${index + 2}`,
+      artistName: '테스트 아티스트',
+      albumImageUrl: 'https://i.scdn.co/image/example',
+      externalUrl: `https://open.spotify.com/track/example-${index + 2}`,
+    })),
   ],
 };
 
@@ -73,6 +80,7 @@ describe('HomePlaylistSheet', () => {
       'src',
       'https://i.scdn.co/image/example',
     );
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
   });
 
   it('앨범 이미지 로드에 실패하면 기존 그라데이션 커버를 표시한다', async () => {
@@ -92,7 +100,9 @@ describe('HomePlaylistSheet', () => {
     const refreshedPlaylist = {
       ...playlist,
       recommendationPlaylistId: 72,
-      tracks: [{ ...playlist.tracks[0], musicTrackId: 4, title: '밤편지', artistName: '아이유' }],
+      tracks: playlist.tracks.map((track, index) =>
+        index === 0 ? { ...track, musicTrackId: 10, title: '밤편지', artistName: '아이유' } : track,
+      ),
     };
     mocks.isAuthenticated = true;
     vi.mocked(getRecommendationPlaylist).mockResolvedValue(playlist);

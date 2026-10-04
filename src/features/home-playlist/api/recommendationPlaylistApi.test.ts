@@ -19,6 +19,13 @@ const playlist = {
       albumImageUrl: 'https://i.scdn.co/image/example',
       externalUrl: 'https://open.spotify.com/track/example',
     },
+    ...Array.from({ length: 4 }, (_, index) => ({
+      musicTrackId: index + 4,
+      title: `추천곡 ${index + 2}`,
+      artistName: '테스트 아티스트',
+      albumImageUrl: 'https://i.scdn.co/image/example',
+      externalUrl: `https://open.spotify.com/track/example-${index + 2}`,
+    })),
   ],
 };
 
@@ -44,6 +51,26 @@ describe('recommendationPlaylistApi', () => {
     await expect(getRecommendationPlaylist(request)).resolves.toEqual(playlist);
   });
 
+  it.each([4, 6])('곡이 정확히 5개가 아닌 %i개인 플레이리스트 응답을 거부한다', async (count) => {
+    const request = vi.fn().mockResolvedValue({
+      message: '현재 추천 플레이리스트 조회 성공',
+      data: {
+        playlist: {
+          ...playlist,
+          tracks: Array.from({ length: count }, (_, index) => ({
+            ...playlist.tracks[index % playlist.tracks.length],
+            musicTrackId: index + 3,
+          })),
+        },
+      },
+    });
+
+    await expect(getRecommendationPlaylist(request)).rejects.toMatchObject({
+      status: 502,
+      code: 'INVALID_RESPONSE',
+    } satisfies Partial<ApiError>);
+  });
+
   it('CSRF와 좌표 JSON을 사용해 새 플레이리스트를 요청한다', async () => {
     vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
     const request = vi.fn().mockResolvedValue({
@@ -65,7 +92,14 @@ describe('recommendationPlaylistApi', () => {
   it('잘못된 트랙 응답을 INVALID_RESPONSE 오류로 거부한다', async () => {
     const request = vi.fn().mockResolvedValue({
       message: '현재 추천 플레이리스트 조회 성공',
-      data: { playlist: { ...playlist, tracks: [{ ...playlist.tracks[0], title: null }] } },
+      data: {
+        playlist: {
+          ...playlist,
+          tracks: playlist.tracks.map((track, index) =>
+            index === 0 ? { ...track, title: null } : track,
+          ),
+        },
+      },
     });
 
     await expect(getRecommendationPlaylist(request)).rejects.toMatchObject({
