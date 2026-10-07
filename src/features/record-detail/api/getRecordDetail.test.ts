@@ -7,6 +7,7 @@ const response = {
   data: {
     recordId: 585,
     userId: 108,
+    isOwner: true,
     place: {
       placeId: 225,
       legalDongName: '매산로1가',

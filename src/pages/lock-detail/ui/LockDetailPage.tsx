@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import { deleteRecord } from '../../../features/record-detail/api/deleteRecord';
@@ -13,11 +13,13 @@ import './lockDetailPage.css';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-/** URL의 recordId로 로그인 사용자의 자물쇠 상세를 조회해 상세 UI를 조립한다. */
+/** URL의 recordId로 본인 또는 현재 친구의 자물쇠 상세를 조회해 표시한다. */
 export function LockDetailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { recordId: recordIdParam } = useParams();
   const { fetchAuthenticatedJson } = useSession();
+  const isFriendOrigin = new URLSearchParams(location.search).get('origin') === 'friend';
   const requestIdRef = useRef(0);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [detail, setDetail] = useState<LockDetailData | null>(null);
@@ -47,6 +49,10 @@ export function LockDetailPage() {
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+          if (isFriendOrigin && error instanceof ApiError && error.status === 404) {
+            navigate('/friends', { replace: true });
+            return;
+          }
           setErrorMessage(messageForDetailError(error));
           setLoadState('error');
         });
@@ -57,9 +63,15 @@ export function LockDetailPage() {
       controller.abort();
       if (requestId === requestIdRef.current) requestIdRef.current += 1;
     };
-  }, [fetchAuthenticatedJson, recordIdParam]);
+  }, [fetchAuthenticatedJson, isFriendOrigin, navigate, recordIdParam]);
 
-  const closeDetail = () => navigate(-1);
+  const closeDetail = () => {
+    if (isFriendOrigin) {
+      navigate('/friends', { replace: true });
+      return;
+    }
+    navigate(-1);
+  };
 
   return (
     <main className="static-page">
@@ -89,7 +101,7 @@ export function LockDetailPage() {
           <LockDetail
             key={detail.recordId}
             detail={detail}
-            isOwner
+            isOwner={detail.isOwner}
             onClose={closeDetail}
             onSaveComment={(comment) =>
               updateRecordComment(detail.recordId, comment, fetchAuthenticatedJson)
@@ -103,6 +115,7 @@ export function LockDetailPage() {
   );
 }
 
+/** 상세 API 오류를 사용자에게 표시할 안전한 문장으로 변환한다. */
 function messageForDetailError(error: unknown): string {
   if (error instanceof ApiError && (error.status === 404 || error.code === 'RECORD_NOT_FOUND')) {
     return '자물쇠를 찾을 수 없어요.';

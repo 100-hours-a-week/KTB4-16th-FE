@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import { getMonthlyReports } from '../../../features/monthly-report/api/monthlyReportApi';
@@ -12,6 +13,7 @@ type LoadState = 'loading' | 'ready' | 'error';
 
 /** 인증된 목록 API 상태를 관리하며 월별 리포트 화면을 조립한다. */
 export function ReportPage() {
+  const location = useLocation();
   const { fetchAuthenticatedJson } = useSession();
   const [reports, setReports] = useState<MonthlyReportSummary[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -65,7 +67,7 @@ export function ReportPage() {
             </button>
           </section>
         ) : null}
-        {loadState === 'ready' ? <MonthlyReportList reports={reports} /> : null}
+        {loadState === 'ready' ? <MonthlyReportList key={location.key} reports={reports} /> : null}
       </div>
       <MainNavigation />
     </main>
