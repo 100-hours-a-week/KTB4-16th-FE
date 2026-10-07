@@ -3,6 +3,7 @@ import type { WeatherCondition } from '../../../entities/weather/model/weather';
 export type LockDetailData = {
   recordId: number;
   userId: number;
+  isOwner: boolean;
   place: {
     placeId: number;
     legalDongName: string | null;

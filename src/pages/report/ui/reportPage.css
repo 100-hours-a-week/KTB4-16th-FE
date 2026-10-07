@@ -1,23 +1,63 @@
-.report-year-tabs {
+.report-year-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  margin: 4px 0 16px;
+  gap: 12px;
+  margin: 4px 0 10px;
 }
-.report-year-tabs button {
-  min-width: 76px;
-  min-height: 32px;
+.report-year-controls button {
+  width: 34px;
+  height: 34px;
   border: 1px solid #dccbf0;
-  border-radius: 999px;
+  border-radius: 50%;
   background: #fff;
-  color: #332b4a;
-  font-size: 13px;
+  color: #7655ae;
+  font-size: 22px;
   line-height: 1;
 }
-.report-year-tabs button.is-selected {
-  border-color: #a78bde;
+.report-year-controls button:disabled {
+  opacity: 0.4;
+}
+.report-year-controls strong {
+  min-width: 84px;
+  padding: 9px 12px;
+  border: 1px solid #a78bde;
+  border-radius: 999px;
   background: #efe7fa;
+  color: #332b4a;
+  font-size: 14px;
+  text-align: center;
+}
+.report-year-jump {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.report-year-jump label {
+  color: #6c6285;
+  font-size: 11px;
+}
+.report-year-jump input {
+  width: 76px;
+  height: 30px;
+  padding: 4px 8px;
+  border: 1px solid #dccbf0;
+  border-radius: 8px;
+  background: #fff;
+  color: #332b4a;
+  font-size: 12px;
+  text-align: center;
+}
+.report-year-jump button {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid #dccbf0;
+  border-radius: 8px;
+  background: #fff;
+  color: #7655ae;
+  font-size: 11px;
   font-weight: 700;
 }
 .report-month-grid {
@@ -33,20 +73,18 @@
   gap: 4px;
   border: 1px solid #ece3f7;
   border-radius: 16px;
-  background: #fff;
+  background: #f3eef9;
+  color: #a49ab7;
   text-align: center;
-  opacity: 0.42;
 }
 .report-month.has-data {
   border-color: #dccbf0;
   background: linear-gradient(150deg, #efe7fa, #e4f7f0);
-  opacity: 1;
-}
-.report-month.has-data {
   color: #332b4a;
   text-decoration: none;
 }
-.report-month.has-data:hover {
+.report-month.has-data:hover,
+.report-month.has-data:focus-visible {
   border-color: #a78bde;
 }
 .report-month strong {

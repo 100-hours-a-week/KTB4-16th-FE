@@ -30,6 +30,7 @@ vi.mock('../../../features/record-detail/api/updateRecordComment', () => ({
 const detail: LockDetailData = {
   recordId: 585,
   userId: 108,
+  isOwner: true,
   place: {
     placeId: 225,
     legalDongName: '매산로1가',
@@ -85,6 +86,26 @@ describe('LockDetailPage', () => {
     renderPage('/records/9999');
 
     expect(await screen.findByRole('alert')).toHaveTextContent('자물쇠를 찾을 수 없어요.');
+  });
+
+  it('hides edit and delete controls when the detail belongs to a friend', async () => {
+    mocks.getRecordDetail.mockResolvedValueOnce({ ...detail, isOwner: false });
+    renderPage('/records/585');
+
+    await screen.findByText('📍 매산로1가');
+
+    expect(screen.queryByRole('button', { name: '자물쇠 삭제' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '수정' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '코멘트 추가' })).not.toBeInTheDocument();
+  });
+
+  it('returns to the friend list when a friend-origin detail is no longer accessible', async () => {
+    mocks.getRecordDetail.mockRejectedValueOnce(
+      new ApiError(404, '자물쇠를 찾을 수 없습니다.', 'RECORD_NOT_FOUND'),
+    );
+    renderPage('/records/585?origin=friend');
+
+    await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/friends'));
   });
 
   it('updates the detail comment through the feature API callback', async () => {

@@ -65,14 +65,18 @@ describe('AppRouter', () => {
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
-  it.each(['/mypage', '/mypage/nickname', '/mypage/password', '/records/1'])(
-    'sends an anonymous visitor from %s to login',
-    async (path) => {
-      renderRoute(path);
+  it.each([
+    '/mypage',
+    '/mypage/nickname',
+    '/mypage/password',
+    '/records/1',
+    '/friends',
+    '/friends/2/dashboard',
+  ])('sends an anonymous visitor from %s to login', async (path) => {
+    renderRoute(path);
 
-      expect(await screen.findByRole('heading', { name: '로그인' })).toBeInTheDocument();
-    },
-  );
+    expect(await screen.findByRole('heading', { name: '로그인' })).toBeInTheDocument();
+  });
 
   it('keeps a protected route pending until session restoration succeeds', async () => {
     document.cookie = 'XSRF-TOKEN=csrf-token';

@@ -1,3 +1,32 @@
+.friend-dashboard-content {
+  display: grid;
+  gap: 24px;
+}
+
+.friend-dashboard-summary {
+  display: grid;
+  gap: 6px;
+  color: #332b4a;
+}
+
+.friend-dashboard-summary strong {
+  overflow-wrap: anywhere;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+}
+
+.friend-dashboard-summary span {
+  color: #8b71b9;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.friend-dashboard-summary small {
+  color: #6c6285;
+  font-size: 12px;
+}
+
 .dashboard-regions,
 .dashboard-record-list {
   display: grid;
