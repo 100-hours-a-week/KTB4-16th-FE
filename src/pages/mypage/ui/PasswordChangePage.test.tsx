@@ -37,13 +37,22 @@ beforeEach(() => {
     userId: 35,
     nickname: '현재닉네임',
     email: 'me@mulo.com',
+    preferredGenres: null,
+    genreOnboardingDone: true,
   });
 });
 
 describe('PasswordChangePage', () => {
   it('프로필 조회가 완료되기 전에는 비밀번호 폼을 표시하지 않는다', async () => {
     let resolveProfile:
-      ((value: { userId: number; nickname: string; email: string }) => void) | undefined;
+      | ((value: {
+          userId: number;
+          nickname: string;
+          email: string;
+          preferredGenres: null;
+          genreOnboardingDone: true;
+        }) => void)
+      | undefined;
     vi.mocked(getMyProfile).mockReturnValue(
       new Promise((resolve) => {
         resolveProfile = resolve;
@@ -54,7 +63,13 @@ describe('PasswordChangePage', () => {
     expect(screen.getByRole('status')).toHaveTextContent('내 정보를 불러오는 중');
     expect(screen.queryByLabelText('현재 비밀번호')).not.toBeInTheDocument();
 
-    resolveProfile?.({ userId: 35, nickname: '현재닉네임', email: 'me@mulo.com' });
+    resolveProfile?.({
+      userId: 35,
+      nickname: '현재닉네임',
+      email: 'me@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: true,
+    });
 
     expect(await screen.findByLabelText('현재 비밀번호')).toBeInTheDocument();
   });

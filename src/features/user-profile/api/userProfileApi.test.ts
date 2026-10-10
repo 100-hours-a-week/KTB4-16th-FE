@@ -12,13 +12,21 @@ describe('userProfileApi', () => {
   it('완전한 현재 사용자 응답만 프로필로 변환한다', async () => {
     const request = vi.fn().mockResolvedValue({
       message: '회원 정보 조회 성공',
-      data: { userId: 35, nickname: '뮤로', email: 'me@mulo.com' },
+      data: {
+        userId: 35,
+        nickname: '뮤로',
+        email: 'me@mulo.com',
+        preferredGenres: ['인디음악', '재즈'],
+        genreOnboardingDone: true,
+      },
     });
 
     await expect(getMyProfile(request)).resolves.toEqual({
       userId: 35,
       nickname: '뮤로',
       email: 'me@mulo.com',
+      preferredGenres: ['인디음악', '재즈'],
+      genreOnboardingDone: true,
     });
 
     await expect(
@@ -27,6 +35,38 @@ describe('userProfileApi', () => {
       status: 502,
       code: 'INVALID_RESPONSE',
     } satisfies Partial<ApiError>);
+
+    await expect(
+      getMyProfile(
+        vi.fn().mockResolvedValue({
+          data: {
+            userId: 35,
+            nickname: '뮤로',
+            email: 'me@mulo.com',
+            preferredGenres: ['인디음악', '재즈', '댄스', 'POP'],
+            genreOnboardingDone: false,
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE' } satisfies Partial<ApiError>);
+  });
+
+  it('미응답 사용자의 nullable 선호 장르 상태를 보존한다', async () => {
+    const request = vi.fn().mockResolvedValue({
+      message: '회원 정보 조회 성공',
+      data: {
+        userId: 36,
+        nickname: '신규 사용자',
+        email: 'new@mulo.com',
+        preferredGenres: null,
+        genreOnboardingDone: false,
+      },
+    });
+
+    await expect(getMyProfile(request)).resolves.toMatchObject({
+      preferredGenres: null,
+      genreOnboardingDone: false,
+    });
   });
 
   it('CSRF, credentials, 정규화된 닉네임으로 PATCH 요청을 보낸다', async () => {

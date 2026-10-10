@@ -30,6 +30,8 @@ beforeEach(() => {
     userId: 35,
     nickname: '현재닉네임',
     email: 'me@mulo.com',
+    preferredGenres: null,
+    genreOnboardingDone: true,
   });
 });
 
