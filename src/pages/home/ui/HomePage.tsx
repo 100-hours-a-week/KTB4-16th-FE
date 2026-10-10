@@ -1,14 +1,81 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { type PreferredGenre, type UserProfile } from '../../../entities/user/model/user.types';
+import { useSession } from '../../../entities/session/model/useSession';
 import { HomeMap, type MapCenter } from '../../../features/home-map/ui/HomeMap';
 import { HomePlaylistSheet } from '../../../features/home-playlist/ui/HomePlaylistSheet';
 import { HomeWeather } from '../../../features/home-weather/ui/HomeWeather';
+import { GenreOnboardingSheet } from '../../../features/genre-onboarding/ui/GenreOnboardingSheet';
+import {
+  canHideGenreOnboardingForToday,
+  hideGenreOnboardingForToday,
+  isGenreOnboardingHiddenToday,
+  shouldAutomaticallyShowGenreOnboarding,
+} from '../../../features/genre-onboarding/model/genreOnboardingPolicy';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
+import { getMyProfile } from '../../../features/user-profile/api/userProfileApi';
+import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
 import './homePage.css';
+
+/** 로그인 세션에서 프로필을 조회하고 미응답 사용자에게만 온보딩을 표시한다. */
+function HomeGenreOnboarding({ request }: { request: AuthenticatedApiClient['fetchJson'] }) {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    void getMyProfile(request)
+      .then((nextProfile) => {
+        if (isCurrent) setProfile(nextProfile);
+      })
+      .catch(() => {
+        if (isCurrent) setProfile(null);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [request]);
+
+  /** 완료된 서버 저장을 현재 화면에 반영해 같은 진입에서 재노출하지 않는다. */
+  function finishOnboarding(preferredGenres: PreferredGenre[] | null) {
+    setProfile((current) =>
+      current ? { ...current, preferredGenres, genreOnboardingDone: true } : current,
+    );
+  }
+
+  function hideToday() {
+    if (!profile || !canHideGenreOnboardingForToday(profile.createdAt)) return;
+
+    hideGenreOnboardingForToday(profile.userId);
+    setIsDismissed(true);
+  }
+
+  if (
+    !profile ||
+    isDismissed ||
+    !shouldAutomaticallyShowGenreOnboarding(profile) ||
+    isGenreOnboardingHiddenToday(profile.userId)
+  ) {
+    return null;
+  }
+
+  const showHideTodayAction = canHideGenreOnboardingForToday(profile.createdAt);
+
+  return (
+    <GenreOnboardingSheet
+      request={request}
+      onSaved={finishOnboarding}
+      onHideForToday={showHideTodayAction ? hideToday : undefined}
+    />
+  );
+}
 
 /** 목업의 홈 진입 화면을 기능 UI로 조립한다. */
 export function HomePage() {
+  const { fetchAuthenticatedJson, isAuthenticated, isSessionRestoring } = useSession();
   const [currentLocation, setCurrentLocation] = useState<MapCenter | null>(null);
   const [isPlaylistRequested, setIsPlaylistRequested] = useState(false);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
@@ -128,6 +195,9 @@ export function HomePage() {
       </div>
 
       <MainNavigation />
+      {isAuthenticated && !isSessionRestoring ? (
+        <HomeGenreOnboarding request={fetchAuthenticatedJson} />
+      ) : null}
     </main>
   );
 }

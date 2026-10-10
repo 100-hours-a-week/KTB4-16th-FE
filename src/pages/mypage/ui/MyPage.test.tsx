@@ -55,6 +55,9 @@ describe('MyPage', () => {
       userId: 35,
       nickname: '뮤로',
       email: 'me@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
 
     renderMyPage();
@@ -68,7 +71,14 @@ describe('MyPage', () => {
     const user = userEvent.setup();
     vi.mocked(getMyProfile)
       .mockRejectedValueOnce(new ApiError(0, 'network', 'NETWORK_ERROR'))
-      .mockResolvedValueOnce({ userId: 35, nickname: '뮤로', email: 'me@mulo.com' });
+      .mockResolvedValueOnce({
+        userId: 35,
+        nickname: '뮤로',
+        email: 'me@mulo.com',
+        preferredGenres: null,
+        genreOnboardingDone: true,
+        createdAt: '2026-10-01T12:00:00',
+      });
 
     renderMyPage();
 
@@ -86,6 +96,9 @@ describe('MyPage', () => {
       userId: 35,
       nickname: '뮤로',
       email: 'me@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
 
     renderMyPage();
@@ -100,6 +113,9 @@ describe('MyPage', () => {
       userId: 35,
       nickname: '뮤로',
       email: 'me@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
     vi.mocked(logout).mockRejectedValue(new ApiError(500, '서버 오류', 'SERVER_ERROR'));
 

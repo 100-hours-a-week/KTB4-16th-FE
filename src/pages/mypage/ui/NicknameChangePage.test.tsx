@@ -30,6 +30,9 @@ beforeEach(() => {
     userId: 35,
     nickname: '현재닉네임',
     email: 'me@mulo.com',
+    preferredGenres: null,
+    genreOnboardingDone: true,
+    createdAt: '2026-10-01T12:00:00',
   });
 });
 
