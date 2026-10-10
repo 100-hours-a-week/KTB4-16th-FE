@@ -18,6 +18,7 @@ describe('userProfileApi', () => {
         email: 'me@mulo.com',
         preferredGenres: ['인디음악', '재즈'],
         genreOnboardingDone: true,
+        createdAt: '2026-10-15T12:30:00',
       },
     });
 
@@ -27,6 +28,7 @@ describe('userProfileApi', () => {
       email: 'me@mulo.com',
       preferredGenres: ['인디음악', '재즈'],
       genreOnboardingDone: true,
+      createdAt: '2026-10-15T12:30:00',
     });
 
     await expect(
@@ -45,6 +47,7 @@ describe('userProfileApi', () => {
             email: 'me@mulo.com',
             preferredGenres: ['인디음악', '재즈', '댄스', 'POP'],
             genreOnboardingDone: false,
+            createdAt: '2026-10-15T12:30:00',
           },
         }),
       ),
@@ -60,6 +63,7 @@ describe('userProfileApi', () => {
         email: 'new@mulo.com',
         preferredGenres: null,
         genreOnboardingDone: false,
+        createdAt: '2026-10-16T00:00:00',
       },
     });
 
@@ -67,6 +71,23 @@ describe('userProfileApi', () => {
       preferredGenres: null,
       genreOnboardingDone: false,
     });
+  });
+
+  it('생성 시각이 없는 프로필 응답을 거부한다', async () => {
+    await expect(
+      getMyProfile(
+        vi.fn().mockResolvedValue({
+          data: {
+            userId: 35,
+            nickname: '뮤로',
+            email: 'me@mulo.com',
+            preferredGenres: null,
+            genreOnboardingDone: false,
+            createdAt: '',
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE' } satisfies Partial<ApiError>);
   });
 
   it('CSRF, credentials, 정규화된 닉네임으로 PATCH 요청을 보낸다', async () => {

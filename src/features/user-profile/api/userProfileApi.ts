@@ -20,7 +20,8 @@ function parseUserProfileResponse(value: unknown): UserProfile {
     !isNonEmptyString(value.data.nickname) ||
     !isNonEmptyString(value.data.email) ||
     !isPreferredGenres(value.data.preferredGenres) ||
-    typeof value.data.genreOnboardingDone !== 'boolean'
+    typeof value.data.genreOnboardingDone !== 'boolean' ||
+    !isNonEmptyString(value.data.createdAt)
   ) {
     throw invalidResponseError();
   }
@@ -31,6 +32,7 @@ function parseUserProfileResponse(value: unknown): UserProfile {
     email: value.data.email,
     preferredGenres: value.data.preferredGenres,
     genreOnboardingDone: value.data.genreOnboardingDone,
+    createdAt: value.data.createdAt,
   };
 }
 

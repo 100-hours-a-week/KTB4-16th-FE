@@ -8,10 +8,11 @@ import './genreOnboardingSheet.css';
 type Props = {
   request: AuthenticatedApiClient['fetchJson'];
   onSaved: (preferredGenres: PreferredGenre[] | null) => void;
+  onHideForToday?: () => void;
 };
 
 /** 홈에서 현재 사용자의 선호 장르를 최초 설정하는 modal sheet다. */
-export function GenreOnboardingSheet({ request, onSaved }: Props) {
+export function GenreOnboardingSheet({ request, onSaved, onHideForToday }: Props) {
   const [selectedGenres, setSelectedGenres] = useState<PreferredGenre[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -160,6 +161,16 @@ export function GenreOnboardingSheet({ request, onSaved }: Props) {
         >
           선택하지 않음
         </button>
+        {onHideForToday ? (
+          <button
+            className="genre-onboarding-hide-today"
+            disabled={isSubmitting}
+            type="button"
+            onClick={onHideForToday}
+          >
+            오늘 하루 보지 않기
+          </button>
+        ) : null}
       </section>
     </div>
   );

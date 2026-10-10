@@ -39,6 +39,7 @@ beforeEach(() => {
     email: 'me@mulo.com',
     preferredGenres: null,
     genreOnboardingDone: true,
+    createdAt: '2026-10-01T12:00:00',
   });
 });
 
@@ -51,6 +52,7 @@ describe('PasswordChangePage', () => {
           email: string;
           preferredGenres: null;
           genreOnboardingDone: true;
+          createdAt: string;
         }) => void)
       | undefined;
     vi.mocked(getMyProfile).mockReturnValue(
@@ -69,6 +71,7 @@ describe('PasswordChangePage', () => {
       email: 'me@mulo.com',
       preferredGenres: null,
       genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
 
     expect(await screen.findByLabelText('현재 비밀번호')).toBeInTheDocument();

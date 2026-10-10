@@ -24,4 +24,5 @@ export interface UserProfile {
   email: string;
   preferredGenres: PreferredGenre[] | null;
   genreOnboardingDone: boolean;
+  createdAt: string;
 }

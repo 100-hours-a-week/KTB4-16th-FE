@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigate = vi.fn();
 const mocks = vi.hoisted(() => ({
@@ -57,9 +57,15 @@ import { HomePage } from './HomePage';
 describe('HomePage weather location handling', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mocks.isAuthenticated = false;
     mocks.isSessionRestoring = false;
     vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
   });
 
   it('does not fetch a profile for anonymous home visitors', async () => {
@@ -79,6 +85,7 @@ describe('HomePage weather location handling', () => {
       email: 'mulo@example.com',
       preferredGenres: null,
       genreOnboardingDone: false,
+      createdAt: '2026-10-16T00:00:00',
     });
 
     const { rerender } = render(<HomePage />);
@@ -98,14 +105,17 @@ describe('HomePage weather location handling', () => {
     {
       preferredGenres: null,
       genreOnboardingDone: true,
+      createdAt: '2026-10-15T12:00:00',
     },
     {
       preferredGenres: ['재즈'],
       genreOnboardingDone: true,
+      createdAt: '2026-10-15T12:00:00',
     },
     {
       preferredGenres: ['재즈'],
       genreOnboardingDone: false,
+      createdAt: '2026-10-15T12:00:00',
     },
   ])('does not show onboarding for a completed profile: $genreOnboardingDone', async (state) => {
     mocks.isAuthenticated = true;
@@ -131,6 +141,7 @@ describe('HomePage weather location handling', () => {
       email: 'mulo@example.com',
       preferredGenres: null,
       genreOnboardingDone: false,
+      createdAt: '2026-10-16T00:00:00',
     });
     mocks.updatePreferredGenres.mockResolvedValue(undefined);
 
@@ -148,6 +159,97 @@ describe('HomePage weather location handling', () => {
       '댄스',
     ]);
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('기존 사용자는 KST 10월 25일 23:59까지 노출되고 하루 숨김 액션이 있다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-25T14:59:00.000Z'));
+    mocks.isAuthenticated = true;
+    mocks.getMyProfile.mockResolvedValue({
+      userId: 41,
+      nickname: '기존 사용자',
+      email: 'legacy@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: false,
+      createdAt: '2026-10-15T12:00:00',
+    });
+
+    render(<HomePage />);
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '오늘 하루 보지 않기' })).toBeInTheDocument();
+  });
+
+  it('기존 사용자는 KST 10월 26일 00:00부터 자동 노출되지 않는다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-25T15:00:00.000Z'));
+    mocks.isAuthenticated = true;
+    mocks.getMyProfile.mockResolvedValue({
+      userId: 42,
+      nickname: '기존 사용자',
+      email: 'legacy@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: false,
+      createdAt: '2026-10-15T12:00:00',
+    });
+
+    render(<HomePage />);
+
+    await waitFor(() => expect(mocks.getMyProfile).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('신규 사용자는 KST 10월 26일 이후에도 노출되며 하루 숨김 액션은 없다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-25T15:00:00.000Z'));
+    mocks.isAuthenticated = true;
+    mocks.getMyProfile.mockResolvedValue({
+      userId: 43,
+      nickname: '신규 사용자',
+      email: 'new@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: false,
+      createdAt: '2026-10-16T00:00:00',
+    });
+
+    render(<HomePage />);
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '오늘 하루 보지 않기' })).not.toBeInTheDocument();
+  });
+
+  it('기존 사용자가 오늘 하루 보지 않기를 선택하면 서버 저장 없이 닫고 KST 날짜 동안 숨긴다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-23T15:30:00.000Z'));
+    const user = userEvent.setup();
+    mocks.isAuthenticated = true;
+    mocks.getMyProfile.mockResolvedValue({
+      userId: 44,
+      nickname: '기존 사용자',
+      email: 'legacy@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: false,
+      createdAt: '2026-10-15T12:00:00',
+    });
+    const firstRender = render(<HomePage />);
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '오늘 하루 보지 않기' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mocks.updatePreferredGenres).not.toHaveBeenCalled();
+    expect(localStorage.getItem('mulo:genre-onboarding-hidden-date:44')).toBe('2026-10-24');
+
+    firstRender.unmount();
+    mocks.getMyProfile.mockClear();
+    render(<HomePage />);
+    await waitFor(() => expect(mocks.getMyProfile).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    vi.setSystemTime(new Date('2026-10-24T15:00:00.000Z'));
+    cleanup();
+    mocks.getMyProfile.mockClear();
+    render(<HomePage />);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
   it('does not request weather when geolocation is unavailable', async () => {

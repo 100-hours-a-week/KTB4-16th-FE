@@ -57,6 +57,7 @@ describe('MyPage', () => {
       email: 'me@mulo.com',
       preferredGenres: null,
       genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
 
     renderMyPage();
@@ -76,6 +77,7 @@ describe('MyPage', () => {
         email: 'me@mulo.com',
         preferredGenres: null,
         genreOnboardingDone: true,
+        createdAt: '2026-10-01T12:00:00',
       });
 
     renderMyPage();
@@ -96,6 +98,7 @@ describe('MyPage', () => {
       email: 'me@mulo.com',
       preferredGenres: null,
       genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
 
     renderMyPage();
@@ -112,6 +115,7 @@ describe('MyPage', () => {
       email: 'me@mulo.com',
       preferredGenres: null,
       genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
     vi.mocked(logout).mockRejectedValue(new ApiError(500, '서버 오류', 'SERVER_ERROR'));
 
