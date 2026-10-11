@@ -69,6 +69,7 @@ describe('AppRouter', () => {
     '/mypage',
     '/mypage/nickname',
     '/mypage/password',
+    '/matching',
     '/records/1',
     '/friends',
     '/friends/2/dashboard',
@@ -76,6 +77,19 @@ describe('AppRouter', () => {
     renderRoute(path);
 
     expect(await screen.findByRole('heading', { name: '로그인' })).toBeInTheDocument();
+  });
+
+  it('allows an authenticated visitor to open matching and return home', async () => {
+    const user = userEvent.setup();
+    renderRoute('/');
+
+    await user.click(screen.getByRole('button', { name: '테스트 로그인' }));
+    await user.click(screen.getByRole('button', { name: /밸런스 게임으로 랜덤 채팅/ }));
+    expect(await screen.findByRole('heading', { name: '밸런스 게임' })).toBeInTheDocument();
+    expect(screen.getByText(/랜덤 매칭 채팅 기능은 준비 중이에요./)).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole('link', { name: '홈으로 돌아가기' })[0]);
+    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
   it('keeps a protected route pending until session restoration succeeds', async () => {

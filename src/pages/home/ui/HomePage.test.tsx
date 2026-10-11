@@ -76,6 +76,23 @@ describe('HomePage weather location handling', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('shows the random chat card below the playlist card and navigates to matching', async () => {
+    const user = userEvent.setup();
+    render(<HomePage />);
+
+    const playlistCard = screen.getByRole('button', { name: /지금 나를 위한 플레이리스트/ });
+    const matchingCard = screen.getByRole('button', { name: /밸런스 게임으로 랜덤 채팅/ });
+
+    expect(
+      playlistCard.compareDocumentPosition(matchingCard) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(matchingCard).toHaveTextContent('회원님이 좋아할 만한 밸런스 게임을 가져왔어요');
+
+    await user.click(matchingCard);
+
+    expect(navigate).toHaveBeenCalledWith('/matching');
+  });
+
   it('waits for session restoration before requesting the profile', async () => {
     mocks.isAuthenticated = true;
     mocks.isSessionRestoring = true;

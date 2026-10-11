@@ -1,0 +1,33 @@
+.matching-page-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.matching-page-header {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.matching-page-header h1 {
+  text-align: center;
+}
+
+.matching-page-back-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #efe7fa;
+  color: #332b4a;
+  font-size: 22px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.matching-page-header-spacer {
+  width: 30px;
+  height: 30px;
+}

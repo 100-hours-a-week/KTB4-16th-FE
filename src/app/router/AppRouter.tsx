@@ -6,6 +6,7 @@ import { DashboardPage } from '../../pages/dashboard/ui/DashboardPage';
 import { FriendsPage } from '../../pages/friend/ui/FriendsPage';
 import { FriendDashboardPage } from '../../pages/friend-dashboard/ui/FriendDashboardPage';
 import { LoginPage } from '../../pages/login/LoginPage';
+import { MatchingPage } from '../../pages/matching/ui/MatchingPage';
 import { LockCreatePage } from '../../pages/lock-create/ui/LockCreatePage';
 import { LockDetailPage } from '../../pages/lock-detail/ui/LockDetailPage';
 import { MyPage } from '../../pages/mypage/ui/MyPage';
@@ -97,6 +98,10 @@ export function AppRouter() {
           isAuthenticated,
           <MemorySearchPage />,
         )}
+      />
+      <Route
+        path="/matching"
+        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <MatchingPage />)}
       />
       <Route
         path="/locks/create"

@@ -168,6 +168,19 @@ export function HomePage() {
               <small>위치·날씨·시간·히스토리 기반 추천</small>
             </span>
           </button>
+          <button
+            className="home-shortcut-card home-shortcut-card--matching"
+            type="button"
+            onClick={() => navigate('/matching')}
+          >
+            <span className="home-shortcut-icon home-shortcut-icon--matching" aria-hidden="true">
+              💬
+            </span>
+            <span>
+              <strong>밸런스 게임으로 랜덤 채팅</strong>
+              <small>회원님이 좋아할 만한 밸런스 게임을 가져왔어요</small>
+            </span>
+          </button>
         </section>
 
         <HomeMap

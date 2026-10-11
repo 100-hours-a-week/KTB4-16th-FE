@@ -131,6 +131,10 @@
   text-align: left;
 }
 
+.home-shortcut-card--matching {
+  background: linear-gradient(120deg, #fff, var(--mulo-mint-100));
+}
+
 .home-shortcut-icon {
   display: grid;
   width: 34px;
@@ -140,6 +144,10 @@
   border-radius: 11px;
   background: linear-gradient(135deg, var(--mulo-lilac-500), var(--mulo-mint-500));
   font-size: 15px;
+}
+
+.home-shortcut-icon--matching {
+  background: linear-gradient(135deg, var(--mulo-mint-500), var(--mulo-gold-500));
 }
 
 .home-shortcut-card > span:last-child {
