@@ -135,8 +135,20 @@ export function HomePage() {
       <div className="home-page-content">
         <header className="home-topbar">
           <h1 className="home-topbar__brand">MULO</h1>
-          {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
-          <HomeWeather coordinates={currentLocation} />
+          <div className="home-topbar-actions">
+            {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
+            <HomeWeather coordinates={currentLocation} />
+            <button
+              aria-label="알림 목록"
+              className="home-notification-button"
+              type="button"
+              onClick={() => navigate('/notifications')}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M12 2V1" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         <button
