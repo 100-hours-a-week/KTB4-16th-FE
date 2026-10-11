@@ -67,6 +67,43 @@
   font-size: 18px;
 }
 
+.home-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-notification-button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--mulo-lilac-100);
+  color: var(--mulo-lilac-700);
+  cursor: pointer;
+}
+
+.home-notification-button:hover {
+  background: #e3d7f7;
+}
+
+.home-notification-button:focus-visible {
+  outline: 2px solid var(--mulo-lilac-700);
+  outline-offset: 3px;
+}
+
+.home-notification-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
 .home-weather-chip {
   display: flex;
   align-items: center;

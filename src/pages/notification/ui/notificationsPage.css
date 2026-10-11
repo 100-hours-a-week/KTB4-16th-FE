@@ -1,0 +1,33 @@
+.notification-page-header {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+}
+
+.notification-page-header h1 {
+  text-align: center;
+}
+
+.notification-back-link {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: #efe7fa;
+  color: #332b4a;
+}
+
+.notification-back-link svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentcolor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notification-back-link:focus-visible {
+  outline: 2px solid #7655ae;
+  outline-offset: 3px;
+}

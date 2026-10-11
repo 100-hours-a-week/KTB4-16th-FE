@@ -93,6 +93,15 @@ describe('HomePage weather location handling', () => {
     expect(navigate).toHaveBeenCalledWith('/matching');
   });
 
+  it('opens the notification list from the header bell', async () => {
+    const user = userEvent.setup();
+    render(<HomePage />);
+
+    await user.click(screen.getByRole('button', { name: '알림 목록' }));
+
+    expect(navigate).toHaveBeenCalledWith('/notifications');
+  });
+
   it('waits for session restoration before requesting the profile', async () => {
     mocks.isAuthenticated = true;
     mocks.isSessionRestoring = true;
