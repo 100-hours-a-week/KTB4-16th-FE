@@ -1,0 +1,170 @@
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-panel {
+  padding: 4px 16px;
+  border: 1px solid #ece3f7;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgb(122 92 190 / 6%);
+}
+
+.notification-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid #ece3f7;
+}
+
+.notification-card:last-child {
+  border-bottom: 0;
+}
+
+.notification-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #dccbf0;
+}
+
+.notification-card.is-unread .notification-dot {
+  background: #ff9e6d;
+}
+
+.notification-empty-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notification-empty-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.notification-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-card-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notification-card h2 {
+  margin: 0;
+  color: #332b4a;
+  font-size: 12.5px;
+}
+
+.notification-unread {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.notification-card p {
+  margin: 3px 0;
+  color: #6c6285;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.notification-card time {
+  color: #9a90b3;
+  font-size: 10px;
+}
+
+.notification-destination {
+  display: block;
+  width: fit-content;
+  margin-top: 8px;
+  color: #7655ae;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.notification-empty {
+  display: grid;
+  justify-items: center;
+  padding: 60px 12px;
+  text-align: center;
+}
+
+.notification-empty-icon {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 50%;
+  background: #efe7fa;
+  color: #a78bde;
+  font-size: 32px;
+}
+
+.notification-empty h2 {
+  margin: 20px 0 0;
+  color: #332b4a;
+  font-size: 15px;
+}
+
+.notification-state {
+  color: #6c6285;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.notification-more,
+.notification-read-error button {
+  padding: 10px 16px;
+  border: 1px solid #dccbf0;
+  border-radius: 12px;
+  background: #fff;
+  color: #7655ae;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.notification-error,
+.notification-read-error {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fde7e2;
+  color: #934351;
+  font-size: 12px;
+}
+
+.notification-read-error p {
+  margin: 0 0 8px;
+}
+
+.notification-list button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.notification-list a:focus-visible,
+.notification-list button:focus-visible {
+  outline: 2px solid #7655ae;
+  outline-offset: 3px;
+}

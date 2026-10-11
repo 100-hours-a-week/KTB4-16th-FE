@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import {
@@ -27,7 +27,9 @@ export function FriendsPage() {
   const loadControllerRef = useRef<AbortController | null>(null);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
   const loadMoreRequestIdRef = useRef(0);
-  const [tab, setTab] = useState<Tab>('friends');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: Tab = tabParam === 'received' || tabParam === 'sent' ? tabParam : 'friends';
   const [friends, setFriends] = useState<FriendListItem[]>([]);
   const [received, setReceived] = useState<FriendRequestItem[]>([]);
   const [sent, setSent] = useState<FriendRequestItem[]>([]);
@@ -96,12 +98,12 @@ export function FriendsPage() {
     };
   }, [invalidateLoadMore, loadAll]);
 
-  /** 탭을 바꾸면서 이전 탭의 진행 중인 페이지 요청을 무효화한다. */
+  /** 알림 링크의 탭 쿼리를 반영하고 탭 전환 시 이전 페이지 요청을 무효화한다. */
   function selectTab(nextTab: Tab) {
     if (nextTab === tab) return;
     invalidateLoadMore();
     setLoadingMore(false);
-    setTab(nextTab);
+    setSearchParams(nextTab === 'friends' ? {} : { tab: nextTab }, { replace: true });
   }
 
   /** 닉네임 요청을 보내고 pending 저장과 자동 친구 성립 결과를 안내한다. */
@@ -114,7 +116,7 @@ export function FriendsPage() {
       const result = await sendFriendRequest(nickname, fetchAuthenticatedJson);
       setNickname('');
       setNotice(result.kind === 'friends' ? '서로 친구가 되었어요.' : '친구 요청을 보냈어요.');
-      if (result.kind === 'friends') setTab('friends');
+      if (result.kind === 'friends') selectTab('friends');
       await loadAll();
     } catch (error: unknown) {
       setFormError(messageForFriendError(error));

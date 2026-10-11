@@ -63,6 +63,12 @@ describe('FriendsPage', () => {
     expect(mocks.acceptFriendRequest).toHaveBeenCalledWith(11, mocks.fetchAuthenticatedJson);
   });
 
+  it('opens the received request tab from a friend request notification', async () => {
+    renderPage('/friends?tab=received');
+    expect(await screen.findByText('민준')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /받은 요청/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('sends a nickname request and refreshes the request lists', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -191,9 +197,10 @@ describe('FriendsPage', () => {
   });
 });
 
-function renderPage() {
+/** 실제 라우터로 알림의 받은 요청 탭 링크를 확인한다. */
+function renderPage(initialEntry = '/friends') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <FriendsPage />
     </MemoryRouter>,
   );

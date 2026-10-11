@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { HomePage } from '../../pages/home/ui/HomePage';
 import { DashboardPage } from '../../pages/dashboard/ui/DashboardPage';
 import { FriendsPage } from '../../pages/friend/ui/FriendsPage';
+import { NotificationsPage } from '../../pages/notification/ui/NotificationsPage';
 import { FriendDashboardPage } from '../../pages/friend-dashboard/ui/FriendDashboardPage';
 import { LoginPage } from '../../pages/login/LoginPage';
 import { LockCreatePage } from '../../pages/lock-create/ui/LockCreatePage';
@@ -42,6 +43,14 @@ export function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route
+        path="/notifications"
+        element={getProtectedRouteElement(
+          isSessionRestoring,
+          isAuthenticated,
+          <NotificationsPage />,
+        )}
+      />
       <Route
         path="/dashboard"
         element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <DashboardPage />)}
