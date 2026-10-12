@@ -68,6 +68,46 @@ describe('HomePage weather location handling', () => {
     vi.useRealTimers();
   });
 
+  it('shows a new notification indicator and clears it after a focused refresh finds all read', async () => {
+    mocks.isAuthenticated = true;
+    mocks.getMyProfile.mockResolvedValue({
+      userId: 1,
+      nickname: '뮤로',
+      email: 'mulo@example.com',
+      preferredGenres: [],
+      genreOnboardingDone: true,
+      createdAt: '2026-10-11T12:00:00',
+    });
+    let readAt: string | null = null;
+    mocks.fetchAuthenticatedJson.mockImplementation(async () => ({
+      message: '성공',
+      data: {
+        notifications: [
+          {
+            notificationId: 7,
+            type: 'FRIEND_REQUEST',
+            targetId: 12,
+            targetType: 'FRIEND_REQUEST',
+            title: '친구 요청',
+            content: '새 친구 요청',
+            createdAt: '2026-10-12T16:00:00',
+            readAt,
+          },
+        ],
+        nextCursor: null,
+      },
+    }));
+
+    render(<HomePage />);
+    expect(await screen.findByRole('status', { name: '새 알림' })).toBeInTheDocument();
+
+    readAt = '2026-10-12T16:03:00';
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() =>
+      expect(screen.queryByRole('status', { name: '새 알림' })).not.toBeInTheDocument(),
+    );
+  });
+
   it('does not fetch a profile for anonymous home visitors', async () => {
     render(<HomePage />);
 
