@@ -14,6 +14,7 @@ import {
   shouldAutomaticallyShowGenreOnboarding,
 } from '../../../features/genre-onboarding/model/genreOnboardingPolicy';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
+import { hasUnreadNotifications } from '../../../features/notification/api/notificationApi';
 import { getMyProfile } from '../../../features/user-profile/api/userProfileApi';
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
 import './homePage.css';
@@ -71,6 +72,49 @@ function HomeGenreOnboarding({ request }: { request: AuthenticatedApiClient['fet
       onHideForToday={showHideTodayAction ? hideToday : undefined}
     />
   );
+}
+
+/** 로그인 중에만 미읽음 여부를 조회하고 홈의 새 알림 점을 표시한다. */
+function HomeNotificationIndicator({ request }: { request: AuthenticatedApiClient['fetchJson'] }) {
+  const [hasUnread, setHasUnread] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let controller: AbortController | null = null;
+    /** 새 조회가 시작되면 이전 조회를 취소하고 현재 서버의 미읽음 여부를 반영한다. */
+    const refreshUnread = () => {
+      controller?.abort();
+      const nextController = new AbortController();
+      controller = nextController;
+      void hasUnreadNotifications(request, nextController.signal)
+        .then((unread) => {
+          if (active && !nextController.signal.aborted) setHasUnread(unread);
+        })
+        .catch(() => {
+          // 일시적인 조회 실패에는 마지막으로 확인한 표시를 유지한다.
+        });
+    };
+    /** 숨겨진 탭에서는 조회하지 않고 다시 보일 때 최신 상태를 확인한다. */
+    const refreshWhenVisible = () => {
+      if (!document.hidden) refreshUnread();
+    };
+
+    refreshUnread();
+    const interval = window.setInterval(refreshWhenVisible, 60_000);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      active = false;
+      controller?.abort();
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [request]);
+
+  return hasUnread ? (
+    <span className="home-notification-indicator" role="status" aria-label="새 알림" />
+  ) : null;
 }
 
 /** 목업의 홈 진입 화면을 기능 UI로 조립한다. */
@@ -147,6 +191,9 @@ export function HomePage() {
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M12 2V1" />
               </svg>
+              {isAuthenticated && !isSessionRestoring ? (
+                <HomeNotificationIndicator request={fetchAuthenticatedJson} />
+              ) : null}
             </button>
           </div>
         </header>

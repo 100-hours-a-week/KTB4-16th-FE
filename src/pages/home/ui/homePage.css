@@ -74,6 +74,7 @@
 }
 
 .home-notification-button {
+  position: relative;
   display: grid;
   width: 36px;
   height: 36px;
@@ -83,6 +84,17 @@
   background: var(--mulo-lilac-100);
   color: var(--mulo-lilac-700);
   cursor: pointer;
+}
+
+.home-notification-indicator {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #faf6ff;
+  border-radius: 50%;
+  background: #f47b65;
 }
 
 .home-notification-button:hover {

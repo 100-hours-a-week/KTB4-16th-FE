@@ -35,6 +35,32 @@ beforeEach(() => {
 });
 
 describe('NotificationList', () => {
+  it('keeps newly opened notifications highlighted until the page is reopened', async () => {
+    let serverReadAt: string | null = null;
+    const request = vi.fn().mockImplementation(async (path: string) => {
+      if (path === '/notifications/read') {
+        serverReadAt = '2026-10-12T16:03:00';
+        return { message: '읽음 처리 성공' };
+      }
+      return {
+        message: '성공',
+        data: { notifications: [{ ...unread, readAt: serverReadAt }], nextCursor: null },
+      };
+    });
+    const firstVisit = renderList(request);
+    const firstCard = (await screen.findByText(unread.content)).closest('article');
+
+    await waitFor(() =>
+      expect(request).toHaveBeenCalledWith('/notifications/read', expect.anything()),
+    );
+    expect(firstCard).toHaveClass('is-unread');
+
+    firstVisit.unmount();
+    renderList(request);
+    const revisitedCard = (await screen.findByText(unread.content)).closest('article');
+    expect(revisitedCard).not.toHaveClass('is-unread');
+  });
+
   it('marks only unread items from each loaded page, without dropping earlier notifications', async () => {
     const user = userEvent.setup();
     const request = vi.fn().mockImplementation(async (path: string) => {
@@ -131,5 +157,83 @@ describe('NotificationList', () => {
     expect(screen.queryByText('아직 도착한 알림이 없어요')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '다시 불러오기' }));
     expect(await screen.findByText('아직 도착한 알림이 없어요')).toBeInTheDocument();
+  });
+
+  it('confirms deletion and removes the card only after the server succeeds', async () => {
+    const user = userEvent.setup();
+    let finishDelete: ((value: unknown) => void) | undefined;
+    const request = vi.fn().mockImplementation((path: string) => {
+      if (path === '/notifications/read') return Promise.resolve({ message: '읽음 처리 성공' });
+      if (path === '/notifications/7')
+        return new Promise((resolve) => {
+          finishDelete = resolve;
+        });
+      return Promise.resolve({
+        message: '성공',
+        data: { notifications: [unread], nextCursor: null },
+      });
+    });
+    renderList(request);
+    await screen.findByText(unread.content);
+    await screen.findByRole('button', { name: '알림 삭제' });
+    await user.click(screen.getByRole('button', { name: '알림 삭제' }));
+    const dialog = screen.getByRole('dialog', { name: '알림을 삭제할까요?' });
+    expect(dialog.closest('article')).toBeNull();
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(request).not.toHaveBeenCalledWith('/notifications/7', expect.anything());
+    await user.click(screen.getByRole('button', { name: '취소' }));
+    expect(screen.getByText(unread.content)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '알림 삭제' }));
+    await user.click(screen.getByRole('button', { name: '삭제 확인' }));
+    expect(screen.getByText(unread.content)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '삭제 중…' })).toBeDisabled();
+    finishDelete?.({ message: '알림이 삭제되었습니다.' });
+    expect(await screen.findByText('아직 도착한 알림이 없어요')).toBeInTheDocument();
+    expect(request).toHaveBeenCalledWith(
+      '/notifications/7',
+      expect.objectContaining({ method: 'DELETE', headers: { 'X-XSRF-TOKEN': 'csrf-test' } }),
+    );
+  });
+
+  it('keeps a notification visible when deletion fails and allows a retry', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const request = vi.fn().mockImplementation(async (path: string) => {
+      if (path === '/notifications/read') return { message: '읽음 처리 성공' };
+      if (path === '/notifications/7') {
+        attempts += 1;
+        if (attempts === 1) throw new Error('Network unavailable');
+        return { message: '알림이 삭제되었습니다.' };
+      }
+      return { message: '성공', data: { notifications: [unread], nextCursor: null } };
+    });
+    renderList(request);
+    await screen.findByText(unread.content);
+    await screen.findByRole('button', { name: '알림 삭제' });
+    await user.click(screen.getByRole('button', { name: '알림 삭제' }));
+    await user.click(screen.getByRole('button', { name: '삭제 확인' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('알림을 삭제하지 못했어요.');
+    expect(screen.getByText(unread.content)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '삭제 확인' }));
+    expect(await screen.findByText('아직 도착한 알림이 없어요')).toBeInTheDocument();
+  });
+
+  it('focuses the separate deletion dialog and restores focus after Escape', async () => {
+    const user = userEvent.setup();
+    const request = vi.fn().mockImplementation(async (path: string) => {
+      if (path === '/notifications/read') return { message: '읽음 처리 성공' };
+      return { message: '성공', data: { notifications: [unread], nextCursor: null } };
+    });
+    renderList(request);
+    const trigger = await screen.findByRole('button', { name: '알림 삭제' });
+    await waitFor(() => expect(trigger).toBeEnabled());
+    await user.click(trigger);
+    expect(screen.getByRole('button', { name: '취소' })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByRole('button', { name: '삭제 확인' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(request).not.toHaveBeenCalledWith('/notifications/7', expect.anything());
   });
 });

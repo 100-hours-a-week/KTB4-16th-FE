@@ -69,6 +69,7 @@ describe('AppRouter', () => {
     '/mypage',
     '/mypage/nickname',
     '/mypage/password',
+    '/mypage/withdrawal',
     '/matching',
     '/records/1',
     '/friends',

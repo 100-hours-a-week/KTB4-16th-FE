@@ -27,8 +27,9 @@ export async function getNotifications(
   cursor: string | null,
   request: Request,
   signal: AbortSignal,
+  size = 20,
 ): Promise<NotificationPage> {
-  const query = new URLSearchParams({ size: '20' });
+  const query = new URLSearchParams({ size: String(size) });
   if (cursor !== null) query.set('cursor', cursor);
   const response = await request<unknown>(`/notifications?${query.toString()}`, { signal });
   if (!isRecord(response) || typeof response.message !== 'string' || !isRecord(response.data)) {
@@ -39,6 +40,21 @@ export async function getNotifications(
     throw new Error('알림 목록 응답 형식이 올바르지 않습니다.');
   }
   return { items: notifications.map(parseNotification), nextCursor };
+}
+
+/** 읽음 변경 없이 알림 페이지를 끝까지 확인해 미읽음 항목의 존재 여부만 반환한다. */
+export async function hasUnreadNotifications(
+  request: Request,
+  signal: AbortSignal,
+): Promise<boolean> {
+  let cursor: string | null = null;
+  do {
+    signal.throwIfAborted();
+    const page = await getNotifications(cursor, request, signal, 100);
+    if (page.items.some((item) => item.readAt === null)) return true;
+    cursor = page.nextCursor;
+  } while (cursor !== null);
+  return false;
 }
 
 /** 실제 조회한 미읽음 ID만 CSRF를 포함한 PATCH로 일괄 읽음 처리한다. */
@@ -60,6 +76,20 @@ export async function markNotificationsRead(
   });
   if (!isRecord(response) || typeof response.message !== 'string') {
     throw new Error('알림 읽음 응답 형식이 올바르지 않습니다.');
+  }
+}
+
+/** 소유한 알림 한 건을 CSRF 보호 DELETE로 삭제하고 성공 응답을 확인한다. */
+export async function deleteNotification(notificationId: number, request: Request): Promise<void> {
+  if (!isPositiveId(notificationId)) throw new Error('알림 ID가 올바르지 않습니다.');
+  const csrfToken = await getCsrfToken();
+  const response = await request<unknown>(`/notifications/${notificationId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { 'X-XSRF-TOKEN': csrfToken },
+  });
+  if (!isRecord(response) || typeof response.message !== 'string') {
+    throw new Error('알림 삭제 응답 형식이 올바르지 않습니다.');
   }
 }
 

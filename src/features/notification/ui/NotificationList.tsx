@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
@@ -7,10 +9,40 @@ import './notificationList.css';
 
 /** 도착한 알림과 빈 목록·오류·추가 페이지 상태를 표시한다. */
 export function NotificationList({ request }: { request: AuthenticatedApiClient['fetchJson'] }) {
-  const { items, nextCursor, status, busy, error, readError, loadPage, retryRead } =
-    useNotificationList(request);
+  const {
+    items,
+    nextCursor,
+    status,
+    busy,
+    error,
+    readError,
+    confirmingId,
+    deletingId,
+    deleteErrorId,
+    loadPage,
+    retryRead,
+    startDelete,
+    cancelDelete,
+    confirmDelete,
+  } = useNotificationList(request);
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLElement>(null);
+
+  /** 확인 창을 열면 취소 버튼으로 초점을 옮기고 닫힌 뒤 원래 위치로 돌린다. */
+  useEffect(() => {
+    if (confirmingId === null) return;
+    const listElement = listRef.current;
+    const deleteTrigger = deleteTriggerRef.current;
+    cancelDeleteRef.current?.focus();
+    return () => {
+      if (deleteTrigger?.isConnected) deleteTrigger.focus();
+      else if (listElement?.isConnected) listElement.focus();
+    };
+  }, [confirmingId]);
+
   return (
-    <section className="notification-list" aria-label="알림 목록">
+    <section className="notification-list" aria-label="알림 목록" ref={listRef} tabIndex={-1}>
       {status === 'loading' ? (
         <p className="notification-state" role="status">
           알림을 불러오는 중이에요.
@@ -34,7 +66,7 @@ export function NotificationList({ request }: { request: AuthenticatedApiClient[
           </button>
         </div>
       ) : null}
-      {status === 'ready' && items.length === 0 ? (
+      {status === 'ready' && items.length === 0 && nextCursor === null ? (
         <div className="notification-empty">
           <span className="notification-empty-icon" aria-hidden="true">
             <NotificationIcon />
@@ -76,6 +108,18 @@ export function NotificationList({ request }: { request: AuthenticatedApiClient[
                     </Link>
                   ) : null}
                 </div>
+                <button
+                  className="notification-delete-trigger"
+                  type="button"
+                  aria-label="알림 삭제"
+                  disabled={busy || deletingId !== null}
+                  onClick={(event) => {
+                    deleteTriggerRef.current = event.currentTarget;
+                    startDelete(item.notificationId);
+                  }}
+                >
+                  삭제
+                </button>
               </article>
             );
           })}
@@ -85,12 +129,81 @@ export function NotificationList({ request }: { request: AuthenticatedApiClient[
         <button
           className="notification-more"
           type="button"
-          disabled={busy}
+          disabled={busy || deletingId !== null}
           onClick={() => void loadPage(nextCursor)}
         >
           {busy ? '불러오는 중…' : '더 보기'}
         </button>
       ) : null}
+      {confirmingId !== null
+        ? createPortal(
+            <div className="notification-delete-backdrop">
+              <section
+                aria-describedby="notification-delete-description"
+                aria-labelledby="notification-delete-title"
+                aria-modal="true"
+                className="notification-delete-dialog"
+                role="dialog"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && deletingId === null) {
+                    event.preventDefault();
+                    cancelDelete();
+                  }
+                  if (event.key !== 'Tab') return;
+                  const buttons = Array.from(
+                    event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                      'button:not(:disabled)',
+                    ),
+                  );
+                  const firstButton = buttons[0];
+                  const lastButton = buttons[buttons.length - 1];
+                  if (!firstButton || !lastButton) {
+                    event.preventDefault();
+                  } else if (event.shiftKey && document.activeElement === firstButton) {
+                    event.preventDefault();
+                    lastButton.focus();
+                  } else if (!event.shiftKey && document.activeElement === lastButton) {
+                    event.preventDefault();
+                    firstButton.focus();
+                  }
+                }}
+              >
+                <span className="notification-delete-icon" aria-hidden="true">
+                  <svg fill="none" viewBox="0 0 24 24">
+                    <path d="M4 7h16M10 3h4m-8 4 1 14h10l1-14M10 11v6m4-6v6" />
+                  </svg>
+                </span>
+                <h2 id="notification-delete-title">알림을 삭제할까요?</h2>
+                <p id="notification-delete-description">삭제한 알림은 다시 볼 수 없어요.</p>
+                {deleteErrorId === confirmingId ? (
+                  <p className="notification-delete-error" role="alert">
+                    알림을 삭제하지 못했어요. 다시 시도해주세요.
+                  </p>
+                ) : null}
+                <div className="notification-delete-actions">
+                  <button
+                    ref={cancelDeleteRef}
+                    type="button"
+                    disabled={deletingId !== null}
+                    onClick={cancelDelete}
+                  >
+                    취소
+                  </button>
+                  <button
+                    className="notification-delete-final"
+                    type="button"
+                    aria-label={deletingId !== null ? '삭제 중…' : '삭제 확인'}
+                    disabled={deletingId !== null || busy}
+                    onClick={() => void confirmDelete(confirmingId)}
+                  >
+                    {deletingId !== null ? '삭제 중…' : '삭제'}
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }

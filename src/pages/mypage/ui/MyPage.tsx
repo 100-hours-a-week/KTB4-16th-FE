@@ -12,6 +12,7 @@ import './myPage.css';
 const accountMenus = [
   { label: '닉네임 변경', to: '/mypage/nickname' },
   { label: '비밀번호 변경', to: '/mypage/password' },
+  { label: '회원 탈퇴', to: '/mypage/withdrawal' },
 ] as const;
 const accountActions = ['로그아웃'] as const;
 
@@ -164,7 +165,7 @@ function MenuItem({
 }) {
   if (typeof item !== 'string') {
     return (
-      <Link to={item.to}>
+      <Link className={item.to === '/mypage/withdrawal' ? 'is-danger' : undefined} to={item.to}>
         <span>{item.label}</span>
         <span aria-hidden="true">›</span>
       </Link>

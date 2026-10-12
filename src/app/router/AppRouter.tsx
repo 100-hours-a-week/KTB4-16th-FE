@@ -13,6 +13,7 @@ import { LockDetailPage } from '../../pages/lock-detail/ui/LockDetailPage';
 import { MyPage } from '../../pages/mypage/ui/MyPage';
 import { NicknameChangePage } from '../../pages/mypage/ui/NicknameChangePage';
 import { PasswordChangePage } from '../../pages/mypage/ui/PasswordChangePage';
+import { WithdrawalPage } from '../../pages/mypage/ui/WithdrawalPage';
 import { MemorySearchPage } from '../../pages/memory-search/ui/MemorySearchPage';
 import { ReportPage } from '../../pages/report/ui/ReportPage';
 import { ReportDetailPage } from '../../pages/report/ui/ReportDetailPage';
@@ -99,6 +100,10 @@ export function AppRouter() {
           isAuthenticated,
           <PasswordChangePage />,
         )}
+      />
+      <Route
+        path="/mypage/withdrawal"
+        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <WithdrawalPage />)}
       />
       <Route
         path="/memory-search"
