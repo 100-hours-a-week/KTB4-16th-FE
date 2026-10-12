@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
 import {
+  deleteNotification,
   getNotifications,
   markNotificationsRead,
   type NotificationItem,
@@ -15,10 +16,14 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [readError, setReadError] = useState('');
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteErrorId, setDeleteErrorId] = useState<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const pendingReadIds = useRef(new Set<number>());
+  const deleteInFlight = useRef(false);
 
-  /** 조회한 ID 중 저장되지 않은 것만 처리하고 성공 응답 이후에 화면 읽음 상태를 갱신한다. */
+  /** 서버에는 즉시 읽음을 저장하되 이번 방문에서 본 새 알림의 강조는 화면을 떠날 때까지 유지한다. */
   const saveRead = useCallback(
     async (signal: AbortSignal) => {
       const ids = [...pendingReadIds.current];
@@ -27,12 +32,6 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
         await markNotificationsRead(ids, request, signal);
         if (signal.aborted) return;
         ids.forEach((id) => pendingReadIds.current.delete(id));
-        const readAt = new Date().toISOString();
-        setItems((current) =>
-          current.map((item) =>
-            ids.includes(item.notificationId) && item.readAt === null ? { ...item, readAt } : item,
-          ),
-        );
         setReadError('');
       } catch {
         if (!signal.aborted) setReadError('읽음 상태를 저장하지 못했어요.');
@@ -44,7 +43,7 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
   /** 동시에 한 페이지씩 읽어 cursor 역전과 빠른 중복 클릭을 방지한다. */
   const loadPage = useCallback(
     async (cursor: string | null) => {
-      if (controllerRef.current !== null) return;
+      if (controllerRef.current !== null || deleteInFlight.current) return;
       const controller = new AbortController();
       controllerRef.current = controller;
       setBusy(true);
@@ -95,7 +94,7 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
 
   /** 목록을 다시 조회하지 않고 실패한 읽음 저장만 사용자의 명시적 행동으로 재시도한다. */
   async function retryRead() {
-    if (controllerRef.current !== null) return;
+    if (controllerRef.current !== null || deleteInFlight.current) return;
     const controller = new AbortController();
     controllerRef.current = controller;
     setBusy(true);
@@ -106,5 +105,51 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
     }
   }
 
-  return { items, nextCursor, status, busy, error, readError, loadPage, retryRead };
+  /** 삭제 확인 대상을 바꾸고 이전 삭제 오류를 지운다. */
+  function startDelete(notificationId: number) {
+    setConfirmingId(notificationId);
+    setDeleteErrorId(null);
+  }
+
+  /** 확인 상태를 취소해 서버 요청 없이 목록을 유지한다. */
+  function cancelDelete() {
+    setConfirmingId(null);
+    setDeleteErrorId(null);
+  }
+
+  /** 삭제 성공 후에만 목록을 갱신하고, 실패 시 해당 카드를 남겨 재시도하게 한다. */
+  async function confirmDelete(notificationId: number) {
+    if (deleteInFlight.current || controllerRef.current !== null) return;
+    deleteInFlight.current = true;
+    setDeletingId(notificationId);
+    setDeleteErrorId(null);
+    try {
+      await deleteNotification(notificationId, request);
+      pendingReadIds.current.delete(notificationId);
+      setItems((current) => current.filter((item) => item.notificationId !== notificationId));
+      setConfirmingId(null);
+    } catch {
+      setDeleteErrorId(notificationId);
+    } finally {
+      deleteInFlight.current = false;
+      setDeletingId(null);
+    }
+  }
+
+  return {
+    items,
+    nextCursor,
+    status,
+    busy,
+    error,
+    readError,
+    confirmingId,
+    deletingId,
+    deleteErrorId,
+    loadPage,
+    retryRead,
+    startDelete,
+    cancelDelete,
+    confirmDelete,
+  };
 }

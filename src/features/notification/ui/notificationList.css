@@ -12,11 +12,19 @@
 }
 
 .notification-card {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: start;
   gap: 10px;
   padding: 14px 0;
   border-bottom: 1px solid #ece3f7;
+}
+
+.notification-card.is-unread {
+  margin: 2px 0;
+  padding: 14px 10px;
+  border-radius: 12px;
+  background: #f7f0ff;
 }
 
 .notification-card:last-child {
@@ -52,8 +60,115 @@
 }
 
 .notification-card-content {
-  flex: 1;
   min-width: 0;
+}
+
+.notification-delete-trigger {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid #dccbf0;
+  border-radius: 10px;
+  background: #fff;
+  color: #7655ae;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notification-delete-trigger {
+  margin-top: -7px;
+}
+
+.notification-delete-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(42 36 56 / 42%);
+  backdrop-filter: blur(3px);
+}
+
+.notification-delete-dialog {
+  width: min(100%, 360px);
+  padding: 28px 24px 24px;
+  border: 1px solid #ece3f7;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 22px 54px rgb(51 43 74 / 22%);
+  text-align: center;
+}
+
+.notification-delete-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f6e9ec;
+  color: #af5f6b;
+}
+
+.notification-delete-icon svg {
+  width: 23px;
+  height: 23px;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notification-delete-dialog h2 {
+  margin: 0 0 8px;
+  color: #332b4a;
+  font-size: 18px;
+}
+
+.notification-delete-dialog p {
+  margin: 0 0 22px;
+  color: #6c6285;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notification-delete-dialog .notification-delete-error {
+  margin-top: -10px;
+  color: #934351;
+}
+
+.notification-delete-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.notification-delete-actions button {
+  min-height: 44px;
+  border: 1px solid #dccbf0;
+  border-radius: 12px;
+  background: #fff;
+  color: #6c6285;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notification-delete-actions .notification-delete-final {
+  border-color: #a887db;
+  background: #a887db;
+  color: #fff;
+}
+
+.notification-delete-dialog button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.notification-delete-dialog button:focus-visible {
+  outline: 2px solid #7655ae;
+  outline-offset: 3px;
 }
 
 .notification-card-heading {
@@ -70,12 +185,12 @@
 }
 
 .notification-unread {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #eadcfb;
+  color: #7655ae;
+  font-size: 9px;
+  font-weight: 700;
 }
 
 .notification-card p {

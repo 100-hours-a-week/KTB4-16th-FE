@@ -79,6 +79,20 @@ export async function markNotificationsRead(
   }
 }
 
+/** 소유한 알림 한 건을 CSRF 보호 DELETE로 삭제하고 성공 응답을 확인한다. */
+export async function deleteNotification(notificationId: number, request: Request): Promise<void> {
+  if (!isPositiveId(notificationId)) throw new Error('알림 ID가 올바르지 않습니다.');
+  const csrfToken = await getCsrfToken();
+  const response = await request<unknown>(`/notifications/${notificationId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { 'X-XSRF-TOKEN': csrfToken },
+  });
+  if (!isRecord(response) || typeof response.message !== 'string') {
+    throw new Error('알림 삭제 응답 형식이 올바르지 않습니다.');
+  }
+}
+
 /** 대상이 삭제된 알림은 targetId=null로 보존하며 잘못된 항목은 화면 경계에서 거부한다. */
 function parseNotification(value: unknown): NotificationItem {
   if (
