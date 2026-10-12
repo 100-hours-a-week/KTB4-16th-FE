@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 
+import { PreferenceVote } from '../../../features/preference-vote/ui/PreferenceVote';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
-import { FeatureUnavailableNotice } from '../../../shared/ui/FeatureUnavailableNotice';
 import '../../pageShell.css';
 import './matchingPage.css';
 
@@ -14,13 +14,10 @@ export function MatchingPage() {
           <Link aria-label="홈으로 돌아가기" className="matching-page-back-button" to="/">
             ‹
           </Link>
-          <h1 className="static-page-title">밸런스 게임</h1>
+          <h1 className="static-page-title">취향 투표</h1>
           <span aria-hidden="true" className="matching-page-header-spacer" />
         </header>
-        <FeatureUnavailableNotice
-          description="랜덤 매칭 채팅 기능은 준비 중이에요."
-          title="랜덤 매칭 채팅"
-        />
+        <PreferenceVote question={null} />
       </div>
       <MainNavigation activeItem="home" />
     </main>

@@ -236,8 +236,8 @@ export function HomePage() {
               💬
             </span>
             <span>
-              <strong>밸런스 게임으로 랜덤 채팅</strong>
-              <small>회원님이 좋아할 만한 밸런스 게임을 가져왔어요</small>
+              <strong>취향 투표로 랜덤 채팅</strong>
+              <small>회원님이 좋아할 만한 취향 투표 질문을 준비했어요</small>
             </span>
           </button>
         </section>
