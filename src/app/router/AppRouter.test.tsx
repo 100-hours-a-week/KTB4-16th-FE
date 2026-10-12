@@ -86,9 +86,9 @@ describe('AppRouter', () => {
     renderRoute('/');
 
     await user.click(screen.getByRole('button', { name: '테스트 로그인' }));
-    await user.click(screen.getByRole('button', { name: /밸런스 게임으로 랜덤 채팅/ }));
-    expect(await screen.findByRole('heading', { name: '밸런스 게임' })).toBeInTheDocument();
-    expect(screen.getByText(/랜덤 매칭 채팅 기능은 준비 중이에요./)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /취향 투표로 랜덤 채팅/ }));
+    expect(await screen.findByRole('heading', { name: '취향 투표' })).toBeInTheDocument();
+    expect(screen.getByText('취향 투표 질문을 준비하고 있어요.')).toBeInTheDocument();
 
     await user.click(screen.getAllByRole('link', { name: '홈으로 돌아가기' })[0]);
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();

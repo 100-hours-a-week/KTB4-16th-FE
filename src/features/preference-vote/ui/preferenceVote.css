@@ -1,0 +1,137 @@
+.preference-vote {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preference-vote-hero {
+  flex-shrink: 0;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(150deg, #5fc4a6, #3faf8e 60%, #e8b54b);
+  color: #fff;
+}
+
+.preference-vote-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+
+.preference-vote-hero h2 {
+  margin: 7px 0 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.preference-vote-choices {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.preference-vote-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.preference-vote-choice {
+  min-height: 48px;
+  padding: 10px;
+  border: 1px solid #dccbf0;
+  border-radius: 14px;
+  background: #fff;
+  color: #332b4a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.preference-vote-choice.is-selected {
+  border-color: #5fc4a6;
+  background: #5fc4a6;
+  color: #fff;
+}
+
+.preference-vote-choice:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.preference-vote-choice:focus-visible,
+.preference-vote-actions button:focus-visible {
+  outline: 2px solid #7a5cbe;
+  outline-offset: 2px;
+}
+
+.preference-vote-result {
+  min-height: 100px;
+  padding: 14px 15px;
+}
+
+.preference-vote-result h2 {
+  margin: 0 0 8px;
+  color: #332b4a;
+  font-size: 13px;
+}
+
+.preference-vote-result p,
+.preference-vote-unavailable {
+  margin: 0;
+  color: #6c6285;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.preference-vote-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 8px;
+}
+
+.preference-vote-actions button {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #dccbf0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.preference-vote-vote-button {
+  background: #fff;
+  color: #332b4a;
+}
+
+.preference-vote-actions .preference-vote-match-button {
+  border-color: #5fc4a6;
+  background: linear-gradient(120deg, #5fc4a6, #3faf8e);
+  color: #fff;
+}
+
+.preference-vote-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 360px) {
+  .preference-vote-actions {
+    grid-template-columns: 1fr;
+  }
+}
