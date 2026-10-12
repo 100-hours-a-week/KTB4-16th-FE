@@ -71,6 +71,13 @@ function parsePasswordChangeResponse(value: unknown): void {
   }
 }
 
+/** 탈퇴 완료 응답의 메시지를 확인해 잘못된 응답을 성공으로 처리하지 않는다. */
+function parseWithdrawalResponse(value: unknown): void {
+  if (!isRecord(value) || !isNonEmptyString(value.message)) {
+    throw invalidResponseError();
+  }
+}
+
 /** 신뢰할 수 없는 외부 값이 키-값 객체인지 확인한다. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -133,4 +140,20 @@ export async function changePassword(
   });
 
   parsePasswordChangeResponse(response);
+}
+
+/** 현재 비밀번호와 CSRF 토큰으로 본인 계정 탈퇴를 요청한다. */
+export async function withdrawAccount(request: ProfileRequest, password: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const response = await request<unknown>('/users/me', {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-XSRF-TOKEN': csrfToken,
+    },
+    body: JSON.stringify({ password }),
+  });
+
+  parseWithdrawalResponse(response);
 }
