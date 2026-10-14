@@ -43,11 +43,14 @@ describe('AppRouter', () => {
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
-  it('sends an unknown path to the public home page', () => {
-    renderRoute('/unknown');
+  it.each(['/unknown', '/chat/'])(
+    'sends an unknown or incomplete path %s to the public home page',
+    (path) => {
+      renderRoute(path);
 
-    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
-  });
+      expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+    },
+  );
 
   it('does not expose the removed group route', () => {
     renderRoute('/group');
@@ -71,6 +74,7 @@ describe('AppRouter', () => {
     '/mypage/password',
     '/mypage/withdrawal',
     '/matching',
+    '/chat/1',
     '/records/1',
     '/friends',
     '/friends/2/dashboard',
