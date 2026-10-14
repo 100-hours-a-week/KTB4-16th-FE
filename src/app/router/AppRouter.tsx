@@ -8,6 +8,7 @@ import { NotificationsPage } from '../../pages/notification/ui/NotificationsPage
 import { FriendDashboardPage } from '../../pages/friend-dashboard/ui/FriendDashboardPage';
 import { LoginPage } from '../../pages/login/LoginPage';
 import { MatchingPage } from '../../pages/matching/ui/MatchingPage';
+import { ChatRoomPage } from '../../pages/chat-room/ui/ChatRoomPage';
 import { LockCreatePage } from '../../pages/lock-create/ui/LockCreatePage';
 import { LockDetailPage } from '../../pages/lock-detail/ui/LockDetailPage';
 import { MyPage } from '../../pages/mypage/ui/MyPage';
@@ -116,6 +117,10 @@ export function AppRouter() {
       <Route
         path="/matching"
         element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <MatchingPage />)}
+      />
+      <Route
+        path="/chat/:chatRoomId"
+        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <ChatRoomPage />)}
       />
       <Route
         path="/locks/create"

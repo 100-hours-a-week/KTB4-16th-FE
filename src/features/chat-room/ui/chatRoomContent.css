@@ -1,0 +1,144 @@
+.chat-room-messages {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 17px 18px 24px;
+}
+
+.chat-room-connection,
+.chat-room-room-status,
+.chat-room-state,
+.chat-room-date {
+  width: fit-content;
+  margin: 0 auto;
+  color: #8d83a4;
+  font-size: 9.5px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.chat-room-connection,
+.chat-room-date {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #efe7fa;
+}
+
+.chat-room-connection.is-connected {
+  background: #e4f7f0;
+  color: #2e6e5c;
+}
+
+.chat-room-connection.is-disconnected,
+.chat-room-room-status,
+.chat-room-state.is-error {
+  background: #fde7e2;
+  color: #a94d61;
+}
+
+.chat-room-room-status,
+.chat-room-state {
+  margin-top: 12px;
+}
+
+.chat-room-message-list {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-room-message-list > li {
+  display: grid;
+  gap: 12px;
+}
+
+.chat-room-message {
+  display: flex;
+  max-width: 88%;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.chat-room-message.is-me {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.chat-room-message p {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 15px 15px 15px 4px;
+  background: #fff;
+  color: #403856;
+  box-shadow: 0 2px 8px rgb(122 92 190 / 8%);
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.chat-room-message.is-me p {
+  border-radius: 15px 15px 4px;
+  background: #a78bde;
+  color: #fff;
+}
+
+.chat-room-message time {
+  flex: 0 0 auto;
+  color: #9a90b3;
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.chat-room-compose {
+  display: flex;
+  gap: 8px;
+  padding: 11px 18px max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid #ece3f7;
+  background: #fff;
+}
+
+.chat-room-compose input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #dccbf0;
+  border-radius: 12px;
+  background: #faf6ff;
+  color: #332b4a;
+  font: inherit;
+  font-size: 12px;
+}
+
+.chat-room-compose button {
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: #7a5cbe;
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.chat-room-compose button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.chat-room-compose input:focus-visible,
+.chat-room-compose button:focus-visible {
+  outline: 2px solid #7a5cbe;
+  outline-offset: 2px;
+}
+
+.chat-room-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
