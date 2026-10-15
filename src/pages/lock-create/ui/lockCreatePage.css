@@ -231,6 +231,89 @@
   font-size: 13px;
   font-weight: 800;
 }
+
+.lock-create-draft-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.lock-create-draft-actions button {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-subtle, #777);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.lock-create-draft-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.lock-create-draft-delete {
+  color: var(--color-danger, #b42318) !important;
+}
+
+.lock-create-draft-success {
+  margin: 8px 0 0;
+  color: #4f7d4b;
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.lock-create-draft-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 45%);
+}
+
+.lock-create-draft-dialog {
+  width: min(100%, 340px);
+  padding: 24px;
+  border-radius: 16px;
+  background: #fff;
+  color: #242424;
+}
+
+.lock-create-draft-dialog h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.lock-create-draft-dialog p {
+  margin: 10px 0 20px;
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.lock-create-draft-dialog > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lock-create-draft-dialog button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #ececec;
+  color: #333;
+  font: inherit;
+}
+
+.lock-create-draft-dialog button:last-child {
+  background: #242424;
+  color: #fff;
+}
 .lock-create-required-hint {
   margin: 0;
   color: #e4674b;

@@ -10,15 +10,19 @@ import { RecordCreateForm } from './RecordCreateForm';
 import '../../../pages/lock-create/ui/lockCreatePage.css';
 
 const mocks = vi.hoisted(() => ({
+  fetchAuthenticatedJson: vi.fn(),
   createRecord: vi.fn(),
   loadKakaoMapSdk: vi.fn(),
   uploadPhoto: vi.fn(),
   getUploadSignedUrl: vi.fn(),
   getPhotoMusicRecommendations: vi.fn(),
+  getRecordDraft: vi.fn(),
+  saveRecordDraft: vi.fn(),
+  deleteRecordDraft: vi.fn(),
 }));
 
 vi.mock('../../../entities/session/model/useSession', () => ({
-  useSession: () => ({ fetchAuthenticatedJson: vi.fn() }),
+  useSession: () => ({ fetchAuthenticatedJson: mocks.fetchAuthenticatedJson }),
 }));
 vi.mock('../../home-map/lib/kakaoMap', () => ({ loadKakaoMapSdk: mocks.loadKakaoMapSdk }));
 vi.mock('../../music-search/api/musicSearchApi', () => ({ searchMusic: vi.fn() }));
@@ -27,6 +31,11 @@ vi.mock('../api/uploadPhoto', () => ({ uploadPhoto: mocks.uploadPhoto }));
 vi.mock('../api/getUploadSignedUrl', () => ({ getUploadSignedUrl: mocks.getUploadSignedUrl }));
 vi.mock('../api/getPhotoMusicRecommendations', () => ({
   getPhotoMusicRecommendations: mocks.getPhotoMusicRecommendations,
+}));
+vi.mock('../api/recordDraft', () => ({
+  getRecordDraft: mocks.getRecordDraft,
+  saveRecordDraft: mocks.saveRecordDraft,
+  deleteRecordDraft: mocks.deleteRecordDraft,
 }));
 
 const selectedMusic = {
@@ -42,6 +51,20 @@ const anotherMusic = {
   artistName: 'iKON',
   albumImageUrl: 'https://image.test/love-scenario.jpg',
   externalUrl: 'https://music.test/love-scenario',
+};
+const savedDraft = {
+  location: {
+    latitude: 37.51,
+    longitude: 127.04,
+    legalDongCode: '4111010100',
+    legalDongName: '서울역',
+  },
+  music: selectedMusic,
+  moodScore: 20,
+  comment: '저장한 메모',
+  uploadId: 99,
+  photoUrl: 'https://storage.example/draft.jpg?signature=temp',
+  expiresAt: '2026-10-29T00:00:00',
 };
 
 let latestMapControl: {
@@ -74,6 +97,9 @@ beforeEach(() => {
   mocks.uploadPhoto.mockResolvedValue(77);
   mocks.getUploadSignedUrl.mockResolvedValue('https://storage.example/photo.jpg?signature=temp');
   mocks.getPhotoMusicRecommendations.mockResolvedValue([selectedMusic]);
+  mocks.getRecordDraft.mockResolvedValue(null);
+  mocks.saveRecordDraft.mockResolvedValue(undefined);
+  mocks.deleteRecordDraft.mockResolvedValue(undefined);
   vi.mocked(searchMusic).mockResolvedValue([{ provider: 'SPOTIFY', ...selectedMusic }]);
 });
 
@@ -646,6 +672,54 @@ describe('RecordCreateForm', () => {
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(1356));
     expect(screen.queryByText(/#1356/)).not.toBeInTheDocument();
+  });
+
+  it('does not expose draft deletion for a new form when a remote draft has not been restored', async () => {
+    mocks.getRecordDraft.mockResolvedValue(savedDraft);
+    renderForm();
+
+    await screen.findByRole('dialog', { name: '임시저장 복원' });
+    fireEvent.click(screen.getByRole('button', { name: '새로 작성하기' }));
+
+    expect(screen.queryByRole('button', { name: '임시저장 삭제' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '임시저장하기' }));
+    expect(await screen.findByRole('dialog', { name: '임시저장 덮어쓰기' })).toBeInTheDocument();
+  });
+
+  it('keeps a restored draft and form inputs when draft deletion is cancelled', async () => {
+    mocks.getRecordDraft.mockResolvedValue(savedDraft);
+    renderForm();
+
+    await screen.findByRole('dialog', { name: '임시저장 복원' });
+    fireEvent.click(screen.getByRole('button', { name: '이어서 작성하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '임시저장 삭제' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: '임시저장 삭제' })).getByText('취소'),
+    );
+
+    expect(mocks.deleteRecordDraft).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('이 순간을 1~2문장으로 남겨보세요')).toHaveValue(
+      '저장한 메모',
+    );
+    expect(screen.getByRole('button', { name: '임시저장 삭제' })).toBeInTheDocument();
+  });
+
+  it('deletes a restored draft and resets the current form after confirmation', async () => {
+    mocks.getRecordDraft.mockResolvedValue(savedDraft);
+    renderForm();
+
+    await screen.findByRole('dialog', { name: '임시저장 복원' });
+    fireEvent.click(screen.getByRole('button', { name: '이어서 작성하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '임시저장 삭제' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: '임시저장 삭제' })).getByText('삭제'),
+    );
+
+    await waitFor(() => expect(mocks.deleteRecordDraft).toHaveBeenCalledOnce());
+    expect(screen.getByPlaceholderText('이 순간을 1~2문장으로 남겨보세요')).toHaveValue('');
+    expect(screen.queryByLabelText('현재 선택한 음악')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '임시저장 삭제' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('status')).toHaveTextContent('임시저장을 삭제했습니다.');
   });
 
   it('uploads a replacement photo and submits only its latest upload ID', async () => {
