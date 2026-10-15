@@ -23,6 +23,15 @@ function renderReportPage() {
   );
 }
 
+/** 리포트 기본 연도 테스트를 한국 시간 기준으로 계산한다. */
+function currentKoreanYear(): number {
+  return Number(
+    new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'Asia/Seoul' }).format(
+      new Date(),
+    ),
+  );
+}
+
 beforeEach(() => vi.clearAllMocks());
 
 describe('ReportPage', () => {
@@ -34,21 +43,45 @@ describe('ReportPage', () => {
     expect(screen.getByRole('status')).toHaveTextContent('월별 리포트를 불러오는 중');
   });
 
-  it('서버의 빈 목록을 가짜 월 없이 빈 상태로 표시한다', async () => {
+  it('서버의 빈 목록에서도 현재 연도 달력을 빈 상태로 표시한다', async () => {
     vi.mocked(getMonthlyReports).mockResolvedValue([]);
 
     renderReportPage();
 
     expect(await screen.findByText('아직 생성된 월별 리포트가 없어요.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: `${currentKoreanYear()}년 리포트` }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/^\d{1,2}월$/)).toHaveLength(12);
     expect(screen.queryByText('14개')).not.toBeInTheDocument();
+  });
+
+  it('하단 리포트를 다시 누르면 현재 연도로 돌아온다', async () => {
+    const user = userEvent.setup();
+    const currentYear = currentKoreanYear();
+    vi.mocked(getMonthlyReports).mockResolvedValue([]);
+    renderReportPage();
+
+    await screen.findByRole('region', { name: `${currentYear}년 리포트` });
+    await user.click(screen.getByRole('button', { name: '이전 연도' }));
+    expect(screen.getByRole('region', { name: `${currentYear - 1}년 리포트` })).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: '리포트' }));
+    expect(screen.getByRole('region', { name: `${currentYear}년 리포트` })).toBeInTheDocument();
   });
 
   it('요청 실패 후 다시 시도해 서버 리포트를 표시한다', async () => {
     const user = userEvent.setup();
+    const currentYear = currentKoreanYear();
     vi.mocked(getMonthlyReports)
       .mockRejectedValueOnce(new ApiError(0, 'network', 'NETWORK_ERROR'))
       .mockResolvedValueOnce([
-        { monthlyReportId: 50, year: 2026, month: 8, recordCount: 15, aiRecapStatus: 'COMPLETED' },
+        {
+          monthlyReportId: 50,
+          year: currentYear,
+          month: 8,
+          recordCount: 15,
+          aiRecapStatus: 'COMPLETED',
+        },
       ]);
 
     renderReportPage();

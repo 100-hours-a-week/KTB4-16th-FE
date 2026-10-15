@@ -67,6 +67,55 @@
   font-size: 18px;
 }
 
+.home-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-notification-button {
+  position: relative;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--mulo-lilac-100);
+  color: var(--mulo-lilac-700);
+  cursor: pointer;
+}
+
+.home-notification-indicator {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #faf6ff;
+  border-radius: 50%;
+  background: #f47b65;
+}
+
+.home-notification-button:hover {
+  background: #e3d7f7;
+}
+
+.home-notification-button:focus-visible {
+  outline: 2px solid var(--mulo-lilac-700);
+  outline-offset: 3px;
+}
+
+.home-notification-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
 .home-weather-chip {
   display: flex;
   align-items: center;
@@ -131,6 +180,10 @@
   text-align: left;
 }
 
+.home-shortcut-card--matching {
+  background: linear-gradient(120deg, #fff, var(--mulo-mint-100));
+}
+
 .home-shortcut-icon {
   display: grid;
   width: 34px;
@@ -140,6 +193,10 @@
   border-radius: 11px;
   background: linear-gradient(135deg, var(--mulo-lilac-500), var(--mulo-mint-500));
   font-size: 15px;
+}
+
+.home-shortcut-icon--matching {
+  background: linear-gradient(135deg, var(--mulo-mint-500), var(--mulo-gold-500));
 }
 
 .home-shortcut-card > span:last-child {

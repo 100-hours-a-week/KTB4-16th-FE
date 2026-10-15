@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 
 import type { MonthlyReportSummary } from '../model/monthlyReport.types';
@@ -7,9 +7,13 @@ type MonthlyReportListProps = {
   reports: MonthlyReportSummary[];
 };
 
-/** 서버 목록에서 선택 가능한 연도를 최신순으로 추출한다. */
-function getReportYears(reports: MonthlyReportSummary[]): number[] {
-  return [...new Set(reports.map((report) => report.year))].sort((left, right) => right - left);
+/** 브라우저의 지역 설정과 관계없이 서비스 기준인 한국 시간의 현재 연도를 구한다. */
+function getCurrentReportYear(): number {
+  return Number(
+    new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'Asia/Seoul' }).format(
+      new Date(),
+    ),
+  );
 }
 
 /** 선택 연도에 속한 리포트를 월 오름차순으로 정렬한다. */
@@ -19,48 +23,96 @@ function getReportsForYear(reports: MonthlyReportSummary[], year: number): Month
     .sort((left, right) => left.month - right.month);
 }
 
-/** API가 제공한 월 리포트를 연도별 목록과 상세 이동 링크로 표시한다. */
+/** 선택 연도의 12개월을 표시하고 서버에 존재하는 리포트만 상세 링크로 연다. */
 export function MonthlyReportList({ reports }: MonthlyReportListProps) {
-  const years = useMemo(() => getReportYears(reports), [reports]);
-  const [selectedYear, setSelectedYear] = useState(() => years[0] ?? null);
-  const activeYear = years.includes(selectedYear ?? NaN) ? selectedYear : (years[0] ?? null);
-  const reportsForYear = activeYear === null ? [] : getReportsForYear(reports, activeYear);
+  const currentYear = getCurrentReportYear();
+  const [activeYear, setActiveYear] = useState(currentYear);
+  const [yearDraft, setYearDraft] = useState(String(currentYear));
+  const reportsForYear = getReportsForYear(reports, activeYear);
+  const reportsByMonth = new Map(reportsForYear.map((report) => [report.month, report]));
 
-  if (reports.length === 0) {
-    return <p className="report-empty-state">아직 생성된 월별 리포트가 없어요.</p>;
+  /** 앞뒤 연도로 이동할 때 화면과 빠른 이동 입력값을 함께 맞춘다. */
+  function moveYear(offset: number) {
+    const nextYear = Math.max(1, Math.min(9999, activeYear + offset));
+    setActiveYear(nextYear);
+    setYearDraft(String(nextYear));
+  }
+
+  /** 입력한 유효한 연도로 바로 이동하고 해당 연도의 월별 리포트를 보여준다. */
+  function jumpToYear(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextYear = Number(yearDraft);
+    if (!Number.isSafeInteger(nextYear) || nextYear < 1 || nextYear > 9999) return;
+    setActiveYear(nextYear);
+    setYearDraft(String(nextYear));
   }
 
   return (
     <section aria-label="월별 리포트 목록">
-      <div className="report-year-tabs" role="tablist" aria-label="리포트 연도 선택">
-        {years.map((year) => (
-          <button
-            aria-selected={activeYear === year}
-            className={activeYear === year ? 'is-selected' : undefined}
-            key={year}
-            onClick={() => setSelectedYear(year)}
-            role="tab"
-            type="button"
-          >
-            {year}년
-          </button>
-        ))}
+      <div className="report-year-controls" role="group" aria-label="리포트 연도 이동">
+        <button
+          aria-label="이전 연도"
+          disabled={activeYear === 1}
+          onClick={() => moveYear(-1)}
+          type="button"
+        >
+          ‹
+        </button>
+        <strong aria-live="polite">{activeYear}년</strong>
+        <button
+          aria-label="다음 연도"
+          disabled={activeYear === 9999}
+          onClick={() => moveYear(1)}
+          type="button"
+        >
+          ›
+        </button>
       </div>
-      <div className="report-month-grid" role="tabpanel" aria-label={`${activeYear}년 리포트`}>
-        {reportsForYear.map((report) => (
-          <Link
-            className="report-month has-data"
-            key={report.monthlyReportId}
-            state={{ monthlyReportId: report.monthlyReportId }}
-            to={`/report/${report.year}/${report.month}`}
-          >
-            <strong>{report.month}월 리포트</strong>
-            <small>기록 {report.recordCount}개</small>
-            <small>
-              {report.aiRecapStatus === 'COMPLETED' ? 'AI 회고 완료' : 'AI 회고 준비 중'}
-            </small>
-          </Link>
-        ))}
+      <form className="report-year-jump" onSubmit={jumpToYear}>
+        <label htmlFor="report-year-input">연도 바로 이동</label>
+        <input
+          id="report-year-input"
+          inputMode="numeric"
+          max={9999}
+          min={1}
+          onChange={(event) => setYearDraft(event.target.value)}
+          required
+          type="number"
+          value={yearDraft}
+        />
+        <button type="submit">이동</button>
+      </form>
+      {reports.length === 0 ? (
+        <p className="report-empty-state">아직 생성된 월별 리포트가 없어요.</p>
+      ) : null}
+      <div className="report-month-grid" role="region" aria-label={`${activeYear}년 리포트`}>
+        {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
+          const report = reportsByMonth.get(month);
+          if (!report) {
+            return (
+              <span className="report-month is-unavailable" key={month}>
+                <strong>{month}월</strong>
+                <small>리포트 없음</small>
+              </span>
+            );
+          }
+
+          return (
+            <Link
+              aria-label={`${month}월 리포트 · 기록 ${report.recordCount}개 · ${report.aiRecapStatus === 'COMPLETED' ? 'AI 회고 완료' : 'AI 회고 준비 중'}`}
+              className="report-month has-data"
+              key={month}
+              state={{ monthlyReportId: report.monthlyReportId }}
+              to={`/report/${report.year}/${month}`}
+            >
+              <strong>{month}월</strong>
+              <small>기록 {report.recordCount}개</small>
+              <small>
+                {report.aiRecapStatus === 'COMPLETED' ? 'AI 회고 완료' : 'AI 회고 준비 중'}
+              </small>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

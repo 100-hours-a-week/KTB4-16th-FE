@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useCallback,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
@@ -18,6 +19,13 @@ import {
   type KakaoMaps,
 } from '../../home-map/lib/kakaoMap';
 import { createRecord } from '../api/createRecord';
+import {
+  deleteRecordDraft,
+  getRecordDraft,
+  saveRecordDraft,
+  type RecordDraft,
+  type RecordDraftSnapshot,
+} from '../api/recordDraft';
 import {
   getPhotoMusicRecommendations,
   type PhotoMusicRecommendation,
@@ -116,6 +124,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photoSelectionIdRef = useRef(0);
   const recommendationRequestIdRef = useRef(0);
+  const restoredLocationRef = useRef<RecordLocation | null>(null);
   const [location, setLocation] = useState<RecordLocation | null>(null);
   const [draftLocation, setDraftLocation] = useState<RecordLocation | null>(null);
   const [isLocationEditorOpen, setIsLocationEditorOpen] = useState(false);
@@ -141,6 +150,16 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const [comment, setComment] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isDeletingDraft, setIsDeletingDraft] = useState(false);
+  const [hasRemoteDraft, setHasRemoteDraft] = useState(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [draftToRestore, setDraftToRestore] = useState<RecordDraft | null>(null);
+  const [isDraftDialogOpen, setIsDraftDialogOpen] = useState(false);
+  const [isOverwriteDialogOpen, setIsOverwriteDialogOpen] = useState(false);
+  const [isDeleteDraftDialogOpen, setIsDeleteDraftDialogOpen] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftSuccessMessage, setDraftSuccessMessage] = useState<string | null>(null);
   const [hasCurrentGpsLocation, setHasCurrentGpsLocation] = useState(false);
   const missingRequiredItems: string[] = [];
   if (!location) missingRequiredItems.push('위치 선택');
@@ -242,7 +261,14 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         gpsLocationContent.parentElement?.style.setProperty('pointer-events', 'none');
         setIsMapReady(true);
         setLocationAccessState('ready');
-        resolveLegalDong(kakao, coordinates);
+        const restoredLocation = restoredLocationRef.current;
+        if (restoredLocation) {
+          map.setCenter(
+            new kakao.maps.LatLng(restoredLocation.latitude, restoredLocation.longitude),
+          );
+        } else {
+          resolveLegalDong(kakao, coordinates);
+        }
         kakao.maps.event.addListener(map, 'idle', () => {
           if (!isLocationEditorOpenRef.current) return;
           const center = map.getCenter();
@@ -334,6 +360,147 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
       file.type === HEIC_IMAGE_TYPE ? null : { kind: 'local', url: URL.createObjectURL(file) },
     );
     void uploadSelectedPhoto(file, selectionId);
+  }
+
+  /** 현재 폼의 작성값을 API가 요구하는 누락 없는 임시저장 스냅샷으로 만든다. */
+  function getDraftSnapshot(): RecordDraftSnapshot {
+    return { location, music: selectedMusic, moodScore, comment: comment.trim() || null, uploadId };
+  }
+
+  /** 서버의 최신 draft를 조회하고, 존재하면 사용자의 복원 결정을 기다린다. */
+  const loadRecordDraft = useCallback(async () => {
+    setDraftError(null);
+    setDraftSuccessMessage(null);
+    try {
+      const draft = await getRecordDraft(fetchAuthenticatedJson);
+      setHasRemoteDraft(Boolean(draft));
+      if (draft) {
+        setDraftToRestore(draft);
+        setIsDraftDialogOpen(true);
+      } else {
+        setDraftToRestore(null);
+      }
+    } catch (error) {
+      setDraftError(messageForError(error, '임시저장 내용을 불러오지 못했습니다.'));
+    }
+  }, [fetchAuthenticatedJson]);
+
+  useEffect(() => {
+    let isActive = true;
+    queueMicrotask(() => {
+      if (isActive) void loadRecordDraft();
+    });
+    return () => {
+      isActive = false;
+    };
+  }, [loadRecordDraft]);
+
+  /** 사용자가 승인한 서버 snapshot만 폼 상태로 반영한다. 이 동작은 읽기 전용이다. */
+  function restoreRecordDraft() {
+    if (!draftToRestore) return;
+    recommendationRequestIdRef.current += 1;
+    photoSelectionIdRef.current += 1;
+    restoredLocationRef.current = draftToRestore.location;
+    setLocation(draftToRestore.location);
+    setDraftLocation(null);
+    setUploadId(draftToRestore.uploadId);
+    setPhoto(null);
+    setPhotoPreview(
+      draftToRestore.photoUrl ? { kind: 'signed', url: draftToRestore.photoUrl } : null,
+    );
+    setSelectedMusic(draftToRestore.music);
+    setMoodScore(draftToRestore.moodScore);
+    setComment(draftToRestore.comment ?? '');
+    setPhotoError(null);
+    setRecommendationError(null);
+    setIsRecommendationOpen(false);
+    setHasRestoredDraft(true);
+    setIsDraftDialogOpen(false);
+    setDraftToRestore(null);
+    if (draftToRestore.location) {
+      onCoordinatesChange({
+        latitude: draftToRestore.location.latitude,
+        longitude: draftToRestore.location.longitude,
+      });
+      centerMapAtCoordinates(draftToRestore.location);
+    }
+  }
+
+  /** 사용자가 새 작성 화면을 선택해도 서버 draft는 보존하여 나중에 다시 불러올 수 있게 한다. */
+  function startNewRecord() {
+    setIsDraftDialogOpen(false);
+    setDraftToRestore(null);
+    setHasRestoredDraft(false);
+  }
+
+  /** 첫 저장으로 기존 서버 snapshot을 대체하기 전 한 번 더 확인한다. */
+  async function saveCurrentDraft() {
+    if (isSavingDraft || isSubmitting) return;
+    setIsSavingDraft(true);
+    setDraftError(null);
+    setDraftSuccessMessage(null);
+    try {
+      await saveRecordDraft(getDraftSnapshot(), fetchAuthenticatedJson);
+      setHasRemoteDraft(true);
+      setDraftSuccessMessage('임시저장했습니다.');
+    } catch (error) {
+      setDraftError(messageForError(error, '임시저장을 저장하지 못했습니다. 다시 시도해 주세요.'));
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }
+
+  function requestDraftSave() {
+    if (hasRemoteDraft && !hasRestoredDraft) {
+      setIsOverwriteDialogOpen(true);
+      return;
+    }
+    void saveCurrentDraft();
+  }
+
+  /** 삭제한 draft의 서버 상태와 일치하도록 작성 폼을 새 자물쇠 상태로 되돌린다. */
+  function resetRecordForm() {
+    recommendationRequestIdRef.current += 1;
+    photoSelectionIdRef.current += 1;
+    restoredLocationRef.current = null;
+    if (photoInputRef.current) {
+      photoInputRef.current.value = '';
+    }
+    setLocation(null);
+    setDraftLocation(null);
+    setUploadId(null);
+    setPhoto(null);
+    setPhotoPreview(null);
+    setPhotoError(null);
+    setRecommendations([]);
+    setRecommendationLoadState('ready');
+    setRecommendationError(null);
+    setIsRecommendationOpen(false);
+    setIsRecommending(false);
+    setSelectedMusic(null);
+    setMoodScore(0);
+    setComment('');
+    setSubmitError(null);
+  }
+
+  /** draft만 삭제하며 업로드 GCS 객체에는 어떤 요청도 보내지 않는다. */
+  async function removeRecordDraft() {
+    if (isDeletingDraft) return;
+    setIsDeletingDraft(true);
+    setDraftError(null);
+    setDraftSuccessMessage(null);
+    try {
+      await deleteRecordDraft(fetchAuthenticatedJson);
+      setHasRemoteDraft(false);
+      setHasRestoredDraft(false);
+      setIsDeleteDraftDialogOpen(false);
+      resetRecordForm();
+      setDraftSuccessMessage('임시저장을 삭제했습니다.');
+    } catch (error) {
+      setDraftError(messageForError(error, '임시저장을 삭제하지 못했습니다. 다시 시도해 주세요.'));
+    } finally {
+      setIsDeletingDraft(false);
+    }
   }
 
   /** GPS 좌표를 지도 중심과 현재 위치 오버레이에 함께 적용한다. */
@@ -488,6 +655,9 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         { location, music: selectedMusic, moodScore, comment: comment.trim() || null, uploadId },
         fetchAuthenticatedJson,
       );
+      // Record 생성과 draft 삭제는 서버 트랜잭션으로 처리되므로 별도 DELETE는 호출하지 않는다.
+      setHasRemoteDraft(false);
+      setDraftToRestore(null);
       onCreated(recordId);
     } catch (error) {
       setSubmitError(
@@ -706,7 +876,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
             }}
           />
         </label>
-        {photo && (
+        {(photo || uploadId) && (
           <button
             className="lock-create-upload"
             type="button"
@@ -795,7 +965,122 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
       >
         {isSubmitting ? '자물쇠 저장 중…' : '🔒 자물쇠 저장하기'}
       </button>
+      <div className="lock-create-draft-actions">
+        <button
+          className="lock-create-draft-save"
+          type="button"
+          disabled={isSavingDraft || isSubmitting}
+          onClick={requestDraftSave}
+        >
+          {isSavingDraft ? '임시저장 중…' : '임시저장하기'}
+        </button>
+        {hasRemoteDraft && !hasRestoredDraft ? (
+          <>
+            <button
+              className="lock-create-draft-load"
+              type="button"
+              disabled={isSavingDraft || isSubmitting}
+              onClick={() => void loadRecordDraft()}
+            >
+              임시저장 불러오기
+            </button>
+          </>
+        ) : null}
+        {hasRestoredDraft ? (
+          <button
+            className="lock-create-draft-delete"
+            type="button"
+            disabled={isDeletingDraft || isSubmitting}
+            onClick={() => setIsDeleteDraftDialogOpen(true)}
+          >
+            임시저장 삭제
+          </button>
+        ) : null}
+      </div>
       {submitError && <p className="lock-create-error">{submitError}</p>}
+      {draftError && <p className="lock-create-error">{draftError}</p>}
+      {draftSuccessMessage && (
+        <p className="lock-create-draft-success" role="status">
+          {draftSuccessMessage}
+        </p>
+      )}
+      {isDraftDialogOpen && draftToRestore ? (
+        <div className="lock-create-draft-backdrop" role="presentation">
+          <section
+            aria-modal="true"
+            aria-label="임시저장 복원"
+            className="lock-create-draft-dialog"
+            role="dialog"
+          >
+            <h2>임시저장한 자물쇠가 있어요</h2>
+            <p>
+              {location || uploadId || selectedMusic || comment
+                ? '불러오면 현재 작성 중인 내용이 임시저장 내용으로 대체됩니다.'
+                : '이전에 저장한 내용을 이어서 작성할 수 있어요.'}
+            </p>
+            <div>
+              <button type="button" onClick={startNewRecord}>
+                새로 작성하기
+              </button>
+              <button type="button" onClick={restoreRecordDraft}>
+                이어서 작성하기
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {isOverwriteDialogOpen ? (
+        <div className="lock-create-draft-backdrop" role="presentation">
+          <section
+            aria-modal="true"
+            aria-label="임시저장 덮어쓰기"
+            className="lock-create-draft-dialog"
+            role="dialog"
+          >
+            <h2>기존 임시저장을 덮어쓸까요?</h2>
+            <p>현재 작성 중인 내용으로 기존 임시저장이 대체됩니다.</p>
+            <div>
+              <button type="button" onClick={() => setIsOverwriteDialogOpen(false)}>
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOverwriteDialogOpen(false);
+                  void saveCurrentDraft();
+                }}
+              >
+                덮어쓰기
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {isDeleteDraftDialogOpen ? (
+        <div className="lock-create-draft-backdrop" role="presentation">
+          <section
+            aria-modal="true"
+            aria-label="임시저장 삭제"
+            className="lock-create-draft-dialog"
+            role="dialog"
+          >
+            <h2>임시저장을 삭제할까요?</h2>
+            <p>삭제 후에는 저장된 작성 내용을 불러올 수 없습니다.</p>
+            <div>
+              <button type="button" onClick={() => setIsDeleteDraftDialogOpen(false)}>
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingDraft}
+                onClick={() => void removeRecordDraft()}
+              >
+                {isDeletingDraft ? '삭제 중…' : '삭제'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       <PhotoMusicRecommendationModal
         errorMessage={recommendationError}
         isOpen={isRecommendationOpen}

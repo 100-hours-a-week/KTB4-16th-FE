@@ -14,8 +14,16 @@ describe('MainNavigation', () => {
 
     expect(screen.getByRole('link', { name: '홈' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: '대시보드' })).toHaveAttribute('href', '/dashboard');
+    expect(screen.getByRole('link', { name: '친구' })).toHaveAttribute('href', '/friends');
     expect(screen.getByRole('link', { name: '리포트' })).toHaveAttribute('href', '/report');
     expect(screen.getByRole('link', { name: '마이페이지' })).toHaveAttribute('href', '/mypage');
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      '홈',
+      '대시보드',
+      '리포트',
+      '친구',
+      '마이페이지',
+    ]);
     expect(screen.queryByRole('link', { name: '그룹' })).not.toBeInTheDocument();
   });
 });

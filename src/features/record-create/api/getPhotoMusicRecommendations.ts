@@ -14,7 +14,9 @@ type PhotoMusicRecommendationsResponse = {
   data: PhotoMusicRecommendation[];
 };
 
-/** 업로드된 사진을 기준으로 최대 세 곡의 음악 추천을 요청한다. */
+const REQUIRED_PHOTO_RECOMMENDATION_COUNT = 5;
+
+/** 업로드된 사진에 대한 정확히 다섯 곡의 추천 응답만 성공으로 처리한다. */
 export async function getPhotoMusicRecommendations(
   uploadId: number,
   fetchAuthenticatedJson: AuthenticatedApiClient['fetchJson'],
@@ -41,7 +43,7 @@ function parsePhotoMusicRecommendationsResponse(value: unknown): PhotoMusicRecom
   if (!isRecord(value) || typeof value.message !== 'string' || !Array.isArray(value.data)) {
     throw new Error('음악 추천 응답 형식이 올바르지 않습니다.');
   }
-  if (value.data.length > 3) {
+  if (value.data.length !== REQUIRED_PHOTO_RECOMMENDATION_COUNT) {
     throw new Error('음악 추천 응답 형식이 올바르지 않습니다.');
   }
 

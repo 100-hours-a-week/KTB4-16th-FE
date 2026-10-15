@@ -7,6 +7,8 @@ import type {
   RecommendationTrack,
 } from '../model/recommendationPlaylist.types';
 
+const REQUIRED_RECOMMENDATION_TRACK_COUNT = 5;
+
 /** 로그인 사용자의 저장된 현재 추천 플레이리스트를 조회하고 계약을 검증한다. */
 export async function getRecommendationPlaylist(
   fetchAuthenticatedJson: AuthenticatedApiClient['fetchJson'],
@@ -62,7 +64,11 @@ function parseRecommendationPlaylistResponse(value: unknown): RecommendationPlay
 
 /** 플레이리스트 ID와 트랙 배열이 화면 계약을 만족하는지 검증한다. */
 function parseRecommendationPlaylist(value: Record<string, unknown>): RecommendationPlaylist {
-  if (!isPositiveInteger(value.recommendationPlaylistId) || !Array.isArray(value.tracks)) {
+  if (
+    !isPositiveInteger(value.recommendationPlaylistId) ||
+    !Array.isArray(value.tracks) ||
+    value.tracks.length !== REQUIRED_RECOMMENDATION_TRACK_COUNT
+  ) {
     throw invalidResponse();
   }
 

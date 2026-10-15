@@ -2,7 +2,7 @@ import { WEATHER_CONDITIONS, type WeatherCondition } from '../../../entities/wea
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
 import type { LockDetailData } from '../model/lockDetail.types';
 
-/** 로그인 사용자가 소유한 활성 자물쇠의 상세 정보를 조회한다. */
+/** 로그인 사용자가 소유하거나 현재 친구가 소유한 활성 자물쇠의 상세를 조회한다. */
 export async function getRecordDetail(
   recordId: number,
   fetchAuthenticatedJson: AuthenticatedApiClient['fetchJson'],
@@ -30,6 +30,7 @@ function parseRecordDetailResponse(value: unknown): LockDetailData {
   if (
     !isPositiveInteger(data.recordId) ||
     !isPositiveInteger(data.userId) ||
+    typeof data.isOwner !== 'boolean' ||
     !isRecord(data.place) ||
     !isRecord(data.music) ||
     !isNullableWeatherCondition(data.weatherCondition) ||
@@ -62,6 +63,7 @@ function parseRecordDetailResponse(value: unknown): LockDetailData {
   return {
     recordId: data.recordId,
     userId: data.userId,
+    isOwner: data.isOwner,
     place: {
       placeId: place.placeId,
       legalDongName: place.legalDongName,

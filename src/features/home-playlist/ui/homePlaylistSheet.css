@@ -80,7 +80,7 @@
   border-bottom: 1px solid #ece3f7;
 }
 .home-playlist-track-list {
-  /* 최대 10곡이 와도 하단의 새 추천 버튼을 가리지 않도록 목록 영역만 스크롤한다. */
+  /* 추천 다섯 곡이 와도 하단의 새 추천 버튼을 가리지 않도록 목록 영역만 스크롤한다. */
   max-height: min(232px, 38vh);
   margin: 0;
   overflow-y: auto;

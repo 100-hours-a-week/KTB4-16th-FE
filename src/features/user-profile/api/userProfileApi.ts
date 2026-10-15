@@ -1,4 +1,8 @@
-import type { UserProfile } from '../../../entities/user/model/user.types';
+import {
+  PREFERRED_GENRES,
+  type PreferredGenre,
+  type UserProfile,
+} from '../../../entities/user/model/user.types';
 import { ApiError } from '../../../shared/api/apiError';
 import { getCsrfToken } from '../../../shared/api/csrf';
 import type {
@@ -14,7 +18,10 @@ function parseUserProfileResponse(value: unknown): UserProfile {
     !isRecord(value.data) ||
     !isInteger(value.data.userId) ||
     !isNonEmptyString(value.data.nickname) ||
-    !isNonEmptyString(value.data.email)
+    !isNonEmptyString(value.data.email) ||
+    !isPreferredGenres(value.data.preferredGenres) ||
+    typeof value.data.genreOnboardingDone !== 'boolean' ||
+    !isNonEmptyString(value.data.createdAt)
   ) {
     throw invalidResponseError();
   }
@@ -23,7 +30,24 @@ function parseUserProfileResponse(value: unknown): UserProfile {
     userId: value.data.userId,
     nickname: value.data.nickname,
     email: value.data.email,
+    preferredGenres: value.data.preferredGenres,
+    genreOnboardingDone: value.data.genreOnboardingDone,
+    createdAt: value.data.createdAt,
   };
+}
+
+/** 프로필 응답의 nullable 장르 배열이 허용 목록에 맞는지 확인한다. */
+function isPreferredGenres(value: unknown): value is PreferredGenre[] | null {
+  return (
+    value === null ||
+    (Array.isArray(value) &&
+      value.length <= 3 &&
+      value.every(
+        (genre): genre is PreferredGenre =>
+          typeof genre === 'string' && PREFERRED_GENRES.some((allowed) => allowed === genre),
+      ) &&
+      new Set(value).size === value.length)
+  );
 }
 
 /** 닉네임 변경 성공 응답의 최신 닉네임을 검증한다. */
@@ -42,6 +66,13 @@ function parseNicknameChangeResponse(value: unknown): { nickname: string } {
 
 /** 비밀번호 변경 성공 응답에 완료 메시지가 있는지 검증한다. */
 function parsePasswordChangeResponse(value: unknown): void {
+  if (!isRecord(value) || !isNonEmptyString(value.message)) {
+    throw invalidResponseError();
+  }
+}
+
+/** 탈퇴 완료 응답의 메시지를 확인해 잘못된 응답을 성공으로 처리하지 않는다. */
+function parseWithdrawalResponse(value: unknown): void {
   if (!isRecord(value) || !isNonEmptyString(value.message)) {
     throw invalidResponseError();
   }
@@ -109,4 +140,20 @@ export async function changePassword(
   });
 
   parsePasswordChangeResponse(response);
+}
+
+/** 현재 비밀번호와 CSRF 토큰으로 본인 계정 탈퇴를 요청한다. */
+export async function withdrawAccount(request: ProfileRequest, password: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const response = await request<unknown>('/users/me', {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-XSRF-TOKEN': csrfToken,
+    },
+    body: JSON.stringify({ password }),
+  });
+
+  parseWithdrawalResponse(response);
 }

@@ -55,6 +55,9 @@ describe('MyPage', () => {
       userId: 35,
       nickname: '뮤로',
       email: 'me@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
 
     renderMyPage();
@@ -68,7 +71,14 @@ describe('MyPage', () => {
     const user = userEvent.setup();
     vi.mocked(getMyProfile)
       .mockRejectedValueOnce(new ApiError(0, 'network', 'NETWORK_ERROR'))
-      .mockResolvedValueOnce({ userId: 35, nickname: '뮤로', email: 'me@mulo.com' });
+      .mockResolvedValueOnce({
+        userId: 35,
+        nickname: '뮤로',
+        email: 'me@mulo.com',
+        preferredGenres: null,
+        genreOnboardingDone: true,
+        createdAt: '2026-10-01T12:00:00',
+      });
 
     renderMyPage();
 
@@ -81,17 +91,23 @@ describe('MyPage', () => {
     expect(getMyProfile).toHaveBeenCalledTimes(2);
   });
 
-  it('V1 범위 밖인 회원탈퇴 메뉴를 표시하지 않는다', async () => {
+  it('회원 탈퇴 메뉴에서 비밀번호 확인 화면으로 이동할 수 있다', async () => {
     vi.mocked(getMyProfile).mockResolvedValue({
       userId: 35,
       nickname: '뮤로',
       email: 'me@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
 
     renderMyPage();
 
     await screen.findByText('뮤로');
-    expect(screen.queryByRole('button', { name: /회원탈퇴/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /회원 탈퇴/ })).toHaveAttribute(
+      'href',
+      '/mypage/withdrawal',
+    );
   });
 
   it('로그아웃 요청 실패와 관계없이 로그인 화면으로 이동한다', async () => {
@@ -100,6 +116,9 @@ describe('MyPage', () => {
       userId: 35,
       nickname: '뮤로',
       email: 'me@mulo.com',
+      preferredGenres: null,
+      genreOnboardingDone: true,
+      createdAt: '2026-10-01T12:00:00',
     });
     vi.mocked(logout).mockRejectedValue(new ApiError(500, '서버 오류', 'SERVER_ERROR'));
 

@@ -3,12 +3,18 @@ import type { ReactNode } from 'react';
 
 import { HomePage } from '../../pages/home/ui/HomePage';
 import { DashboardPage } from '../../pages/dashboard/ui/DashboardPage';
+import { FriendsPage } from '../../pages/friend/ui/FriendsPage';
+import { NotificationsPage } from '../../pages/notification/ui/NotificationsPage';
+import { FriendDashboardPage } from '../../pages/friend-dashboard/ui/FriendDashboardPage';
 import { LoginPage } from '../../pages/login/LoginPage';
+import { MatchingPage } from '../../pages/matching/ui/MatchingPage';
+import { ChatRoomPage } from '../../pages/chat-room/ui/ChatRoomPage';
 import { LockCreatePage } from '../../pages/lock-create/ui/LockCreatePage';
 import { LockDetailPage } from '../../pages/lock-detail/ui/LockDetailPage';
 import { MyPage } from '../../pages/mypage/ui/MyPage';
 import { NicknameChangePage } from '../../pages/mypage/ui/NicknameChangePage';
 import { PasswordChangePage } from '../../pages/mypage/ui/PasswordChangePage';
+import { WithdrawalPage } from '../../pages/mypage/ui/WithdrawalPage';
 import { MemorySearchPage } from '../../pages/memory-search/ui/MemorySearchPage';
 import { ReportPage } from '../../pages/report/ui/ReportPage';
 import { ReportDetailPage } from '../../pages/report/ui/ReportDetailPage';
@@ -41,8 +47,28 @@ export function AppRouter() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route
+        path="/notifications"
+        element={getProtectedRouteElement(
+          isSessionRestoring,
+          isAuthenticated,
+          <NotificationsPage />,
+        )}
+      />
+      <Route
         path="/dashboard"
         element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <DashboardPage />)}
+      />
+      <Route
+        path="/friends"
+        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <FriendsPage />)}
+      />
+      <Route
+        path="/friends/:friendUserId/dashboard"
+        element={getProtectedRouteElement(
+          isSessionRestoring,
+          isAuthenticated,
+          <FriendDashboardPage />,
+        )}
       />
       <Route
         path="/report"
@@ -77,12 +103,24 @@ export function AppRouter() {
         )}
       />
       <Route
+        path="/mypage/withdrawal"
+        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <WithdrawalPage />)}
+      />
+      <Route
         path="/memory-search"
         element={getProtectedRouteElement(
           isSessionRestoring,
           isAuthenticated,
           <MemorySearchPage />,
         )}
+      />
+      <Route
+        path="/matching"
+        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <MatchingPage />)}
+      />
+      <Route
+        path="/chat/:chatRoomId"
+        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <ChatRoomPage />)}
       />
       <Route
         path="/locks/create"

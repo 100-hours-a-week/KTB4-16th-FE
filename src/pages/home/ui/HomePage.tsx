@@ -1,14 +1,125 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { type PreferredGenre, type UserProfile } from '../../../entities/user/model/user.types';
+import { useSession } from '../../../entities/session/model/useSession';
 import { HomeMap, type MapCenter } from '../../../features/home-map/ui/HomeMap';
 import { HomePlaylistSheet } from '../../../features/home-playlist/ui/HomePlaylistSheet';
 import { HomeWeather } from '../../../features/home-weather/ui/HomeWeather';
+import { GenreOnboardingSheet } from '../../../features/genre-onboarding/ui/GenreOnboardingSheet';
+import {
+  canHideGenreOnboardingForToday,
+  hideGenreOnboardingForToday,
+  isGenreOnboardingHiddenToday,
+  shouldAutomaticallyShowGenreOnboarding,
+} from '../../../features/genre-onboarding/model/genreOnboardingPolicy';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
+import { hasUnreadNotifications } from '../../../features/notification/api/notificationApi';
+import { getMyProfile } from '../../../features/user-profile/api/userProfileApi';
+import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
 import './homePage.css';
+
+/** 로그인 세션에서 프로필을 조회하고 미응답 사용자에게만 온보딩을 표시한다. */
+function HomeGenreOnboarding({ request }: { request: AuthenticatedApiClient['fetchJson'] }) {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    void getMyProfile(request)
+      .then((nextProfile) => {
+        if (isCurrent) setProfile(nextProfile);
+      })
+      .catch(() => {
+        if (isCurrent) setProfile(null);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [request]);
+
+  /** 완료된 서버 저장을 현재 화면에 반영해 같은 진입에서 재노출하지 않는다. */
+  function finishOnboarding(preferredGenres: PreferredGenre[] | null) {
+    setProfile((current) =>
+      current ? { ...current, preferredGenres, genreOnboardingDone: true } : current,
+    );
+  }
+
+  function hideToday() {
+    if (!profile || !canHideGenreOnboardingForToday(profile.createdAt)) return;
+
+    hideGenreOnboardingForToday(profile.userId);
+    setIsDismissed(true);
+  }
+
+  if (
+    !profile ||
+    isDismissed ||
+    !shouldAutomaticallyShowGenreOnboarding(profile) ||
+    isGenreOnboardingHiddenToday(profile.userId)
+  ) {
+    return null;
+  }
+
+  const showHideTodayAction = canHideGenreOnboardingForToday(profile.createdAt);
+
+  return (
+    <GenreOnboardingSheet
+      request={request}
+      onSaved={finishOnboarding}
+      onHideForToday={showHideTodayAction ? hideToday : undefined}
+    />
+  );
+}
+
+/** 로그인 중에만 미읽음 여부를 조회하고 홈의 새 알림 점을 표시한다. */
+function HomeNotificationIndicator({ request }: { request: AuthenticatedApiClient['fetchJson'] }) {
+  const [hasUnread, setHasUnread] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let controller: AbortController | null = null;
+    /** 새 조회가 시작되면 이전 조회를 취소하고 현재 서버의 미읽음 여부를 반영한다. */
+    const refreshUnread = () => {
+      controller?.abort();
+      const nextController = new AbortController();
+      controller = nextController;
+      void hasUnreadNotifications(request, nextController.signal)
+        .then((unread) => {
+          if (active && !nextController.signal.aborted) setHasUnread(unread);
+        })
+        .catch(() => {
+          // 일시적인 조회 실패에는 마지막으로 확인한 표시를 유지한다.
+        });
+    };
+    /** 숨겨진 탭에서는 조회하지 않고 다시 보일 때 최신 상태를 확인한다. */
+    const refreshWhenVisible = () => {
+      if (!document.hidden) refreshUnread();
+    };
+
+    refreshUnread();
+    const interval = window.setInterval(refreshWhenVisible, 60_000);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      active = false;
+      controller?.abort();
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [request]);
+
+  return hasUnread ? (
+    <span className="home-notification-indicator" role="status" aria-label="새 알림" />
+  ) : null;
+}
 
 /** 목업의 홈 진입 화면을 기능 UI로 조립한다. */
 export function HomePage() {
+  const { fetchAuthenticatedJson, isAuthenticated, isSessionRestoring } = useSession();
   const [currentLocation, setCurrentLocation] = useState<MapCenter | null>(null);
   const [isPlaylistRequested, setIsPlaylistRequested] = useState(false);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
@@ -68,8 +179,23 @@ export function HomePage() {
       <div className="home-page-content">
         <header className="home-topbar">
           <h1 className="home-topbar__brand">MULO</h1>
-          {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
-          <HomeWeather coordinates={currentLocation} />
+          <div className="home-topbar-actions">
+            {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
+            <HomeWeather coordinates={currentLocation} />
+            <button
+              aria-label="알림 목록"
+              className="home-notification-button"
+              type="button"
+              onClick={() => navigate('/notifications')}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M12 2V1" />
+              </svg>
+              {isAuthenticated && !isSessionRestoring ? (
+                <HomeNotificationIndicator request={fetchAuthenticatedJson} />
+              ) : null}
+            </button>
+          </div>
         </header>
 
         <button
@@ -101,6 +227,19 @@ export function HomePage() {
               <small>위치·날씨·시간·히스토리 기반 추천</small>
             </span>
           </button>
+          <button
+            className="home-shortcut-card home-shortcut-card--matching"
+            type="button"
+            onClick={() => navigate('/matching')}
+          >
+            <span className="home-shortcut-icon home-shortcut-icon--matching" aria-hidden="true">
+              💬
+            </span>
+            <span>
+              <strong>취향 투표로 랜덤 채팅</strong>
+              <small>회원님이 좋아할 만한 취향 투표 질문을 준비했어요</small>
+            </span>
+          </button>
         </section>
 
         <HomeMap
@@ -128,6 +267,9 @@ export function HomePage() {
       </div>
 
       <MainNavigation />
+      {isAuthenticated && !isSessionRestoring ? (
+        <HomeGenreOnboarding request={fetchAuthenticatedJson} />
+      ) : null}
     </main>
   );
 }

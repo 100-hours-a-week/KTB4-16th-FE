@@ -9,6 +9,7 @@ const comment = '퇴근길에 우연히 튼 노래인데, 오늘따라 이 골�
 const detail: LockDetailData = {
   recordId: 1356,
   userId: 108,
+  isOwner: true,
   place: {
     placeId: 225,
     legalDongName: '매산로1가',

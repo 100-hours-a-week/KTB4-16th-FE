@@ -43,11 +43,14 @@ describe('AppRouter', () => {
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
-  it('sends an unknown path to the public home page', () => {
-    renderRoute('/unknown');
+  it.each(['/unknown', '/chat/'])(
+    'sends an unknown or incomplete path %s to the public home page',
+    (path) => {
+      renderRoute(path);
 
-    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
-  });
+      expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+    },
+  );
 
   it('does not expose the removed group route', () => {
     renderRoute('/group');
@@ -65,14 +68,35 @@ describe('AppRouter', () => {
     expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
-  it.each(['/mypage', '/mypage/nickname', '/mypage/password', '/records/1'])(
-    'sends an anonymous visitor from %s to login',
-    async (path) => {
-      renderRoute(path);
+  it.each([
+    '/mypage',
+    '/mypage/nickname',
+    '/mypage/password',
+    '/mypage/withdrawal',
+    '/matching',
+    '/chat/1',
+    '/records/1',
+    '/friends',
+    '/friends/2/dashboard',
+    '/notifications',
+  ])('sends an anonymous visitor from %s to login', async (path) => {
+    renderRoute(path);
 
-      expect(await screen.findByRole('heading', { name: '로그인' })).toBeInTheDocument();
-    },
-  );
+    expect(await screen.findByRole('heading', { name: '로그인' })).toBeInTheDocument();
+  });
+
+  it('allows an authenticated visitor to open matching and return home', async () => {
+    const user = userEvent.setup();
+    renderRoute('/');
+
+    await user.click(screen.getByRole('button', { name: '테스트 로그인' }));
+    await user.click(screen.getByRole('button', { name: /취향 투표로 랜덤 채팅/ }));
+    expect(await screen.findByRole('heading', { name: '취향 투표' })).toBeInTheDocument();
+    expect(screen.getByText('취향 투표 질문을 준비하고 있어요.')).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole('link', { name: '홈으로 돌아가기' })[0]);
+    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+  });
 
   it('keeps a protected route pending until session restoration succeeds', async () => {
     document.cookie = 'XSRF-TOKEN=csrf-token';

@@ -71,7 +71,7 @@
   color: #9a90b3;
   font-size: 16px;
 }
-.my-menu-group button.is-danger {
+.my-menu-group .is-danger {
   color: #e4674b;
 }
 
@@ -97,4 +97,27 @@
 .profile-change-form {
   display: grid;
   gap: 16px;
+}
+.withdrawal-notice {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #f3d9d5;
+  border-radius: 12px;
+  background: #fff8f6;
+  color: #7d3e3e;
+}
+.withdrawal-notice strong {
+  font-size: 14px;
+}
+.withdrawal-notice p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.withdrawal-submit {
+  background: #b74b55;
+}
+.withdrawal-submit:hover:not(:disabled) {
+  background: #a6404a;
 }
