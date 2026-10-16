@@ -7,12 +7,11 @@ import './genreOnboardingSheet.css';
 
 type Props = {
   request: AuthenticatedApiClient['fetchJson'];
-  onSaved: (preferredGenres: PreferredGenre[] | null) => void;
-  onHideForToday?: () => void;
+  onSaved: (preferredGenres: PreferredGenre[]) => void;
 };
 
-/** 홈에서 현재 사용자의 선호 장르를 최초 설정하는 modal sheet다. */
-export function GenreOnboardingSheet({ request, onSaved, onHideForToday }: Props) {
+/** 필수 선호 장르를 선택하고 서버에 저장하는 modal sheet다. */
+export function GenreOnboardingSheet({ request, onSaved }: Props) {
   const [selectedGenres, setSelectedGenres] = useState<PreferredGenre[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -84,7 +83,7 @@ export function GenreOnboardingSheet({ request, onSaved, onHideForToday }: Props
 
     try {
       await updatePreferredGenres(request, preferredGenres);
-      onSaved(preferredGenres.length > 0 ? preferredGenres : null);
+      onSaved(preferredGenres);
     } catch {
       setErrorMessage('선호 장르를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -111,11 +110,11 @@ export function GenreOnboardingSheet({ request, onSaved, onHideForToday }: Props
           🎧 어떤 음악을 좋아하세요?
         </h2>
         <p id="genre-onboarding-description" className="genre-onboarding-description">
-          좋아하는 장르를 알려주시면
+          서비스를 이용하려면 좋아하는 장르를
           <br />
-          취향에 맞는 경험을 준비할게요.
+          최소 1개 선택해 주세요.
         </p>
-        <p className="genre-onboarding-limit">최대 3개까지 선택할 수 있어요.</p>
+        <p className="genre-onboarding-limit">최소 1개, 최대 3개까지 선택할 수 있어요.</p>
 
         <div className="genre-onboarding-grid" aria-label="선호 장르 선택">
           {PREFERRED_GENRES.map((genre) => {
@@ -153,24 +152,6 @@ export function GenreOnboardingSheet({ request, onSaved, onHideForToday }: Props
         >
           {isSubmitting ? '저장 중…' : '완료'}
         </button>
-        <button
-          className="genre-onboarding-skip"
-          disabled={isSubmitting}
-          type="button"
-          onClick={() => void saveGenres([])}
-        >
-          선택하지 않음
-        </button>
-        {onHideForToday ? (
-          <button
-            className="genre-onboarding-hide-today"
-            disabled={isSubmitting}
-            type="button"
-            onClick={onHideForToday}
-          >
-            오늘 하루 보지 않기
-          </button>
-        ) : null}
       </section>
     </div>
   );

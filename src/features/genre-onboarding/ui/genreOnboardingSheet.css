@@ -97,13 +97,7 @@
 }
 
 .genre-onboarding-chip:focus-visible,
-.genre-onboarding-submit:focus-visible,
-.genre-onboarding-skip:focus-visible {
-  outline: 3px solid rgb(122 92 190 / 40%);
-  outline-offset: 2px;
-}
-
-.genre-onboarding-hide-today:focus-visible {
+.genre-onboarding-submit:focus-visible {
   outline: 3px solid rgb(122 92 190 / 40%);
   outline-offset: 2px;
 }
@@ -135,30 +129,9 @@
   font-weight: 800;
 }
 
-.genre-onboarding-submit:disabled,
-.genre-onboarding-skip:disabled {
+.genre-onboarding-submit:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.genre-onboarding-skip {
-  display: block;
-  margin: 10px auto 0;
-  padding: 7px 12px;
-  background: transparent;
-  color: var(--mulo-ink-600);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.genre-onboarding-hide-today {
-  display: block;
-  margin: 2px auto 0;
-  padding: 7px 12px;
-  background: transparent;
-  color: var(--mulo-ink-400);
-  font-size: 11px;
-  font-weight: 600;
 }
 
 @media (min-width: 481px) {
