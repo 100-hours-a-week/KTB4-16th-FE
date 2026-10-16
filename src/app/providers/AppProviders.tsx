@@ -2,12 +2,15 @@ import type { PropsWithChildren } from 'react';
 import { BrowserRouter } from 'react-router';
 
 import { SessionProvider } from '../../entities/session/model/SessionProvider';
+import { MemorySearchConversationProvider } from '../../features/memory-search/model/MemorySearchConversationProvider';
 
-/** 애플리케이션 전역 라우터와 메모리 세션의 Provider 순서를 정의한다. */
+/** 라우터·인증·기억 검색 Provider 순서로 상세 왕복 중 대화 상태를 유지한다. */
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <BrowserRouter>
-      <SessionProvider>{children}</SessionProvider>
+      <SessionProvider>
+        <MemorySearchConversationProvider>{children}</MemorySearchConversationProvider>
+      </SessionProvider>
     </BrowserRouter>
   );
 }
