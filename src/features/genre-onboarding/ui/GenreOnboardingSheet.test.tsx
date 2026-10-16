@@ -37,7 +37,7 @@ describe('GenreOnboardingSheet', () => {
     renderSheet();
 
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
-    expect(screen.getByRole('button', { name: '선택하지 않음' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'J-POP' })).toHaveFocus();
 
     fireEvent.keyDown(document, { key: 'Tab' });
     expect(screen.getByRole('button', { name: '발라드' })).toHaveFocus();
@@ -82,15 +82,13 @@ describe('GenreOnboardingSheet', () => {
     expect(onSaved).toHaveBeenCalledWith(['인디음악', '재즈']);
   });
 
-  it('saves an empty array for the explicit no-preference choice', async () => {
-    const user = userEvent.setup();
-    const onSaved = vi.fn();
-    renderSheet(onSaved);
+  it('requires at least one genre and has no skip or close action', () => {
+    renderSheet();
 
-    await user.click(screen.getByRole('button', { name: '선택하지 않음' }));
-
-    await waitFor(() => expect(updatePreferredGenres).toHaveBeenCalledWith(genresRequest, []));
-    expect(onSaved).toHaveBeenCalledWith(null);
+    expect(screen.getByText('최소 1개, 최대 3개까지 선택할 수 있어요.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '완료' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '선택하지 않음' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /닫기|닫기/ })).not.toBeInTheDocument();
   });
 
   it('keeps the dialog open and shows an error when saving fails', async () => {
@@ -99,7 +97,8 @@ describe('GenreOnboardingSheet', () => {
     const onSaved = vi.fn();
     renderSheet(onSaved);
 
-    await user.click(screen.getByRole('button', { name: '선택하지 않음' }));
+    await user.click(screen.getByRole('button', { name: '재즈' }));
+    await user.click(screen.getByRole('button', { name: '완료' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '선호 장르를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.',

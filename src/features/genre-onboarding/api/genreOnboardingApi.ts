@@ -9,6 +9,10 @@ export async function updatePreferredGenres(
   request: GenrePreferenceRequest,
   preferredGenres: readonly PreferredGenre[],
 ): Promise<void> {
+  if (preferredGenres.length < 1 || preferredGenres.length > 3) {
+    throw new Error('선호 장르는 1개 이상 3개 이하로 선택해야 합니다.');
+  }
+
   const csrfToken = await getCsrfToken();
 
   await request<unknown>('/users/me/preferences/genres', {

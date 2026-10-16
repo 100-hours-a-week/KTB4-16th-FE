@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({ getMyProfile: vi.fn() }));
+
+vi.mock('../../features/user-profile/api/userProfileApi', () => ({
+  getMyProfile: mocks.getMyProfile,
+}));
 
 import { SessionProvider } from '../../entities/session/model/SessionProvider';
 import { useSession } from '../../entities/session/model/useSession';
@@ -22,6 +28,17 @@ afterEach(() => {
   document.cookie = 'XSRF-TOKEN=; Max-Age=0; Path=/';
 });
 
+beforeEach(() => {
+  mocks.getMyProfile.mockResolvedValue({
+    userId: 9,
+    nickname: '뮤로',
+    email: 'mulo@example.com',
+    preferredGenres: ['재즈'],
+    genreOnboardingDone: true,
+    createdAt: '2024-01-01T00:00:00',
+  });
+});
+
 /** 실제 세션 Provider와 메모리 라우터로 지정한 URL을 렌더링한다. */
 function renderRoute(path: string) {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 401 })));
@@ -37,25 +54,25 @@ function renderRoute(path: string) {
 }
 
 describe('AppRouter', () => {
-  it('shows home to an anonymous visitor', () => {
+  it('shows home to an anonymous visitor after session restoration', async () => {
     renderRoute('/');
 
-    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
   it.each(['/unknown', '/chat/'])(
     'sends an unknown or incomplete path %s to the public home page',
-    (path) => {
+    async (path) => {
       renderRoute(path);
 
-      expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'MULO' })).toBeInTheDocument();
     },
   );
 
-  it('does not expose the removed group route', () => {
+  it('does not expose the removed group route', async () => {
     renderRoute('/group');
 
-    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'MULO' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '그룹' })).not.toBeInTheDocument();
   });
 
@@ -65,7 +82,7 @@ describe('AppRouter', () => {
 
     await user.click(screen.getByRole('button', { name: '테스트 로그인' }));
 
-    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
   it.each([
@@ -95,7 +112,7 @@ describe('AppRouter', () => {
     expect(screen.getByText('취향 투표 질문을 준비하고 있어요.')).toBeInTheDocument();
 
     await user.click(screen.getAllByRole('link', { name: '홈으로 돌아가기' })[0]);
-    expect(screen.getByRole('heading', { name: 'MULO' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'MULO' })).toBeInTheDocument();
   });
 
   it('keeps a protected route pending until session restoration succeeds', async () => {
