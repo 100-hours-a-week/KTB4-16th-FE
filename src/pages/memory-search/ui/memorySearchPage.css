@@ -43,13 +43,6 @@
   flex-direction: column;
   gap: 8px;
 }
-.memory-search-empty {
-  margin: 18px 0;
-  color: #9a90b3;
-  font-size: 11px;
-  line-height: 1.6;
-  text-align: center;
-}
 .memory-welcome {
   display: grid;
   gap: 12px;
@@ -94,6 +87,28 @@
   color: #6c6285;
   font-size: 12px;
   line-height: 1.8;
+}
+.memory-empty-create {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  margin-top: 18px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #efe7fa;
+  color: #7655ba;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.memory-empty-create:hover {
+  background: #e5d9f2;
+}
+.memory-empty-create:focus-visible {
+  outline: 2px solid #7655ba;
+  outline-offset: 2px;
 }
 .memory-welcome-examples {
   display: grid;

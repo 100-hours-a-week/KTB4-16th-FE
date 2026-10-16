@@ -11,6 +11,7 @@ import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigat
 import { ApiError } from '../../../shared/api/apiError';
 import '../../pageShell.css';
 import './memorySearchPage.css';
+import { MemorySearchEmptyState } from './MemorySearchEmptyState';
 import { MemorySearchWelcome } from './MemorySearchWelcome';
 
 type Availability = 'loading' | 'ready' | 'empty' | 'error';
@@ -210,7 +211,7 @@ export function MemorySearchPage() {
             </p>
           ) : null}
           {availability === 'loading' ? <p role="status">자물쇠를 확인하고 있어요.</p> : null}
-          {availability === 'empty' ? <p>검색할 자물쇠가 없습니다.</p> : null}
+          {availability === 'empty' ? <MemorySearchEmptyState /> : null}
           {availability === 'error' ? (
             <div role="alert">
               자물쇠 보유 여부를 확인하지 못했어요.
@@ -256,7 +257,11 @@ export function MemorySearchPage() {
               conversation.clearRecoveryQuery();
               setDraft(event.target.value);
             }}
-            placeholder="기억나는 단서로 물어보세요"
+            placeholder={
+              availability === 'empty'
+                ? '자물쇠를 남긴 뒤 검색할 수 있어요'
+                : '기억나는 단서로 물어보세요'
+            }
             value={inputValue}
           />
           <button
