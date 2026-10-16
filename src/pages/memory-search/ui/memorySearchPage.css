@@ -1,3 +1,6 @@
+.memory-search-page {
+  position: relative;
+}
 .memory-search-content {
   display: flex;
   flex-direction: column;
@@ -33,6 +36,12 @@
   flex-direction: column;
   gap: 11px;
   padding-bottom: 14px;
+  overflow-y: auto;
+}
+.memory-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .memory-search-empty {
   margin: 18px 0;
@@ -40,6 +49,85 @@
   font-size: 11px;
   line-height: 1.6;
   text-align: center;
+}
+.memory-welcome {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+}
+.memory-welcome-sender {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6c6285;
+  font-size: 11px;
+  font-weight: 600;
+}
+.memory-welcome-symbol {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 10px;
+  background: #efe7fa;
+  color: #7655ba;
+}
+.memory-welcome-symbol svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.6;
+}
+.memory-welcome-bubble {
+  padding: 16px;
+}
+.memory-welcome-bubble h2 {
+  margin: 0 0 12px;
+  color: #332b4a;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.memory-welcome-bubble p {
+  margin: 0;
+  color: #6c6285;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.memory-welcome-examples {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.memory-welcome-label,
+.memory-welcome-hint {
+  margin: 0;
+  color: #6c6285;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.memory-welcome-example {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 11px 13px;
+  border: 1px solid #e5d9f2;
+  border-radius: 13px;
+  background: #fff;
+  color: #443954;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.memory-welcome-example:hover {
+  background: #f4edfc;
+}
+.memory-welcome-example:focus-visible {
+  outline: 2px solid #7655ba;
+  outline-offset: 2px;
 }
 .memory-query {
   align-self: flex-end;
@@ -60,13 +148,25 @@
   font-size: 12px;
   line-height: 1.5;
 }
+.memory-answer p {
+  margin: 0 0 8px;
+}
+.memory-result-count {
+  color: #6c6285;
+  font-size: 11px;
+}
 .memory-result-card {
   display: flex;
+  width: 100%;
   gap: 9px;
   margin-top: 8px;
   padding: 9px;
+  border: 0;
   border-radius: 12px;
   background: #efe7fa;
+  color: #332b4a;
+  text-align: left;
+  cursor: pointer;
 }
 .memory-result-cover {
   width: 34px;
@@ -74,6 +174,7 @@
   flex: 0 0 auto;
   border-radius: 9px;
   background: linear-gradient(135deg, #a78bde, #5fc4a6);
+  object-fit: cover;
 }
 .memory-result-card > span:last-child {
   display: grid;
@@ -125,4 +226,61 @@
   fill: none;
   stroke: currentcolor;
   stroke-width: 2.2;
+}
+.memory-more-button,
+.memory-suggestions-toggle {
+  width: 100%;
+  margin-top: 9px;
+  padding: 8px;
+  border: 1px solid #dccbf0;
+  border-radius: 999px;
+  background: #fff;
+  color: #7655ba;
+  cursor: pointer;
+}
+.memory-suggestions-toggle {
+  border-radius: 12px;
+  text-align: left;
+}
+.memory-suggested-card {
+  padding: 3px 8px 7px;
+  border: 1px solid #ece3f7;
+  border-radius: 12px;
+}
+.memory-suggested-card small {
+  color: #7655ba;
+}
+.memory-sheet-backdrop {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  background: rgb(36 29 53 / 48%);
+}
+.memory-results-sheet {
+  width: 100%;
+  max-height: 74%;
+  overflow-y: auto;
+  padding: 18px;
+  border-radius: 24px 24px 0 0;
+  background: #fff;
+}
+.memory-results-sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.memory-results-sheet h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.memory-results-sheet header button {
+  border: 0;
+  background: transparent;
+  font-size: 26px;
+  cursor: pointer;
+}
+.memory-sheet-list {
+  padding-bottom: 8px;
 }
