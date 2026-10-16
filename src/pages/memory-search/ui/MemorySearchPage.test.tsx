@@ -64,6 +64,7 @@ function renderPage(initialPath = '/memory-search') {
           <Routes>
             <Route path="/memory-search" element={<MemorySearchPage />} />
             <Route path="/records/:recordId" element={<DetailProbe />} />
+            <Route path="/locks/create" element={<div>자물쇠 작성 화면</div>} />
             <Route path="/" element={<div>홈</div>} />
           </Routes>
         </MemorySearchConversationProvider>
@@ -182,12 +183,21 @@ describe('MemorySearchPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('0개 보유자는 입력과 대화 시작을 막는다', async () => {
+  it('0개 보유자는 입력을 차단하고 첫 자물쇠 작성 화면으로 안내한다', async () => {
     vi.mocked(getMemoryRecordCount).mockResolvedValue(0);
+    const user = userEvent.setup();
     renderPage();
-    expect(await screen.findByText('검색할 자물쇠가 없습니다.')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: '아직 남겨 둔 자물쇠가 없어요' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '기억 검색 질문' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '질문 보내기' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: '가을에 공원에서 들었던 노래' }),
+    ).not.toBeInTheDocument();
     expect(createMemorySearchConversation).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('link', { name: '첫 자물쇠 만들기' }));
+    expect(screen.getByText('자물쇠 작성 화면')).toBeInTheDocument();
   });
 
   it('앞 5건과 전체보기 6건을 순서대로 표시하고 상세에서 시트로 돌아온다', async () => {
