@@ -1,86 +1,129 @@
 import { useState } from 'react';
 
+import type { PreferenceVoteResult, TodayPreferenceVote } from '../api/preferenceVoteApi';
 import './preferenceVote.css';
 
-type PreferenceVoteAnswer = 'O' | 'X';
+type PreferenceVoteOption = 'A' | 'B';
 
 interface PreferenceVoteProps {
-  question: string | null;
-  onVoteOnly?: (answer: PreferenceVoteAnswer) => void;
-  onStartMatching?: (answer: PreferenceVoteAnswer) => void;
+  vote: TodayPreferenceVote | null;
+  isLoading: boolean;
+  isSubmitting: boolean;
+  result: PreferenceVoteResult | null;
+  errorMessage: string | null;
+  onSubmit: (selectedOption: PreferenceVoteOption) => void;
+  onRetry: () => void;
 }
 
-/** 질문이 없거나 투표 API가 연결되지 않은 상태를 포함해 취향 투표 UI를 표시한다. */
-export function PreferenceVote({ question, onVoteOnly, onStartMatching }: PreferenceVoteProps) {
+/** 오늘의 질문, 기존 응답과 제출 결과를 표시하고 A/B 답변을 선택하게 한다. */
+export function PreferenceVote({
+  vote,
+  isLoading,
+  isSubmitting,
+  result,
+  errorMessage,
+  onSubmit,
+  onRetry,
+}: PreferenceVoteProps) {
   const [selection, setSelection] = useState<{
-    question: string;
-    answer: PreferenceVoteAnswer;
+    voteQuestionId: number;
+    selectedOption: PreferenceVoteOption;
   } | null>(null);
-  const selectedAnswer =
-    question !== null && selection?.question === question ? selection.answer : null;
+  const restoredOption = vote ? optionForAnswer(vote) : null;
+  const isAnswered = vote?.voteAnswerId !== null;
+  const selectedOption =
+    vote && selection?.voteQuestionId === vote.voteQuestionId ? selection.selectedOption : null;
+  const currentOption = isAnswered ? restoredOption : selectedOption;
 
-  const canContinue = question !== null && selectedAnswer !== null;
-
+  const canSubmit = vote !== null && currentOption !== null && !isAnswered && !isSubmitting;
   return (
     <section aria-label="취향 투표" className="preference-vote">
       <section aria-labelledby="preference-vote-question" className="preference-vote-hero">
         <span className="preference-vote-tag">PREFERENCE VOTE</span>
-        <h2 id="preference-vote-question">{question ?? '취향 투표 질문을 준비하고 있어요.'}</h2>
+        <h2 id="preference-vote-question">
+          {isLoading
+            ? '오늘의 취향 투표를 불러오고 있어요.'
+            : (vote?.question ?? '취향 투표 질문을 준비하고 있어요.')}
+        </h2>
       </section>
-
-      <fieldset className="preference-vote-choices" disabled={question === null}>
+      <fieldset
+        className="preference-vote-choices"
+        disabled={vote === null || isAnswered || isSubmitting}
+      >
         <legend className="preference-vote-visually-hidden">질문에 대한 답을 선택하세요</legend>
         <button
-          aria-pressed={selectedAnswer === 'O'}
+          aria-pressed={currentOption === 'A'}
           className={
-            selectedAnswer === 'O' ? 'preference-vote-choice is-selected' : 'preference-vote-choice'
+            currentOption === 'A' ? 'preference-vote-choice is-selected' : 'preference-vote-choice'
           }
           type="button"
-          onClick={() => question && setSelection({ question, answer: 'O' })}
+          onClick={() =>
+            vote && setSelection({ voteQuestionId: vote.voteQuestionId, selectedOption: 'A' })
+          }
         >
-          <span aria-hidden="true">⭕</span> 그렇다
+          <span aria-hidden="true">⭕</span> {vote?.optionA ?? '그렇다'}
         </button>
         <button
-          aria-pressed={selectedAnswer === 'X'}
+          aria-pressed={currentOption === 'B'}
           className={
-            selectedAnswer === 'X' ? 'preference-vote-choice is-selected' : 'preference-vote-choice'
+            currentOption === 'B' ? 'preference-vote-choice is-selected' : 'preference-vote-choice'
           }
           type="button"
-          onClick={() => question && setSelection({ question, answer: 'X' })}
+          onClick={() =>
+            vote && setSelection({ voteQuestionId: vote.voteQuestionId, selectedOption: 'B' })
+          }
         >
-          <span aria-hidden="true">❌</span> 아니다
+          <span aria-hidden="true">❌</span> {vote?.optionB ?? '아니다'}
         </button>
       </fieldset>
-
       <section
         aria-labelledby="preference-vote-result-title"
         className="preference-vote-result surface-card"
       >
         <h2 id="preference-vote-result-title">투표 결과</h2>
-        <p role="status">투표 결과가 제공되면 여기에 표시돼요.</p>
+        {result ? (
+          <p role="status">
+            {vote?.optionA} {result.optionAPercent}% · {vote?.optionB} {result.optionBPercent}%
+          </p>
+        ) : isAnswered ? (
+          <p role="status">이미 참여한 투표입니다. 선택: {vote?.myAnswer}</p>
+        ) : (
+          <p role="status">투표하면 현재 결과 비율을 확인할 수 있어요.</p>
+        )}
       </section>
-
+      {errorMessage ? (
+        <div className="preference-vote-error" role="alert">
+          <p>{errorMessage}</p>
+          {!isSubmitting && (
+            <button type="button" onClick={onRetry}>
+              다시 시도
+            </button>
+          )}
+        </div>
+      ) : null}
       <div className="preference-vote-actions">
         <button
           className="preference-vote-vote-button"
-          disabled={!canContinue || onVoteOnly === undefined}
+          disabled={!canSubmit}
           type="button"
-          onClick={() => selectedAnswer && onVoteOnly?.(selectedAnswer)}
+          onClick={() => currentOption && onSubmit(currentOption)}
         >
-          투표만 하기
+          {isSubmitting ? '투표 중...' : isAnswered ? '투표 완료' : '투표하기'}
         </button>
-        <button
-          className="preference-vote-match-button"
-          disabled={!canContinue || onStartMatching === undefined}
-          type="button"
-          onClick={() => selectedAnswer && onStartMatching?.(selectedAnswer)}
-        >
+        <button className="preference-vote-match-button" disabled type="button">
           의견 다른 사람과 채팅하기
         </button>
       </div>
       <p className="preference-vote-unavailable" role="status">
-        질문, 투표, 매칭 기능이 준비되면 이용할 수 있어요.
+        매칭과 채팅 기능은 준비 중이에요.
       </p>
     </section>
   );
+}
+
+/** 서버가 반환한 실제 선택지 텍스트를 화면의 A/B 상태로 변환한다. */
+function optionForAnswer(vote: TodayPreferenceVote): PreferenceVoteOption | null {
+  if (vote.myAnswer === vote.optionA) return 'A';
+  if (vote.myAnswer === vote.optionB) return 'B';
+  return null;
 }

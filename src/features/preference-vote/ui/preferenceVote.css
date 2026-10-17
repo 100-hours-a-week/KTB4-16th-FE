@@ -96,6 +96,32 @@
   line-height: 1.6;
 }
 
+.preference-vote-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff1f0;
+  color: #9a3229;
+  font-size: 12px;
+}
+.preference-vote-error p {
+  margin: 0;
+  line-height: 1.5;
+}
+.preference-vote-error button {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border: 1px solid currentcolor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+}
+
 .preference-vote-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
