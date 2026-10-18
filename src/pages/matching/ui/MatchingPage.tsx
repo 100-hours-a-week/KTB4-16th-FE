@@ -57,26 +57,49 @@ export function MatchingPage() {
   const [state, setState] = useState<VotePageState>(initialVotePageState);
   const activeMatchRequestIdRef = useRef<number | null>(null);
   const matchRequestPromiseRef = useRef<Promise<void> | null>(null);
-  const loadVote = useCallback(async () => {
-    setState((current) => ({ ...current, errorMessage: null, isLoading: true }));
-    try {
-      const vote = await getTodayPreferenceVote(fetchAuthenticatedJson);
-      setState((current) => ({
-        ...current,
-        vote,
-        result: null,
-        errorMessage: null,
-        isLoading: false,
-        isSubmitting: false,
-      }));
-    } catch (error: unknown) {
-      setState((current) => ({
-        ...current,
-        errorMessage: getVoteErrorMessage(error),
-        isLoading: false,
-        isSubmitting: false,
-      }));
-    }
+  const voteRequestRef = useRef<Promise<void> | null>(null);
+  const voteRequestIdRef = useRef(0);
+  const loadVote = useCallback((): Promise<void> => {
+    if (voteRequestRef.current) return voteRequestRef.current;
+
+    const requestId = ++voteRequestIdRef.current;
+    setState((current) => ({
+      ...current,
+      vote: null,
+      result: null,
+      errorMessage: null,
+      isLoading: true,
+      isSubmitting: false,
+    }));
+    const request = (async () => {
+      try {
+        const vote = await getTodayPreferenceVote(fetchAuthenticatedJson);
+        if (voteRequestIdRef.current !== requestId) return;
+        setState((current) => ({
+          ...current,
+          vote,
+          result: null,
+          errorMessage: null,
+          isLoading: false,
+          isSubmitting: false,
+        }));
+      } catch (error: unknown) {
+        if (voteRequestIdRef.current !== requestId) return;
+        setState((current) => ({
+          ...current,
+          vote: null,
+          result: null,
+          errorMessage: getVoteErrorMessage(error),
+          isLoading: false,
+          isSubmitting: false,
+        }));
+      }
+    })();
+    voteRequestRef.current = request;
+    void request.finally(() => {
+      if (voteRequestRef.current === request) voteRequestRef.current = null;
+    });
+    return request;
   }, [fetchAuthenticatedJson]);
   useEffect(() => {
     void loadVote();
