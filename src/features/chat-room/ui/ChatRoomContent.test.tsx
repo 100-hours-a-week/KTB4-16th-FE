@@ -200,7 +200,7 @@ describe('ChatRoomContent', () => {
 
     resolveSend?.();
     await waitFor(() => expect(input).toHaveValue(''));
-    expect(screen.getByText(/서버 확인 후 표시됩니다/)).toBeInTheDocument();
+    expect(screen.getByText('메시지를 전송했어요.')).toBeInTheDocument();
     expect(screen.queryByRole('article')).not.toBeInTheDocument();
   });
 
