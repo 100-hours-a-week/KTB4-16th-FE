@@ -142,6 +142,7 @@ export function ChatRoomPage({
     fetchAuthenticatedJson,
   } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLeaveConfirmationOpen, setIsLeaveConfirmationOpen] = useState(false);
   const [loadedRoom, setLoadedRoom] = useState<{
     chatRoomId: string;
     detail: ChatRoomDetail;
@@ -167,6 +168,9 @@ export function ChatRoomPage({
   const [retryKey, setRetryKey] = useState(0);
   const [transportError, setTransportError] = useState('');
   const pendingMessages = useRef(new Map<string, PendingMessage>());
+  const leaveMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelLeaveButtonRef = useRef<HTMLButtonElement>(null);
+  const leaveInFlightRef = useRef(false);
   const retryIdsByContent = useRef(new Map<string, string>());
   const currentRoom = useRef<{ chatRoomId: string | undefined; loadedRoom: typeof loadedRoom }>({
     chatRoomId,
@@ -175,6 +179,30 @@ export function ChatRoomPage({
   const frameHandler = useRef<(destination: ChatDestination, body: string) => void>(
     () => undefined,
   );
+
+  useEffect(() => {
+    if (!isLeaveConfirmationOpen) return;
+
+    const menuButton = leaveMenuButtonRef.current;
+    cancelLeaveButtonRef.current?.focus();
+    return () => {
+      if (menuButton?.isConnected) menuButton.focus();
+    };
+  }, [isLeaveConfirmationOpen]);
+
+  useEffect(() => {
+    if (!isLeaveConfirmationOpen) return;
+
+    const handleDialogKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isLeaving) {
+        event.preventDefault();
+        setIsLeaveConfirmationOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleDialogKeyDown);
+    return () => document.removeEventListener('keydown', handleDialogKeyDown);
+  }, [isLeaveConfirmationOpen, isLeaving]);
   const validRoomId = isValidChatRoomId(chatRoomId);
   const hasInjectedRoomData =
     suppliedLoadState !== undefined ||
@@ -504,7 +532,8 @@ export function ChatRoomPage({
   }
 
   async function handleLeaveRoom(): Promise<void> {
-    if (!validRoomId || !chatRoomId || isLeaving) return;
+    if (!validRoomId || !chatRoomId || leaveInFlightRef.current) return;
+    leaveInFlightRef.current = true;
     setIsLeaving(true);
     setLeaveError('');
     try {
@@ -520,7 +549,9 @@ export function ChatRoomPage({
       } else {
         setLeaveError('채팅방에서 나가지 못했어요. 잠시 후 다시 시도해 주세요.');
       }
+      setIsLeaveConfirmationOpen(false);
     } finally {
+      leaveInFlightRef.current = false;
       setIsLeaving(false);
     }
   }
@@ -647,6 +678,7 @@ export function ChatRoomPage({
             aria-label="채팅방 메뉴"
             className="chat-room-menu"
             onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
+            ref={leaveMenuButtonRef}
             type="button"
           >
             ⋮
@@ -655,7 +687,11 @@ export function ChatRoomPage({
             <div className="chat-room-menu-popover" role="menu">
               <button
                 disabled={!canLeaveRoom || isLeaving}
-                onClick={() => void handleLeaveRoom()}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  setLeaveError('');
+                  setIsLeaveConfirmationOpen(true);
+                }}
                 role="menuitem"
                 type="button"
               >
@@ -679,6 +715,69 @@ export function ChatRoomPage({
         <p className="chat-room-leave-error" role="alert">
           {transportError}
         </p>
+      ) : null}
+
+      {isLeaveConfirmationOpen ? (
+        <div className="chat-room-leave-dialog-backdrop">
+          <section
+            aria-describedby="chat-room-leave-description"
+            aria-labelledby="chat-room-leave-title"
+            aria-modal="true"
+            className="chat-room-leave-dialog"
+            role="dialog"
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              if (event.key !== 'Tab') return;
+
+              const buttons = Array.from(
+                event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+              );
+              const firstButton = buttons[0];
+              const lastButton = buttons[buttons.length - 1];
+
+              if (!firstButton || !lastButton) {
+                event.preventDefault();
+                event.currentTarget.focus();
+              } else if (event.shiftKey && document.activeElement === firstButton) {
+                event.preventDefault();
+                lastButton.focus();
+              } else if (!event.shiftKey && document.activeElement === lastButton) {
+                event.preventDefault();
+                firstButton.focus();
+              }
+            }}
+          >
+            <h2 id="chat-room-leave-title">채팅방을 나가시겠어요?</h2>
+            <p id="chat-room-leave-description">
+              채팅방을 나가면 다시 입장할 수 없으며,
+              <br />
+              상대방과 더 이상 메시지를 주고받을 수 없어요.
+            </p>
+            {leaveError ? (
+              <p className="chat-room-leave-dialog-error" role="alert">
+                {leaveError}
+              </p>
+            ) : null}
+            <div className="chat-room-leave-dialog-actions">
+              <button
+                ref={cancelLeaveButtonRef}
+                type="button"
+                disabled={isLeaving}
+                onClick={() => setIsLeaveConfirmationOpen(false)}
+              >
+                취소
+              </button>
+              <button
+                className="danger"
+                type="button"
+                disabled={isLeaving}
+                onClick={() => void handleLeaveRoom()}
+              >
+                {isLeaving ? '나가는 중…' : '나가기'}
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
 
       {ownsConnection && connection.stopReason === 'authentication' ? (
