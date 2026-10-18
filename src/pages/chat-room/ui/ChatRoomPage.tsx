@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
+import { useSession } from '../../../entities/session/model/useSession';
+import { useChatConnection } from '../../../features/chat-room/model/useChatConnection';
 import {
   ChatRoomContent,
   type ChatMessage,
@@ -32,7 +34,6 @@ type ChatRoomPageProps = {
 };
 
 const DEFAULT_LOAD_STATE: ChatRoomLoadState = 'not-configured';
-const DEFAULT_CONNECTION_STATE: ChatConnectionState = 'not-configured';
 const DEFAULT_ROOM_STATUS: ChatRoomStatus = 'active';
 const MAX_SIGNED_LONG = 9223372036854775807n;
 
@@ -71,9 +72,9 @@ function formatExpiration(expiresAt: string | undefined): string | undefined {
   }).format(parsedDate);
 }
 
-/** 채팅방 route id를 검증하고, API 연결 전에는 비활성 프레젠테이션 UI를 제공한다. */
+/** 최신 채팅 UI의 입력 계약을 유지하면서 인증된 화면 수명에 실제 연결을 조립한다. */
 export function ChatRoomPage({
-  connectionState = DEFAULT_CONNECTION_STATE,
+  connectionState,
   hasOlderMessages,
   isLoadingOlderMessages,
   loadState = DEFAULT_LOAD_STATE,
@@ -86,8 +87,25 @@ export function ChatRoomPage({
 }: ChatRoomPageProps = {}) {
   const { chatRoomId } = useParams();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const {
+    isAuthenticated,
+    isSessionRestoring,
+    sessionVersion,
+    getAccessToken,
+    refreshAccessToken,
+    clearSession,
+  } = useSession();
+  const validRoomId = isValidChatRoomId(chatRoomId);
+  // 외부 소유 연결 상태가 주입된 화면에는 별도 소켓을 중복 생성하지 않는다.
+  const ownsConnection = connectionState === undefined;
+  const { connection, retryConnection } = useChatConnection({
+    enabled: ownsConnection && validRoomId && isAuthenticated && !isSessionRestoring,
+    sessionVersion,
+    getAccessToken,
+    refreshAccessToken,
+  });
 
-  if (!isValidChatRoomId(chatRoomId)) {
+  if (!validRoomId) {
     return (
       <main className="chat-room-page chat-room-invalid-page">
         <section className="chat-room-terminal-state" role="alert">
@@ -143,9 +161,16 @@ export function ChatRoomPage({
         </div>
       </header>
 
+      {ownsConnection && connection.stopReason === 'authentication' ? (
+        <Link to="/login" onClick={clearSession}>
+          다시 로그인
+        </Link>
+      ) : null}
       <ChatRoomContent
         chatRoomId={chatRoomId}
-        connectionState={connectionState}
+        connectionState={connectionState ?? connection.state}
+        connectionStatus={ownsConnection ? connection : undefined}
+        onRetryConnection={ownsConnection ? retryConnection : undefined}
         hasOlderMessages={hasOlderMessages}
         isLoadingOlderMessages={isLoadingOlderMessages}
         loadState={loadState}

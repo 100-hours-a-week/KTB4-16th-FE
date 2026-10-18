@@ -58,6 +58,35 @@ function setScrollMetrics(
 }
 
 describe('ChatRoomContent', () => {
+  it('shows bounded retry exhaustion and delegates manual connection recovery', async () => {
+    const retry = vi.fn();
+    renderContent({
+      connectionState: 'disconnected',
+      connectionStatus: {
+        retryCount: 5,
+        stopReason: 'retry-exhausted',
+        isOffline: false,
+        isRefreshingToken: false,
+      },
+      onRetryConnection: retry,
+    });
+    expect(screen.getByText(/자동 연결 시도를 마쳤어요/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: '다시 연결' }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [true, false, '네트워크 연결을 기다리는 중'],
+    [false, true, '인증 정보를 갱신하는 중'],
+    [false, false, '다시 연결하는 중 (2/5)'],
+  ] as const)('distinguishes offline %s and refresh %s', (isOffline, isRefreshingToken, label) => {
+    renderContent({
+      connectionState: 'reconnecting',
+      connectionStatus: { retryCount: 2, stopReason: null, isOffline, isRefreshingToken },
+    });
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
   it('sorts messages, formats timestamps in KST, and renders sender/date information', () => {
     renderContent({ messages });
 

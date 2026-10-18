@@ -4,17 +4,35 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import {
+  SessionContext,
+  type SessionContextValue,
+} from '../../../entities/session/model/sessionContext';
 import { ChatRoomPage } from './ChatRoomPage';
+
+const anonymousSession: SessionContextValue = {
+  accessToken: null,
+  sessionVersion: 0,
+  isAuthenticated: false,
+  isSessionRestoring: false,
+  getAccessToken: () => null,
+  refreshAccessToken: vi.fn(),
+  setAccessToken: vi.fn(),
+  clearSession: vi.fn(),
+  fetchAuthenticatedJson: vi.fn(),
+};
 
 /** 채팅방 페이지를 지정된 route id와 서버 데이터 유무로 렌더링한다. */
 function renderPage(path: string, pageProps: ComponentProps<typeof ChatRoomPage> = {}) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/chat/:chatRoomId" element={<ChatRoomPage {...pageProps} />} />
-        <Route path="/matching" element={<h1>취향 투표</h1>} />
-      </Routes>
-    </MemoryRouter>,
+    <SessionContext value={anonymousSession}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/chat/:chatRoomId" element={<ChatRoomPage {...pageProps} />} />
+          <Route path="/matching" element={<h1>취향 투표</h1>} />
+        </Routes>
+      </MemoryRouter>
+    </SessionContext>,
   );
 }
 
@@ -44,7 +62,7 @@ describe('ChatRoomPage', () => {
   });
 
   it('shows placeholders rather than inventing participant or expiration data', () => {
-    renderPage('/chat/42');
+    renderPage('/chat/42', { connectionState: 'not-configured' });
 
     expect(screen.getByRole('heading', { name: '채팅방' })).toBeInTheDocument();
     expect(screen.getByText('상대방 정보는 연동 후 표시됩니다.')).toBeInTheDocument();
