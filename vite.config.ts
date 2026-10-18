@@ -32,6 +32,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/ws': {
+        target: 'ws://localhost:8081',
+        ws: true,
+        // 채팅 서버가 브라우저의 Origin을 검사할 수 있도록 원래 값을 유지한다.
+      },
     },
   },
   test: {
