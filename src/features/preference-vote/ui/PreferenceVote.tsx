@@ -37,7 +37,7 @@ export function PreferenceVote({
     selectedOption: PreferenceVoteOption;
   } | null>(null);
   const restoredOption = vote ? optionForAnswer(vote) : null;
-  const isAnswered = vote?.voteAnswerId !== null;
+  const isAnswered = vote !== null && vote.voteAnswerId != null;
   const selectedOption =
     vote && selection?.voteQuestionId === vote.voteQuestionId ? selection.selectedOption : null;
   const currentOption = isAnswered ? restoredOption : selectedOption;
@@ -83,21 +83,23 @@ export function PreferenceVote({
           <span aria-hidden="true">❌</span> {vote?.optionB ?? '아니다'}
         </button>
       </fieldset>
-      <section
-        aria-labelledby="preference-vote-result-title"
-        className="preference-vote-result surface-card"
-      >
-        <h2 id="preference-vote-result-title">투표 결과</h2>
-        {result ? (
-          <p role="status">
-            {vote?.optionA} {result.optionAPercent}% · {vote?.optionB} {result.optionBPercent}%
-          </p>
-        ) : isAnswered ? (
-          <p role="status">이미 참여한 투표입니다. 선택: {vote?.myAnswer}</p>
-        ) : (
-          <p role="status">투표하면 현재 결과 비율을 확인할 수 있어요.</p>
-        )}
-      </section>
+      {vote !== null ? (
+        <section
+          aria-labelledby="preference-vote-result-title"
+          className="preference-vote-result surface-card"
+        >
+          <h2 id="preference-vote-result-title">투표 결과</h2>
+          {result ? (
+            <p role="status">
+              {vote.optionA} {result.optionAPercent}% · {vote.optionB} {result.optionBPercent}%
+            </p>
+          ) : isAnswered ? (
+            <p role="status">이미 참여한 투표입니다. 선택: {vote.myAnswer}</p>
+          ) : (
+            <p role="status">투표하면 현재 결과 비율을 확인할 수 있어요.</p>
+          )}
+        </section>
+      ) : null}
       {errorMessage ? (
         <div className="preference-vote-error" role="alert">
           <p>{errorMessage}</p>

@@ -37,6 +37,39 @@ describe('PreferenceVote', () => {
     ).toBeVisible();
     expect(screen.getByRole('button', { name: /그렇다/ })).toBeDisabled();
   });
+  it('does not show an answered state or results when no question was loaded', () => {
+    renderVote({
+      errorMessage: '오늘의 취향 투표를 준비하고 있어요.',
+      vote: null,
+    });
+
+    expect(screen.queryByText(/이미 참여한 투표입니다/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '투표 결과' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '투표하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
+  it('treats a null answer id as not answered and a real answer id as answered', () => {
+    const { rerender } = renderVote({ vote: { ...vote, voteAnswerId: null, myAnswer: null } });
+    expect(screen.queryByText(/이미 참여한 투표입니다/)).not.toBeInTheDocument();
+
+    rerender(
+      <PreferenceVote
+        errorMessage={null}
+        isLoading={false}
+        isMatching={false}
+        isSubmitting={false}
+        matchStatus={null}
+        result={null}
+        vote={{ ...vote, voteAnswerId: 43, myAnswer: '산책하면서 듣기' }}
+        onRetry={vi.fn()}
+        onStartMatching={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('이미 참여한 투표입니다. 선택: 산책하면서 듣기')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '투표 완료' })).toBeDisabled();
+  });
   it('submits only the selected A/B option', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
