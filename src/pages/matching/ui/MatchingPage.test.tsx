@@ -50,11 +50,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(useSession).mockReturnValue({
     accessToken: tokenForUser('35'),
+    sessionVersion: 0,
     isAuthenticated: true,
     isSessionRestoring: false,
     setAccessToken: vi.fn(),
     clearSession: vi.fn(),
     fetchAuthenticatedJson: vi.fn(),
+    getAccessToken: () => tokenForUser('35'),
+    refreshAccessToken: vi.fn(),
   });
   vi.mocked(getTodayPreferenceVote).mockResolvedValue({
     voteQuestionId: 12,
