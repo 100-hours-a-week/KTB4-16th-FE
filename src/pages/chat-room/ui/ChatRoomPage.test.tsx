@@ -1,89 +1,162 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import type { ComponentProps } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  SessionContext,
+  type SessionContextValue,
+} from '../../../entities/session/model/sessionContext';
+import { ApiError } from '../../../shared/api/apiError';
+import type { ChatRoomHistoryPage } from '../../../features/chat-room/api/chatRoomApi';
 import { ChatRoomPage } from './ChatRoomPage';
 
-/** 채팅방 페이지를 지정된 route id와 서버 데이터 유무로 렌더링한다. */
-function renderPage(path: string, pageProps: ComponentProps<typeof ChatRoomPage> = {}) {
+const api = vi.hoisted(() => ({
+  enterChatRoom: vi.fn(),
+  getChatRoomDetails: vi.fn(),
+  getChatRoomHistory: vi.fn(),
+  leaveChatRoom: vi.fn(),
+}));
+vi.mock('../../../features/chat-room/api/chatRoomApi', () => api);
+
+function renderPage(path: string) {
+  const payload = btoa(JSON.stringify({ sub: '17' }));
+  const session: SessionContextValue = {
+    accessToken: `a.${payload}.c`,
+    clearSession: vi.fn(),
+    fetchAuthenticatedJson: vi.fn(),
+    isAuthenticated: true,
+    isSessionRestoring: false,
+    setAccessToken: vi.fn(),
+  };
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/chat/:chatRoomId" element={<ChatRoomPage {...pageProps} />} />
-        <Route path="/matching" element={<h1>취향 투표</h1>} />
-      </Routes>
-    </MemoryRouter>,
+    <SessionContext value={session}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/chat/:chatRoomId" element={<ChatRoomPage />} />
+          <Route path="/matching" element={<h1>취향 투표</h1>} />
+        </Routes>
+      </MemoryRouter>
+    </SessionContext>,
   );
 }
-
+function ready(history: ChatRoomHistoryPage = { messages: [], nextCursor: null, hasNext: false }) {
+  api.enterChatRoom.mockResolvedValue(undefined);
+  api.getChatRoomDetails.mockResolvedValue({
+    chatRoomId: 42,
+    participants: [
+      { userId: 17, nickname: '나' },
+      { userId: 28, nickname: '상대방' },
+    ],
+  });
+  api.getChatRoomHistory.mockResolvedValue(history);
+}
 describe('ChatRoomPage', () => {
-  it.each(['0', '-3', '12.5', 'abc', '9223372036854775808'])(
-    'shows an invalid-id explanation for %s',
-    (chatRoomId) => {
-      renderPage(`/chat/${chatRoomId}`);
-
-      expect(screen.getByRole('alert')).toHaveTextContent('채팅방 주소를 확인');
-    },
-  );
-
-  it.each(['1', '9223372036854775807'])('accepts positive signed 64-bit id %s', (chatRoomId) => {
-    renderPage(`/chat/${chatRoomId}`);
-
-    expect(screen.getByRole('heading', { name: '채팅방' })).toBeInTheDocument();
-  });
-
-  it('renders an invalid id explanation and a route back to matching', async () => {
-    const user = userEvent.setup();
-    renderPage('/chat/not-an-id');
-
+  beforeEach(() => vi.clearAllMocks());
+  it.each(['0', 'abc', '9223372036854775808'])('does not request invalid id %s', (id) => {
+    renderPage(`/chat/${id}`);
     expect(screen.getByRole('alert')).toHaveTextContent('채팅방 주소를 확인');
-    await user.click(screen.getByRole('link', { name: '취향 투표로 돌아가기' }));
-    expect(await screen.findByRole('heading', { name: '취향 투표' })).toBeInTheDocument();
+    expect(api.enterChatRoom).not.toHaveBeenCalled();
   });
-
-  it('shows placeholders rather than inventing participant or expiration data', () => {
+  it('enters, loads details/history, shows partner, and leaves sending disabled', async () => {
+    ready({
+      messages: [
+        {
+          chatMessageId: 11,
+          clientMessageId: 'x',
+          userId: 28,
+          nickname: '상대방',
+          content: '안녕',
+          createdAt: '2026-10-13T15:30:00+09:00',
+        },
+      ],
+      nextCursor: 'cursor',
+      hasNext: true,
+    });
     renderPage('/chat/42');
-
-    expect(screen.getByRole('heading', { name: '채팅방' })).toBeInTheDocument();
-    expect(screen.getByText('상대방 정보는 연동 후 표시됩니다.')).toBeInTheDocument();
-    expect(screen.getByText(/참여자 정보 대기 중/)).toBeInTheDocument();
-    expect(screen.getByText(/종료 시간 대기 중/)).toBeInTheDocument();
-    expect(screen.getByText('실시간 채팅 연동 준비 중')).toBeInTheDocument();
+    expect((await screen.findAllByText('상대방')).length).toBeGreaterThan(0);
+    expect(screen.getByText('안녕')).toBeInTheDocument();
+    expect(api.enterChatRoom).toHaveBeenCalledOnce();
+    expect(api.getChatRoomHistory).toHaveBeenCalledWith(expect.any(Function), '42');
     expect(screen.getByRole('textbox', { name: '메시지' })).toBeDisabled();
   });
-
-  it('renders only the header details supplied by the page data props', () => {
-    renderPage('/chat/42', {
-      roomInfo: {
-        partnerNickname: '긴 닉네임 테스트',
-        participantCount: 2,
-        expiresAt: '2026-10-16T15:00:00Z',
-      },
+  it('uses opaque cursor once and de-duplicates older messages', async () => {
+    const user = userEvent.setup();
+    ready({
+      messages: [
+        {
+          chatMessageId: 20,
+          clientMessageId: 'x',
+          userId: 17,
+          nickname: '나',
+          content: '새',
+          createdAt: '2026-10-13T15:31:00+09:00',
+        },
+      ],
+      nextCursor: 'cursor',
+      hasNext: true,
     });
-
-    expect(screen.getByText('긴 닉네임 테스트')).toBeInTheDocument();
-    expect(screen.getByText(/참여자 2명/)).toBeInTheDocument();
-    expect(screen.getByText(/종료 2026년 10월 17일 오전 12:00/)).toBeInTheDocument();
-  });
-
-  it('keeps the leave action visibly unavailable and does not fake a room state change', async () => {
-    const user = userEvent.setup();
+    api.getChatRoomHistory
+      .mockResolvedValueOnce({
+        messages: [
+          {
+            chatMessageId: 20,
+            clientMessageId: 'x',
+            userId: 17,
+            nickname: '나',
+            content: '새',
+            createdAt: '2026-10-13T15:31:00+09:00',
+          },
+        ],
+        nextCursor: 'cursor',
+        hasNext: true,
+      })
+      .mockResolvedValueOnce({
+        messages: [
+          {
+            chatMessageId: 19,
+            clientMessageId: 'y',
+            userId: 28,
+            nickname: '상대방',
+            content: '과거',
+            createdAt: '2026-10-13T15:30:00+09:00',
+          },
+        ],
+        nextCursor: null,
+        hasNext: false,
+      });
     renderPage('/chat/42');
-
-    await user.click(screen.getByRole('button', { name: '채팅방 메뉴' }));
-    expect(screen.getByRole('menuitem', { name: '채팅방 나가기 (연동 준비 중)' })).toBeDisabled();
-    expect(screen.queryByText('이미 퇴장한 채팅방입니다.')).not.toBeInTheDocument();
+    await screen.findByText('새');
+    await user.click(screen.getByRole('button', { name: '이전 메시지 불러오기' }));
+    await waitFor(() =>
+      expect(api.getChatRoomHistory).toHaveBeenCalledWith(expect.any(Function), '42', 'cursor'),
+    );
+    expect(screen.getAllByText('새')).toHaveLength(1);
+    expect(await screen.findByText('과거')).toBeInTheDocument();
   });
-
-  it('displays a supplied server state and delegates load retry without changing it locally', async () => {
-    const onRetryLoad = vi.fn();
+  it('maps terminal entry errors and retries only network failures', async () => {
     const user = userEvent.setup();
-    renderPage('/chat/42', { loadState: 'server-error', onRetryLoad });
-
-    await user.click(screen.getByRole('button', { name: '다시 불러오기' }));
-    expect(onRetryLoad).toHaveBeenCalledOnce();
-    expect(screen.getByRole('alert')).toHaveTextContent('서버에 문제가 발생했어요.');
+    api.enterChatRoom
+      .mockRejectedValueOnce(new ApiError(0, 'offline', 'NETWORK_ERROR'))
+      .mockRejectedValueOnce(new ApiError(403, '퇴장', 'CHAT_REENTRY_FORBIDDEN'));
+    renderPage('/chat/42');
+    await user.click(await screen.findByRole('button', { name: '다시 불러오기' }));
+    expect(await screen.findByText('이미 퇴장한 채팅방입니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다시 불러오기' })).not.toBeInTheDocument();
+  });
+  it('keeps the room on leave failure and moves only after success', async () => {
+    const user = userEvent.setup();
+    ready();
+    api.leaveChatRoom
+      .mockRejectedValueOnce(new ApiError(409, '실패', 'CHAT_ALREADY_LEFT'))
+      .mockResolvedValueOnce(undefined);
+    renderPage('/chat/42');
+    await screen.findByText('상대방');
+    await user.click(screen.getByRole('button', { name: '채팅방 메뉴' }));
+    await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
+    expect(await screen.findByText('실패')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '채팅방' })).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
+    expect(await screen.findByRole('heading', { name: '취향 투표' })).toBeInTheDocument();
   });
 });

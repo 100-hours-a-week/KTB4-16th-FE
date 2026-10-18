@@ -11,7 +11,14 @@ export type ChatMessage = {
 };
 
 export type ChatRoomLoadState =
-  'loading' | 'ready' | 'error' | 'forbidden' | 'not-found' | 'server-error' | 'not-configured';
+  | 'loading'
+  | 'ready'
+  | 'error'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'not-found'
+  | 'server-error'
+  | 'not-configured';
 export type ChatConnectionState =
   'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'not-configured';
 export type ChatRoomStatus = 'active' | 'expired' | 'partner-left' | 'self-left';
@@ -23,7 +30,9 @@ type ChatRoomContentProps = {
   connectionState: ChatConnectionState;
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
+  historyErrorMessage?: string;
   loadState: ChatRoomLoadState;
+  loadErrorMessage?: string;
   messages: readonly ChatMessage[];
   onLoadOlderMessages?: ChatHistoryHandler;
   onRetryLoad?: ChatHistoryHandler;
@@ -51,6 +60,7 @@ const roomStatusLabels: Partial<Record<ChatRoomStatus, string>> = {
 const loadStateLabels: Partial<Record<ChatRoomLoadState, string>> = {
   loading: '메시지를 불러오는 중이에요.',
   error: '메시지를 불러오지 못했어요.',
+  unauthorized: '로그인이 만료되었어요. 다시 로그인해 주세요.',
   forbidden: '이 채팅방에 접근할 권한이 없어요.',
   'not-found': '채팅방을 찾을 수 없어요.',
   'server-error': '서버에 문제가 발생했어요. 잠시 후 다시 시도해 주세요.',
@@ -91,6 +101,11 @@ function sortMessages(messages: readonly ChatMessage[]): ChatMessage[] {
     if (Number.isFinite(timestampDifference) && timestampDifference !== 0) {
       return timestampDifference;
     }
+    if (/^\d+$/.test(first.id) && /^\d+$/.test(second.id)) {
+      const firstId = BigInt(first.id);
+      const secondId = BigInt(second.id);
+      return firstId < secondId ? -1 : firstId > secondId ? 1 : 0;
+    }
     return 0;
   });
 }
@@ -101,7 +116,9 @@ export function ChatRoomContent({
   connectionState,
   hasOlderMessages = false,
   isLoadingOlderMessages = false,
+  historyErrorMessage,
   loadState,
+  loadErrorMessage,
   messages,
   onLoadOlderMessages,
   onRetryLoad,
@@ -243,12 +260,18 @@ export function ChatRoomContent({
             {roomNotice}
           </p>
         ) : null}
-        {loadNotice ? (
+        {loadNotice || loadErrorMessage ? (
           <div
             className={`chat-room-state${loadState === 'error' || loadState === 'server-error' ? ' is-error' : ''}`}
           >
-            <p role={loadState === 'error' || loadState === 'server-error' ? 'alert' : 'status'}>
-              {loadNotice}
+            <p
+              role={
+                loadErrorMessage || loadState === 'error' || loadState === 'server-error'
+                  ? 'alert'
+                  : 'status'
+              }
+            >
+              {loadErrorMessage ?? loadNotice}
             </p>
             {loadState === 'not-configured' ? (
               <p className="chat-room-state-detail">채팅방 ID: {chatRoomId}</p>
@@ -262,7 +285,7 @@ export function ChatRoomContent({
         ) : null}
         {historyLoadError ? (
           <p className="chat-room-state is-error" role="alert">
-            이전 메시지를 불러오지 못했어요.
+            {historyErrorMessage ?? '이전 메시지를 불러오지 못했어요.'}
           </p>
         ) : null}
         {showMessages && roomStatus !== 'self-left' && sortedMessages.length === 0 ? (
