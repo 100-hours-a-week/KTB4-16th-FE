@@ -25,15 +25,14 @@ describe('genreOnboardingApi', () => {
     });
   });
 
-  it('선택하지 않음도 빈 배열로 정상 저장한다', async () => {
-    vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
+  it('선호 장르가 없으면 저장 요청을 보내지 않는다', async () => {
     const request = vi.fn().mockResolvedValue({ message: '선호 장르 저장 성공' });
 
-    await updatePreferredGenres(request, []);
-
-    expect(request).toHaveBeenCalledWith(
-      '/users/me/preferences/genres',
-      expect.objectContaining({ body: JSON.stringify({ preferredGenres: [] }) }),
+    await expect(updatePreferredGenres(request, [])).rejects.toThrow(
+      '선호 장르는 1개 이상 3개 이하로 선택해야 합니다.',
     );
+
+    expect(getCsrfToken).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
   });
 });

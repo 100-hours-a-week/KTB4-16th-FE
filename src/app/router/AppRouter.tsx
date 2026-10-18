@@ -20,6 +20,7 @@ import { ReportPage } from '../../pages/report/ui/ReportPage';
 import { ReportDetailPage } from '../../pages/report/ui/ReportDetailPage';
 import { SignupPage } from '../../pages/signup/SignupPage';
 import { useSession } from '../../entities/session/model/useSession';
+import { GenreOnboardingGate } from '../../pages/genre-onboarding/ui/GenreOnboardingGate';
 
 /** 세션 복원 중에는 보호 화면의 로그인 리다이렉트를 보류한다. */
 function getProtectedRouteElement(
@@ -44,117 +45,131 @@ export function AppRouter() {
   const { isAuthenticated, isSessionRestoring } = useSession();
 
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route
-        path="/notifications"
-        element={getProtectedRouteElement(
-          isSessionRestoring,
-          isAuthenticated,
-          <NotificationsPage />,
-        )}
-      />
-      <Route
-        path="/dashboard"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <DashboardPage />)}
-      />
-      <Route
-        path="/friends"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <FriendsPage />)}
-      />
-      <Route
-        path="/friends/:friendUserId/dashboard"
-        element={getProtectedRouteElement(
-          isSessionRestoring,
-          isAuthenticated,
-          <FriendDashboardPage />,
-        )}
-      />
-      <Route
-        path="/report"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <ReportPage />)}
-      />
-      <Route
-        path="/report/:year/:month"
-        element={getProtectedRouteElement(
-          isSessionRestoring,
-          isAuthenticated,
-          <ReportDetailPage />,
-        )}
-      />
-      <Route
-        path="/mypage"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <MyPage />)}
-      />
-      <Route
-        path="/mypage/nickname"
-        element={getProtectedRouteElement(
-          isSessionRestoring,
-          isAuthenticated,
-          <NicknameChangePage />,
-        )}
-      />
-      <Route
-        path="/mypage/password"
-        element={getProtectedRouteElement(
-          isSessionRestoring,
-          isAuthenticated,
-          <PasswordChangePage />,
-        )}
-      />
-      <Route
-        path="/mypage/withdrawal"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <WithdrawalPage />)}
-      />
-      <Route
-        path="/memory-search"
-        element={getProtectedRouteElement(
-          isSessionRestoring,
-          isAuthenticated,
-          <MemorySearchPage />,
-        )}
-      />
-      <Route
-        path="/matching"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <MatchingPage />)}
-      />
-      <Route
-        path="/chat/:chatRoomId"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <ChatRoomPage />)}
-      />
-      <Route
-        path="/locks/create"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <LockCreatePage />)}
-      />
-      <Route
-        path="/records/:recordId"
-        element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <LockDetailPage />)}
-      />
-      <Route
-        path="/login"
-        element={
-          isSessionRestoring ? (
-            getSessionRestoringElement()
-          ) : isAuthenticated ? (
-            <Navigate to="/" replace />
-          ) : (
-            <LoginPage />
-          )
-        }
-      />
-      <Route
-        path="/signup"
-        element={
-          isSessionRestoring ? (
-            getSessionRestoringElement()
-          ) : isAuthenticated ? (
-            <Navigate to="/" replace />
-          ) : (
-            <SignupPage />
-          )
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <GenreOnboardingGate>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route
+          path="/notifications"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <NotificationsPage />,
+          )}
+        />
+        <Route
+          path="/dashboard"
+          element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <DashboardPage />)}
+        />
+        <Route
+          path="/friends"
+          element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <FriendsPage />)}
+        />
+        <Route
+          path="/friends/:friendUserId/dashboard"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <FriendDashboardPage />,
+          )}
+        />
+        <Route
+          path="/report"
+          element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <ReportPage />)}
+        />
+        <Route
+          path="/report/:year/:month"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <ReportDetailPage />,
+          )}
+        />
+        <Route
+          path="/mypage"
+          element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <MyPage />)}
+        />
+        <Route
+          path="/mypage/nickname"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <NicknameChangePage />,
+          )}
+        />
+        <Route
+          path="/mypage/password"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <PasswordChangePage />,
+          )}
+        />
+        <Route
+          path="/mypage/withdrawal"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <WithdrawalPage />,
+          )}
+        />
+        <Route
+          path="/memory-search"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <MemorySearchPage />,
+          )}
+        />
+        <Route
+          path="/matching"
+          element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <MatchingPage />)}
+        />
+        <Route
+          path="/chat/:chatRoomId"
+          element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <ChatRoomPage />)}
+        />
+        <Route
+          path="/locks/create"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <LockCreatePage />,
+          )}
+        />
+        <Route
+          path="/records/:recordId"
+          element={getProtectedRouteElement(
+            isSessionRestoring,
+            isAuthenticated,
+            <LockDetailPage />,
+          )}
+        />
+        <Route
+          path="/login"
+          element={
+            isSessionRestoring ? (
+              getSessionRestoringElement()
+            ) : isAuthenticated ? (
+              <Navigate to="/" replace />
+            ) : (
+              <LoginPage />
+            )
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            isSessionRestoring ? (
+              getSessionRestoringElement()
+            ) : isAuthenticated ? (
+              <Navigate to="/" replace />
+            ) : (
+              <SignupPage />
+            )
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </GenreOnboardingGate>
   );
 }
