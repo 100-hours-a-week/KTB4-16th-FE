@@ -23,10 +23,13 @@ function renderPage(path: string) {
   const payload = btoa(JSON.stringify({ sub: '17' }));
   const session: SessionContextValue = {
     accessToken: `a.${payload}.c`,
+    sessionVersion: 0,
     clearSession: vi.fn(),
     fetchAuthenticatedJson: vi.fn(),
+    getAccessToken: () => `a.${payload}.c`,
     isAuthenticated: true,
     isSessionRestoring: false,
+    refreshAccessToken: vi.fn(),
     setAccessToken: vi.fn(),
   };
   return render(
