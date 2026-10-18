@@ -4,6 +4,7 @@ import type { PreferenceVoteResult, TodayPreferenceVote } from '../api/preferenc
 import './preferenceVote.css';
 
 type PreferenceVoteOption = 'A' | 'B';
+type MatchStatus = 'WAITING' | 'MATCHING' | 'MATCHED' | 'EXPIRED';
 
 interface PreferenceVoteProps {
   vote: TodayPreferenceVote | null;
@@ -13,6 +14,9 @@ interface PreferenceVoteProps {
   errorMessage: string | null;
   onSubmit: (selectedOption: PreferenceVoteOption) => void;
   onRetry: () => void;
+  isMatching: boolean;
+  matchStatus: MatchStatus | null;
+  onStartMatching: () => void;
 }
 
 /** 오늘의 질문, 기존 응답과 제출 결과를 표시하고 A/B 답변을 선택하게 한다. */
@@ -24,6 +28,9 @@ export function PreferenceVote({
   errorMessage,
   onSubmit,
   onRetry,
+  isMatching,
+  matchStatus,
+  onStartMatching,
 }: PreferenceVoteProps) {
   const [selection, setSelection] = useState<{
     voteQuestionId: number;
@@ -110,14 +117,34 @@ export function PreferenceVote({
         >
           {isSubmitting ? '투표 중...' : isAnswered ? '투표 완료' : '투표하기'}
         </button>
-        <button className="preference-vote-match-button" disabled type="button">
-          의견 다른 사람과 채팅하기
+        <button
+          className="preference-vote-match-button"
+          disabled={vote?.voteAnswerId == null || isMatching || matchStatus !== null}
+          type="button"
+          onClick={() => onStartMatching()}
+        >
+          {isMatching ? '매칭 요청 중...' : '의견 다른 사람과 채팅하기'}
         </button>
       </div>
-      <p className="preference-vote-unavailable" role="status">
-        매칭과 채팅 기능은 준비 중이에요.
-      </p>
+      {matchStatus ? <MatchStatusNotice status={matchStatus} /> : null}
     </section>
+  );
+}
+
+/** 서버가 확정한 매칭 상태만 사용자에게 안내하고, 완료 이동은 페이지가 처리한다. */
+function MatchStatusNotice({ status }: { status: MatchStatus }) {
+  const message =
+    status === 'WAITING'
+      ? '의견이 다른 상대를 찾고 있어요.'
+      : status === 'MATCHING'
+        ? '상대를 찾았어요. 채팅방을 준비하고 있어요.'
+        : status === 'MATCHED'
+          ? '채팅방으로 이동하고 있어요.'
+          : '오늘의 매칭 요청이 만료되었어요.';
+  return (
+    <p className="preference-vote-unavailable" role="status">
+      {message}
+    </p>
   );
 }
 
