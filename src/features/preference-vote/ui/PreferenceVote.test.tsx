@@ -17,10 +17,13 @@ function renderVote(overrides: Partial<React.ComponentProps<typeof PreferenceVot
     <PreferenceVote
       errorMessage={null}
       isLoading={false}
+      isMatching={false}
       isSubmitting={false}
+      matchStatus={null}
       result={null}
       vote={vote}
       onRetry={vi.fn()}
+      onStartMatching={vi.fn()}
       onSubmit={vi.fn()}
       {...overrides}
     />,
@@ -50,16 +53,22 @@ describe('PreferenceVote', () => {
     );
     expect(screen.getByRole('button', { name: '투표 완료' })).toBeDisabled();
   });
-  it('shows result percentages and keeps matching unavailable', () => {
+  it('allows a matching request after a saved vote answer', async () => {
+    const user = userEvent.setup();
+    const onStartMatching = vi.fn();
     renderVote({
-      result: {
-        voteAnswerId: 43,
-        myAnswer: '산책하면서 듣기',
-        optionAPercent: 60,
-        optionBPercent: 40,
-      },
+      vote: { ...vote, myAnswer: '산책하면서 듣기', voteAnswerId: 43 },
+      onStartMatching,
     });
-    expect(screen.getByText('산책하면서 듣기 60% · 카페에서 듣기 40%')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
+    expect(onStartMatching).toHaveBeenCalledExactlyOnceWith();
+  });
+  it('shows the server matching status and prevents a second request', () => {
+    renderVote({
+      vote: { ...vote, myAnswer: '산책하면서 듣기', voteAnswerId: 43 },
+      matchStatus: 'MATCHING',
+    });
+    expect(screen.getByText('상대를 찾았어요. 채팅방을 준비하고 있어요.')).toBeVisible();
     expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
   });
 });
