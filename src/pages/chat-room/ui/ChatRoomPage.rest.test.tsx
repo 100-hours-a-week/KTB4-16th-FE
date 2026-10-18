@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
@@ -23,6 +23,8 @@ const message = (chatMessageId: number, userId: number, nickname: string, conten
 function createSession(
   overrides: {
     failEntry?: ApiError;
+    failLeave?: Error;
+    leaveRequest?: Promise<unknown>;
   } = {},
 ) {
   const requests: Array<{ path: string; init?: RequestInit }> = [];
@@ -74,7 +76,11 @@ function createSession(
         },
       } as T;
     }
-    if (path === '/chat-rooms/42/leave') return { message: '퇴장 완료' } as T;
+    if (path === '/chat-rooms/42/leave') {
+      if (overrides.failLeave) throw overrides.failLeave;
+      if (overrides.leaveRequest) return (await overrides.leaveRequest) as T;
+      return { message: '퇴장 완료' } as T;
+    }
     throw new Error(`Unexpected request: ${path}`);
   };
 
@@ -152,7 +158,7 @@ describe('ChatRoomPage REST integration', () => {
     expect(screen.getByRole('textbox', { name: '메시지' })).toBeDisabled();
   });
 
-  it('calls the leave endpoint and returns to matching only after success', async () => {
+  it('opens a confirmation dialog without calling the leave endpoint', async () => {
     const user = userEvent.setup();
     const { session, requests } = createSession();
     renderPage(session);
@@ -161,6 +167,61 @@ describe('ChatRoomPage REST integration', () => {
     await user.click(screen.getByRole('button', { name: '채팅방 메뉴' }));
     await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
 
+    expect(screen.getByRole('dialog', { name: '채팅방을 나가시겠어요?' })).toBeInTheDocument();
+    expect(screen.getByText(/다시 입장할 수 없으며/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '취소' })).toHaveFocus();
+    expect(requests.some(({ path }) => path === '/chat-rooms/42/leave')).toBe(false);
+  });
+
+  it('closes on cancel, restores focus, and keeps the room without calling the leave API', async () => {
+    const user = userEvent.setup();
+    const { session, requests } = createSession();
+    renderPage(session);
+    await screen.findByText('상대 메시지');
+    const menuButton = screen.getByRole('button', { name: '채팅방 메뉴' });
+
+    await user.click(menuButton);
+    await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
+    await user.click(screen.getByRole('button', { name: '취소' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '채팅방' })).toBeInTheDocument();
+    expect(menuButton).toHaveFocus();
+    expect(requests.some(({ path }) => path === '/chat-rooms/42/leave')).toBe(false);
+  });
+
+  it('closes with Escape and keeps focus inside the dialog while tabbing', async () => {
+    const user = userEvent.setup();
+    const { session } = createSession();
+    renderPage(session);
+    await screen.findByText('상대 메시지');
+
+    await user.click(screen.getByRole('button', { name: '채팅방 메뉴' }));
+    await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
+    const cancelButton = screen.getByRole('button', { name: '취소' });
+    const confirmButton = screen.getByRole('button', { name: '나가기' });
+
+    await user.tab();
+    expect(confirmButton).toHaveFocus();
+    await user.tab();
+    expect(cancelButton).toHaveFocus();
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '채팅방 메뉴' })).toHaveFocus();
+  });
+
+  it('calls the leave endpoint only after confirmation and returns to matching on success', async () => {
+    const user = userEvent.setup();
+    const { session, requests } = createSession();
+    renderPage(session);
+    await screen.findByText('상대 메시지');
+
+    await user.click(screen.getByRole('button', { name: '채팅방 메뉴' }));
+    await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
+    expect(requests.some(({ path }) => path === '/chat-rooms/42/leave')).toBe(false);
+    await user.click(screen.getByRole('button', { name: '나가기' }));
+
     expect(await screen.findByRole('heading', { name: '취향 투표 화면' })).toBeInTheDocument();
     await waitFor(() => {
       expect(requests.at(-1)).toEqual({
@@ -168,5 +229,49 @@ describe('ChatRoomPage REST integration', () => {
         init: { method: 'POST', signal: undefined },
       });
     });
+    expect(requests.filter(({ path }) => path === '/chat-rooms/42/leave')).toHaveLength(1);
+  });
+
+  it('prevents duplicate leave requests while confirmation is pending', async () => {
+    let resolveLeave: ((value: unknown) => void) | undefined;
+    const leaveRequest = new Promise<unknown>((resolve) => {
+      resolveLeave = resolve;
+    });
+    const user = userEvent.setup();
+    const { session, requests } = createSession({ leaveRequest });
+    renderPage(session);
+    await screen.findByText('상대 메시지');
+
+    await user.click(screen.getByRole('button', { name: '채팅방 메뉴' }));
+    await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
+    const confirmButton = screen.getByRole('button', { name: '나가기' });
+    await user.dblClick(confirmButton);
+
+    expect(confirmButton).toBeDisabled();
+    expect(requests.filter(({ path }) => path === '/chat-rooms/42/leave')).toHaveLength(1);
+
+    await act(async () => {
+      resolveLeave?.({ message: '퇴장 완료' });
+    });
+    expect(await screen.findByRole('heading', { name: '취향 투표 화면' })).toBeInTheDocument();
+  });
+
+  it('keeps the room and shows an error when the confirmed leave request fails', async () => {
+    const user = userEvent.setup();
+    const { session, requests } = createSession({ failLeave: new Error('offline') });
+    renderPage(session);
+    await screen.findByText('상대 메시지');
+
+    await user.click(screen.getByRole('button', { name: '채팅방 메뉴' }));
+    await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
+    await user.click(screen.getByRole('button', { name: '나가기' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '채팅방에서 나가지 못했어요. 잠시 후 다시 시도해 주세요.',
+    );
+    expect(requests.filter(({ path }) => path === '/chat-rooms/42/leave')).toHaveLength(1);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '채팅방' })).toBeInTheDocument();
+    expect(screen.getByText('상대 메시지')).toBeInTheDocument();
   });
 });
