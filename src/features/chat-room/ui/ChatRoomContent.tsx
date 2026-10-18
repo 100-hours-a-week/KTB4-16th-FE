@@ -1,5 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import type {
+  ChatConnectionSnapshot,
+  ChatConnectionState as LiveChatConnectionState,
+  ChatConnectionStopReason,
+} from '../model/chatConnection.types';
 import './chatRoomContent.css';
 
 export type ChatMessage = {
@@ -19,8 +24,7 @@ export type ChatRoomLoadState =
   | 'not-found'
   | 'server-error'
   | 'not-configured';
-export type ChatConnectionState =
-  'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'not-configured';
+export type ChatConnectionState = LiveChatConnectionState | 'not-configured';
 export type ChatRoomStatus = 'active' | 'expired' | 'partner-left' | 'self-left';
 export type ChatSendHandler = (content: string) => void | Promise<void>;
 export type ChatHistoryHandler = () => void | Promise<void>;
@@ -28,6 +32,8 @@ export type ChatHistoryHandler = () => void | Promise<void>;
 type ChatRoomContentProps = {
   chatRoomId: string;
   connectionState: ChatConnectionState;
+  connectionStatus?: Omit<ChatConnectionSnapshot, 'state'>;
+  onRetryConnection?: () => void;
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   historyErrorMessage?: string;
@@ -44,11 +50,19 @@ const MAX_MESSAGE_LENGTH = 500;
 const NEAR_BOTTOM_THRESHOLD = 72;
 
 const connectionLabels: Record<ChatConnectionState, string> = {
+  idle: '연결 준비 중',
   connecting: '채팅 서버에 연결하는 중',
   connected: '연결됨',
   disconnected: '연결이 끊겼어요',
   reconnecting: '채팅 서버에 다시 연결하는 중',
   'not-configured': '실시간 채팅 연동 준비 중',
+};
+
+const stopLabels: Record<Exclude<ChatConnectionStopReason, null>, string> = {
+  'retry-exhausted': '자동 연결 시도를 마쳤어요. 다시 연결해 주세요.',
+  authentication: '로그인 상태를 확인해 주세요.',
+  protocol: '채팅 연결을 확인하지 못했어요. 다시 시도해 주세요.',
+  temporary: '잠시 연결할 수 없어요. 다시 시도해 주세요.',
 };
 
 const roomStatusLabels: Partial<Record<ChatRoomStatus, string>> = {
@@ -114,6 +128,8 @@ function sortMessages(messages: readonly ChatMessage[]): ChatMessage[] {
 export function ChatRoomContent({
   chatRoomId,
   connectionState,
+  connectionStatus,
+  onRetryConnection,
   hasOlderMessages = false,
   isLoadingOlderMessages = false,
   historyErrorMessage,
@@ -236,9 +252,21 @@ export function ChatRoomContent({
 
   const roomNotice = roomStatusLabels[roomStatus];
   const loadNotice = loadStateLabels[loadState];
+  const connectionLabel = connectionStatus?.isOffline
+    ? '네트워크 연결을 기다리는 중'
+    : connectionStatus?.isRefreshingToken
+      ? '인증 정보를 갱신하는 중'
+      : connectionState === 'reconnecting' && connectionStatus
+        ? `다시 연결하는 중 (${connectionStatus.retryCount}/5)`
+        : connectionLabels[connectionState];
+  const stopReason = connectionStatus?.stopReason;
   const showMessages = loadState === 'ready' && !hasTerminalLoadState;
   const inputDisabled =
-    loadState !== 'ready' || connectionState !== 'connected' || !roomAllowsMessaging || isSending;
+    loadState !== 'ready' ||
+    connectionState !== 'connected' ||
+    !roomAllowsMessaging ||
+    onSendMessage === undefined ||
+    isSending;
 
   return (
     <>
@@ -253,8 +281,18 @@ export function ChatRoomContent({
         ref={messagesRegionRef}
       >
         <p className={`chat-room-connection is-${connectionState}`} role="status">
-          {connectionLabels[connectionState]}
+          {connectionLabel}
         </p>
+        {connectionState === 'disconnected' && stopReason ? (
+          <div className="chat-room-recovery">
+            <p>{stopLabels[stopReason]}</p>
+            {stopReason !== 'authentication' && onRetryConnection ? (
+              <button type="button" onClick={onRetryConnection}>
+                다시 연결
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {roomNotice ? (
           <p className="chat-room-room-status" role="status">
             {roomNotice}

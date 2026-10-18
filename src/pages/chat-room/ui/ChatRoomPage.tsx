@@ -9,6 +9,8 @@ import {
   leaveChatRoom,
   type ChatRoomHistoryMessage,
 } from '../../../features/chat-room/api/chatRoomApi';
+import { useChatConnection } from '../../../features/chat-room/model/useChatConnection';
+import type { ChatConnectionState as LiveChatConnectionState } from '../../../features/chat-room/model/chatConnection.types';
 import {
   ChatRoomContent,
   type ChatMessage,
@@ -31,6 +33,11 @@ type ChatRoomState = {
   partnerNickname?: string;
   participantCount?: number;
   roomStatus: ChatRoomStatus;
+};
+
+type ChatRoomPageProps = {
+  /** 외부에서 연결을 소유하는 테스트와 임베딩 화면용 상태 재정의다. */
+  connectionState?: LiveChatConnectionState | 'not-configured';
 };
 
 const initialChatRoomState: ChatRoomState = {
@@ -118,23 +125,47 @@ function getHistoryErrorMessage(error: unknown): string {
   return error.message;
 }
 
-/** 채팅방 진입, 이력 조회, 퇴장 REST 흐름을 기존 프레젠테이션 UI에 연결한다. */
-export function ChatRoomPage() {
+/** REST 초기 상태가 준비된 채팅방에 STOMP 생명주기를 연결하고 페이지 종료 시 정리한다. */
+export function ChatRoomPage({ connectionState: connectionStateOverride }: ChatRoomPageProps = {}) {
   const { chatRoomId } = useParams();
-  const { accessToken, fetchAuthenticatedJson } = useSession();
+  const {
+    accessToken,
+    clearSession,
+    fetchAuthenticatedJson,
+    getAccessToken,
+    isAuthenticated,
+    isSessionRestoring,
+    refreshAccessToken,
+    sessionVersion,
+  } = useSession();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [state, setState] = useState<ChatRoomState>(initialChatRoomState);
-  const activeRequestId = useRef(0);
-  const enterPromiseRef = useRef<Promise<void> | null>(null);
+  const mountedRef = useRef(false);
+  const activeRoomIdRef = useRef(chatRoomId);
+  const enterPromiseRef = useRef<{ chatRoomId: string; promise: Promise<void> } | null>(null);
   const historyPromiseRef = useRef<Promise<void> | null>(null);
   const leavePromiseRef = useRef<Promise<void> | null>(null);
   const validChatRoomId = isValidChatRoomId(chatRoomId);
+  activeRoomIdRef.current = chatRoomId;
   const currentUserId = accessToken ? readMatchRequestUserId(accessToken) : null;
+  const ownsConnection = connectionStateOverride === undefined;
+  const { connection, retryConnection } = useChatConnection({
+    enabled:
+      ownsConnection &&
+      validChatRoomId &&
+      isAuthenticated &&
+      !isSessionRestoring &&
+      state.loadState === 'ready',
+    sessionVersion,
+    getAccessToken,
+    refreshAccessToken,
+  });
 
   const loadChatRoom = useCallback(async () => {
-    if (!validChatRoomId || !chatRoomId || !currentUserId || enterPromiseRef.current) return;
-    const requestId = ++activeRequestId.current;
+    if (!validChatRoomId || !chatRoomId || !currentUserId) return;
+    const pendingEntry = enterPromiseRef.current;
+    if (pendingEntry?.chatRoomId === chatRoomId) return pendingEntry.promise;
     setState({ ...initialChatRoomState, loadState: 'loading' });
     const promise = (async () => {
       try {
@@ -143,7 +174,7 @@ export function ChatRoomPage() {
           getChatRoomDetails(fetchAuthenticatedJson, chatRoomId),
           getChatRoomHistory(fetchAuthenticatedJson, chatRoomId),
         ]);
-        if (requestId !== activeRequestId.current) return;
+        if (!mountedRef.current || activeRoomIdRef.current !== chatRoomId) return;
         const partner = details.participants.find(
           (participant) => String(participant.userId) !== currentUserId,
         );
@@ -164,22 +195,23 @@ export function ChatRoomPage() {
           roomStatus: 'active',
         });
       } catch (error: unknown) {
-        if (requestId !== activeRequestId.current) return;
+        if (!mountedRef.current || activeRoomIdRef.current !== chatRoomId) return;
         setState((current) => ({ ...current, ...getLoadFailure(error) }));
       }
     })();
-    enterPromiseRef.current = promise;
+    enterPromiseRef.current = { chatRoomId, promise };
     try {
       await promise;
     } finally {
-      if (enterPromiseRef.current === promise) enterPromiseRef.current = null;
+      if (enterPromiseRef.current?.promise === promise) enterPromiseRef.current = null;
     }
   }, [chatRoomId, currentUserId, fetchAuthenticatedJson, validChatRoomId]);
 
   useEffect(() => {
+    mountedRef.current = true;
     void loadChatRoom();
     return () => {
-      activeRequestId.current += 1;
+      mountedRef.current = false;
     };
   }, [loadChatRoom]);
 
@@ -202,6 +234,7 @@ export function ChatRoomPage() {
     }));
     const promise = getChatRoomHistory(fetchAuthenticatedJson, chatRoomId, cursor)
       .then((history) => {
+        if (!mountedRef.current || activeRoomIdRef.current !== chatRoomId) return;
         setState((current) => ({
           ...current,
           hasOlderMessages: history.hasNext,
@@ -214,11 +247,13 @@ export function ChatRoomPage() {
         }));
       })
       .catch((error: unknown) => {
-        setState((current) => ({
-          ...current,
-          historyErrorMessage: getHistoryErrorMessage(error),
-          isLoadingOlderMessages: false,
-        }));
+        if (mountedRef.current && activeRoomIdRef.current === chatRoomId) {
+          setState((current) => ({
+            ...current,
+            historyErrorMessage: getHistoryErrorMessage(error),
+            isLoadingOlderMessages: false,
+          }));
+        }
         throw error;
       });
     historyPromiseRef.current = promise;
@@ -236,13 +271,14 @@ export function ChatRoomPage() {
     validChatRoomId,
   ]);
 
-  /** 성공한 퇴장만 매칭 화면으로 이동시키며 실패하면 현재 방과 이력을 그대로 유지한다. */
+  /** 성공한 퇴장만 매칭 화면으로 이동시키며 실패하면 현재 방과 이력을 유지한다. */
   const leaveRoom = useCallback(async () => {
     if (!validChatRoomId || !chatRoomId || leavePromiseRef.current) return;
     setState((current) => ({ ...current, isLeaving: true, loadErrorMessage: undefined }));
     const promise = leaveChatRoom(fetchAuthenticatedJson, chatRoomId)
       .then(() => navigate('/matching', { replace: true }))
       .catch((error: unknown) => {
+        if (!mountedRef.current || activeRoomIdRef.current !== chatRoomId) return;
         setState((current) => ({
           ...current,
           isLeaving: false,
@@ -271,6 +307,9 @@ export function ChatRoomPage() {
       </main>
     );
   }
+
+  const activeConnection = connectionStateOverride ?? connection.state;
+  const showLoginRecovery = ownsConnection && connection.stopReason === 'authentication';
 
   return (
     <main className="chat-room-page">
@@ -317,9 +356,16 @@ export function ChatRoomPage() {
           ) : null}
         </div>
       </header>
+      {showLoginRecovery ? (
+        <Link to="/login" onClick={clearSession}>
+          다시 로그인
+        </Link>
+      ) : null}
       <ChatRoomContent
         chatRoomId={chatRoomId}
-        connectionState="not-configured"
+        connectionState={activeConnection}
+        connectionStatus={ownsConnection ? connection : undefined}
+        onRetryConnection={ownsConnection ? retryConnection : undefined}
         hasOlderMessages={state.hasOlderMessages}
         historyErrorMessage={state.historyErrorMessage}
         isLoadingOlderMessages={state.isLoadingOlderMessages}
