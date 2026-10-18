@@ -76,17 +76,13 @@ X-XSRF-TOKEN: <cookie-value>
 보호 API 401
   -> POST /api/auth/refresh 한 번
   -> 성공: Access Token 교체 후 원 요청 한 번 재시도
-  -> HTTP 401: 메모리 인증 상태 제거 후 보호 화면 정책에 따라 처리
-  -> 네트워크·5xx·CSRF·응답 형식 오류: 기존 토큰 보존, 호출자에게 오류 전달
+  -> 실패: 메모리 인증 상태 제거 후 보호 화면 정책에 따라 처리
 ```
 
 - refresh 요청 자체의 401은 다시 refresh하지 않는다.
 - 동시에 여러 요청이 401을 받으면 하나의 refresh Promise를 공유한다.
-- STOMP 인증 복구도 `useSession().refreshAccessToken()`으로 같은 refresh Promise를 공유한다. CONNECT 직전에는 안정적인 `getAccessToken()` 함수로 현재 메모리 토큰을 읽는다.
-- refresh의 HTTP 401은 세션을 제거한다. 네트워크·5xx·CSRF·응답 형식 오류는 기존 토큰을 보존하고 오류를 호출자에게 전달한다. 토큰 보존은 인증 성공을 뜻하지 않는다.
-- 명시적 로그인·로그아웃은 `sessionVersion`을 변경한다. 이전 세션에서 시작한 refresh 응답과 보호 요청은 새 계정에 적용하거나 재전송하지 않는다. 일반 토큰 갱신은 버전을 바꾸지 않는다.
 - 원 요청 자동 재시도는 최대 한 번이다.
-- refresh HTTP 401로 세션을 제거해도 공개 화면으로 강제 이동하지 않으며, 보호 화면은 각 화면의 접근 정책에 따라 처리한다.
+- refresh 실패 또는 응답 형식 오류 시 `SessionProvider`의 메모리 access token을 제거한다. 공개 화면으로의 강제 이동은 하지 않으며, 보호 화면은 각 화면의 접근 정책에 따라 처리한다.
 - 상태 변경 요청은 멱등성이 확인되지 않으면 CSRF 오류나 네트워크 오류만으로 자동 반복하지 않는다.
 
 ## 7. 요청 작성
