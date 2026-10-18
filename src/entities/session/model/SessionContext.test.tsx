@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode, useEffect, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -61,6 +61,57 @@ function ProtectedRequestOnMount() {
 }
 
 describe('SessionProvider', () => {
+  it('keeps token access stable and changes session version only for login or logout', async () => {
+    document.cookie = 'XSRF-TOKEN=csrf-token';
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+        .mockResolvedValueOnce(new Response('{"accessToken":"restored"}', { status: 200 }))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+        .mockResolvedValueOnce(new Response('{"accessToken":"refreshed"}', { status: 200 })),
+    );
+    const { result } = renderHook(useSession, { wrapper: SessionProvider });
+    await waitFor(() => expect(result.current.isSessionRestoring).toBe(false));
+    const getter = result.current.getAccessToken;
+    const refresh = result.current.refreshAccessToken;
+    act(() => result.current.setAccessToken('login-token'));
+    const version = result.current.sessionVersion;
+    await act(() => refresh());
+    expect(result.current.getAccessToken).toBe(getter);
+    expect(result.current.refreshAccessToken).toBe(refresh);
+    expect(getter()).toBe('refreshed');
+    expect(result.current.sessionVersion).toBe(version);
+    act(() => result.current.clearSession());
+    expect(getter()).toBeNull();
+    expect(result.current.sessionVersion).toBe(version + 1);
+  });
+
+  it('does not restore a bootstrap token that completes after logout', async () => {
+    document.cookie = 'XSRF-TOKEN=csrf-token';
+    let finish!: (response: Response) => void;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            finish = resolve;
+          }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(useSession, { wrapper: SessionProvider });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    act(() => result.current.clearSession());
+    await act(async () => {
+      finish(new Response('{"accessToken":"stale"}', { status: 200 }));
+    });
+    await waitFor(() => expect(result.current.isSessionRestoring).toBe(false));
+    expect(result.current.accessToken).toBeNull();
+    expect(result.current.getAccessToken()).toBeNull();
+  });
+
   it('restores the in-memory access token from the refresh Cookie when it mounts', async () => {
     document.cookie = 'XSRF-TOKEN=csrf-token';
     const fetchMock = vi

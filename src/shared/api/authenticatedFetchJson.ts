@@ -8,6 +8,7 @@ interface RefreshResponse {
 
 export interface AuthenticatedApiAdapter {
   getAccessToken: () => string | null;
+  getSessionVersion: () => number;
   setAccessToken: (accessToken: string) => void;
   clearSession: () => void;
 }
@@ -15,11 +16,19 @@ export interface AuthenticatedApiAdapter {
 export interface AuthenticatedApiClient {
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
   restoreSession: () => Promise<void>;
+  refreshAccessToken: () => Promise<void>;
 }
 
 /** 주입된 메모리 세션을 사용하는 보호 API 클라이언트를 생성한다. */
 export function createAuthenticatedApi(adapter: AuthenticatedApiAdapter): AuthenticatedApiClient {
-  let refreshPromise: Promise<void> | null = null;
+  let refreshEntry: { version: number; promise: Promise<void> } | null = null;
+
+  /** 이전 로그인에서 시작한 작업이 새 세션에 쓰이거나 재전송되지 않도록 막는다. */
+  function requireCurrentSession(version: number): void {
+    if (adapter.getSessionVersion() !== version) {
+      throw new ApiError(409, '로그인 상태가 변경되었습니다.', 'SESSION_CHANGED');
+    }
+  }
 
   /** 보호 API에 Bearer token을 붙이고 401이면 토큰 갱신 뒤 원 요청을 한 번만 재시도한다. */
   async function fetchAuthenticatedJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -33,10 +42,14 @@ export function createAuthenticatedApi(adapter: AuthenticatedApiAdapter): Authen
     hasRetried: boolean,
   ): Promise<T> {
     const attemptedAccessToken = adapter.getAccessToken();
+    const version = adapter.getSessionVersion();
 
     try {
-      return await fetchJson<T>(path, withAuthorization(init, attemptedAccessToken));
+      const response = await fetchJson<T>(path, withAuthorization(init, attemptedAccessToken));
+      requireCurrentSession(version);
+      return response;
     } catch (error: unknown) {
+      requireCurrentSession(version);
       if (!(error instanceof ApiError) || error.status !== 401 || hasRetried) {
         throw error;
       }
@@ -46,38 +59,51 @@ export function createAuthenticatedApi(adapter: AuthenticatedApiAdapter): Authen
       }
 
       await refreshAccessToken();
+      requireCurrentSession(version);
       return requestWithRefresh<T>(path, init, true);
     }
   }
 
   /** 동시에 발생한 401 요청이 하나의 refresh 요청을 공유하도록 제어한다. */
   function refreshAccessToken(): Promise<void> {
-    if (!refreshPromise) {
-      refreshPromise = requestAccessTokenRefresh().finally(() => {
-        refreshPromise = null;
-      });
+    const version = adapter.getSessionVersion();
+    if (!refreshEntry || refreshEntry.version !== version) {
+      const entry = {
+        version,
+        promise: requestAccessTokenRefresh(version).finally(() => {
+          if (refreshEntry === entry) refreshEntry = null;
+        }),
+      };
+      refreshEntry = entry;
     }
 
-    return refreshPromise;
+    return refreshEntry.promise;
   }
 
   /** HttpOnly refresh Cookie로 새 access token을 받아 메모리 세션을 교체한다. */
-  async function requestAccessTokenRefresh(): Promise<void> {
+  async function requestAccessTokenRefresh(version: number): Promise<void> {
     try {
       const csrfToken = await getCsrfToken();
+      requireCurrentSession(version);
       const response = await fetchJson<unknown>('/auth/refresh', {
         method: 'POST',
         credentials: 'include',
         headers: { 'X-XSRF-TOKEN': csrfToken },
       });
+      requireCurrentSession(version);
       adapter.setAccessToken(parseRefreshResponse(response).accessToken);
     } catch (error: unknown) {
-      adapter.clearSession();
+      requireCurrentSession(version);
+      if (error instanceof ApiError && error.status === 401) adapter.clearSession();
       throw error;
     }
   }
 
-  return { fetchJson: fetchAuthenticatedJson, restoreSession: refreshAccessToken };
+  return {
+    fetchJson: fetchAuthenticatedJson,
+    restoreSession: refreshAccessToken,
+    refreshAccessToken,
+  };
 }
 
 /** 기존 요청 옵션을 보존하면서 현재 access token만 Authorization 헤더에 추가한다. */
