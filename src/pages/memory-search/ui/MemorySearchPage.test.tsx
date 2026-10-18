@@ -50,6 +50,9 @@ function DetailProbe() {
 function renderPage(initialPath = '/memory-search') {
   const session: SessionContextValue = {
     accessToken: 'token',
+    sessionVersion: 0,
+    getAccessToken: () => 'token',
+    refreshAccessToken: vi.fn(),
     isAuthenticated: true,
     isSessionRestoring: false,
     setAccessToken: vi.fn(),

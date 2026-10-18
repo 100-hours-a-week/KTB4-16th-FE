@@ -121,6 +121,9 @@ function renderConversation(initialToken: string | null = 'token', strictMode = 
   const request = vi.fn() as SessionContextValue['fetchAuthenticatedJson'];
   const session: SessionContextValue = {
     accessToken: initialToken,
+    sessionVersion: 0,
+    getAccessToken: () => initialToken,
+    refreshAccessToken: vi.fn(),
     isAuthenticated: initialToken !== null,
     isSessionRestoring: false,
     setAccessToken: vi.fn(),
