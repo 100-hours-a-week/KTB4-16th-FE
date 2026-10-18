@@ -29,4 +29,5 @@ export interface ChatConnection {
   start(): void;
   retry(): Promise<void>;
   stop(): Promise<void>;
+  publish(destination: string, body: string): void;
 }

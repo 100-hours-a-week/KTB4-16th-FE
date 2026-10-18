@@ -5,20 +5,23 @@ import type {
   ChatConnectionState as LiveChatConnectionState,
   ChatConnectionStopReason,
 } from '../model/chatConnection.types';
+import { ChatSendFailure } from '../model/chatSendFailure';
 import './chatRoomContent.css';
 
 export type ChatMessage = {
   id: string;
+  clientMessageId?: string;
   sender: 'me' | 'partner';
   nickname?: string;
   content: string;
   createdAt: string;
+  deliveryState?: 'pending' | 'success' | 'failed';
 };
 
 export type ChatRoomLoadState =
   'loading' | 'ready' | 'error' | 'forbidden' | 'not-found' | 'server-error' | 'not-configured';
 export type ChatConnectionState = LiveChatConnectionState | 'not-configured';
-export type ChatRoomStatus = 'active' | 'expired' | 'partner-left' | 'self-left';
+export type ChatRoomStatus = 'active' | 'expired' | 'partner-left' | 'self-left' | 'send-blocked';
 export type ChatSendHandler = (content: string) => void | Promise<void>;
 export type ChatHistoryHandler = () => void | Promise<void>;
 
@@ -60,6 +63,7 @@ const roomStatusLabels: Partial<Record<ChatRoomStatus, string>> = {
   expired: '이 채팅방은 만료되었어요.',
   'partner-left': '상대방이 채팅방을 나갔어요.',
   'self-left': '이미 퇴장한 채팅방입니다.',
+  'send-blocked': '현재 채팅방에서는 메시지를 보낼 수 없어요.',
 };
 
 const loadStateLabels: Partial<Record<ChatRoomLoadState, string>> = {
@@ -193,10 +197,14 @@ export function ChatRoomContent({
     try {
       await onSendMessage(content);
       setDraft('');
-      setSendNotice('전송 요청이 완료되었습니다. 메시지는 서버 확인 후 표시됩니다.');
-    } catch {
+      setSendNotice('메시지를 전송했어요.');
+    } catch (error: unknown) {
       setSendError(true);
-      setSendNotice('메시지를 보내지 못했어요. 다시 시도해 주세요.');
+      setSendNotice(
+        error instanceof ChatSendFailure
+          ? error.message
+          : '메시지를 보내지 못했어요. 다시 시도해 주세요.',
+      );
     } finally {
       isSendingRef.current = false;
       setIsSending(false);
@@ -299,7 +307,7 @@ export function ChatRoomContent({
             이전 메시지를 불러오지 못했어요.
           </p>
         ) : null}
-        {showMessages && roomStatus !== 'self-left' && sortedMessages.length === 0 ? (
+        {showMessages && roomStatus === 'active' && sortedMessages.length === 0 ? (
           <p className="chat-room-state" role="status">
             아직 주고받은 메시지가 없어요.
           </p>
@@ -342,6 +350,12 @@ export function ChatRoomContent({
                           </p>
                         ) : null}
                         <p className="chat-room-message-content">{message.content}</p>
+                        {message.deliveryState === 'pending' ? (
+                          <span className="chat-room-message-delivery is-pending">전송 중</span>
+                        ) : null}
+                        {message.deliveryState === 'failed' ? (
+                          <span className="chat-room-message-delivery is-failed">전송 실패</span>
+                        ) : null}
                       </div>
                       <time dateTime={message.createdAt}>{formattedTime.timeLabel}</time>
                     </article>

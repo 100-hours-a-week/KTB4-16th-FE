@@ -143,6 +143,21 @@
   color: #fff;
 }
 
+.chat-room-message-delivery {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+  text-align: right;
+}
+
+.chat-room-message-delivery.is-pending {
+  color: #9288a5;
+}
+
+.chat-room-message-delivery.is-failed {
+  color: #c53a59;
+}
+
 .chat-room-message time {
   flex: 0 0 auto;
   color: #9a90b3;

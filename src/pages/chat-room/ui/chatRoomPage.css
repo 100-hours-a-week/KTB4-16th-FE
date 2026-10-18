@@ -128,6 +128,12 @@
   cursor: not-allowed;
 }
 
+.chat-room-leave-error {
+  margin: 0 20px 12px;
+  color: #c53a59;
+  font-size: 13px;
+}
+
 .chat-room-back-button:focus-visible,
 .chat-room-menu:focus-visible,
 .chat-room-menu-popover button:focus-visible {

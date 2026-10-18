@@ -244,5 +244,18 @@ export function createChatConnection(options: ChatConnectionOptions): ChatConnec
     return old ? retire(old) : Promise.resolve();
   }
 
-  return { start, retry, stop };
+  /** 활성 STOMP 연결에서만 JSON frame을 발행하고 서버 확인은 별도 user queue로 받는다. */
+  function publish(destination: string, body: string): void {
+    const lifetime = current;
+    if (!lifetime?.valid || !lifetime.client.connected) {
+      throw new ApiError(409, '채팅 서버에 연결된 뒤 다시 시도해 주세요.', 'CHAT_NOT_CONNECTED');
+    }
+    lifetime.client.publish({
+      destination,
+      headers: { 'content-type': 'application/json' },
+      body,
+    });
+  }
+
+  return { start, retry, stop, publish };
 }
