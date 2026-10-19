@@ -32,7 +32,7 @@ describe('MusicPreviewButton', () => {
     await user.click(trigger);
     expect(screen.getByTitle('테스트 곡 Spotify 플레이어')).toHaveAttribute(
       'src',
-      'https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC',
+      'https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC?locale=ko',
     );
     await user.click(screen.getByRole('button', { name: '미리듣기 닫기' }));
     expect(screen.queryByTitle('테스트 곡 Spotify 플레이어')).not.toBeInTheDocument();
