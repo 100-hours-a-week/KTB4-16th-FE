@@ -49,4 +49,27 @@ describe('matchRequestApi', () => {
       ),
     ).rejects.toMatchObject({ code: 'INVALID_RESPONSE', status: 502 });
   });
+
+  it('accepts FAILED with a null chat room id', async () => {
+    const request = vi.fn().mockResolvedValue({
+      data: { matchRequestId: 90, status: 'FAILED', chatRoomId: null },
+    });
+
+    await expect(getMatchRequestState(request, 90)).resolves.toEqual({
+      matchRequestId: 90,
+      status: 'FAILED',
+      chatRoomId: null,
+    });
+  });
+
+  it('rejects FAILED when the server includes a chat room id', async () => {
+    await expect(
+      getMatchRequestState(
+        vi.fn().mockResolvedValue({
+          data: { matchRequestId: 90, status: 'FAILED', chatRoomId: 41 },
+        }),
+        90,
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE', status: 502 });
+  });
 });

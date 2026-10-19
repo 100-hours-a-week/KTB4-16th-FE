@@ -104,4 +104,16 @@ describe('PreferenceVote', () => {
     expect(screen.getByText('상대를 찾았어요. 채팅방을 준비하고 있어요.')).toBeVisible();
     expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
   });
+
+  it('shows a distinct failed state and keeps matching disabled', () => {
+    renderVote({
+      vote: { ...vote, myAnswer: '산책하면서 듣기', voteAnswerId: 43 },
+      matchStatus: 'FAILED',
+    });
+
+    expect(
+      screen.getByText('채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
+  });
 });

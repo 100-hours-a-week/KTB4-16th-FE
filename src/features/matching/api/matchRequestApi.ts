@@ -4,7 +4,7 @@ import { getCsrfToken } from '../../../shared/api/csrf';
 
 type MatchRequest = AuthenticatedApiClient['fetchJson'];
 
-export type MatchRequestStatus = 'WAITING' | 'MATCHING' | 'MATCHED' | 'EXPIRED';
+export type MatchRequestStatus = 'WAITING' | 'MATCHING' | 'MATCHED' | 'EXPIRED' | 'FAILED';
 
 export interface CreatedMatchRequest {
   matchRequestId: number;
@@ -92,5 +92,11 @@ function isPendingStatus(value: unknown): value is CreatedMatchRequest['status']
 
 /** 조회 응답의 서버 상태 enum을 계약에 따라 제한한다. */
 function isMatchRequestStatus(value: unknown): value is MatchRequestStatus {
-  return value === 'WAITING' || value === 'MATCHING' || value === 'MATCHED' || value === 'EXPIRED';
+  return (
+    value === 'WAITING' ||
+    value === 'MATCHING' ||
+    value === 'MATCHED' ||
+    value === 'EXPIRED' ||
+    value === 'FAILED'
+  );
 }

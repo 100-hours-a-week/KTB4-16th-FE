@@ -44,6 +44,14 @@ function renderPage({ strict = false }: { strict?: boolean } = {}) {
   return render(strict ? <StrictMode>{page}</StrictMode> : page);
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 async function flushEffects() {
   await act(async () => {
     await Promise.resolve();
@@ -178,5 +186,184 @@ describe('MatchingPage', () => {
 
     expect(screen.getByTestId('current-path')).toHaveTextContent('/chat/41');
     expect(window.sessionStorage.getItem('mulo-match-request-v1')).toBeNull();
+  });
+
+  it('keeps the WAITING to MATCHING to MATCHED flow and navigates with the server room id', async () => {
+    vi.mocked(createMatchRequest).mockResolvedValue({ matchRequestId: 90, status: 'WAITING' });
+    vi.mocked(getMatchRequestState)
+      .mockResolvedValueOnce({ matchRequestId: 90, status: 'MATCHING', chatRoomId: null })
+      .mockResolvedValueOnce({ matchRequestId: 90, status: 'MATCHED', chatRoomId: 41 });
+
+    renderPage();
+    await flushEffects();
+    fireEvent.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
+    await flushEffects();
+    expect(screen.getByText('의견이 다른 상대를 찾고 있어요.')).toBeVisible();
+
+    await act(async () => {
+      vi.advanceTimersByTime(3_000);
+      await Promise.resolve();
+    });
+    expect(screen.getByText('상대를 찾았어요. 채팅방을 준비하고 있어요.')).toBeVisible();
+
+    await act(async () => {
+      vi.advanceTimersByTime(3_000);
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/chat/41');
+    expect(window.sessionStorage.getItem('mulo-match-request-v1')).toBeNull();
+  });
+
+  it('keeps EXPIRED terminal and clears its request snapshot without navigating', async () => {
+    window.sessionStorage.setItem(
+      'mulo-match-request-v1',
+      JSON.stringify({ version: 1, userId: '35', matchRequestId: 90 }),
+    );
+    vi.mocked(getMatchRequestState).mockResolvedValue({
+      matchRequestId: 90,
+      status: 'EXPIRED',
+      chatRoomId: null,
+    });
+
+    renderPage();
+    await flushEffects();
+
+    expect(screen.getByText('오늘의 매칭 요청이 만료되었어요.')).toBeVisible();
+    expect(screen.queryByTestId('current-path')).not.toBeInTheDocument();
+    expect(window.sessionStorage.getItem('mulo-match-request-v1')).toBeNull();
+  });
+
+  it('shows FAILED, retains its snapshot for restoration, and stops interval and visibility polling', async () => {
+    window.sessionStorage.setItem(
+      'mulo-match-request-v1',
+      JSON.stringify({ version: 1, userId: '35', matchRequestId: 90 }),
+    );
+    vi.mocked(getMatchRequestState)
+      .mockResolvedValueOnce({ matchRequestId: 90, status: 'WAITING', chatRoomId: null })
+      .mockResolvedValueOnce({ matchRequestId: 90, status: 'FAILED', chatRoomId: null });
+
+    renderPage();
+    await flushEffects();
+    expect(screen.getByText('의견이 다른 상대를 찾고 있어요.')).toBeVisible();
+
+    await act(async () => {
+      vi.advanceTimersByTime(3_000);
+      await Promise.resolve();
+    });
+
+    const failedMessage = '채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.';
+    expect(screen.getByText(failedMessage)).toBeVisible();
+    expect(screen.queryByTestId('current-path')).not.toBeInTheDocument();
+    expect(window.sessionStorage.getItem('mulo-match-request-v1')).toContain('"matchRequestId":90');
+    expect(getMatchRequestState).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      vi.advanceTimersByTime(9_000);
+      fireEvent(window, new Event('focus'));
+      fireEvent(document, new Event('visibilitychange'));
+      await Promise.resolve();
+    });
+
+    expect(getMatchRequestState).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(failedMessage)).toBeVisible();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
+  });
+
+  it('does not let an older in-flight response replace FAILED', async () => {
+    window.sessionStorage.setItem(
+      'mulo-match-request-v1',
+      JSON.stringify({ version: 1, userId: '35', matchRequestId: 90 }),
+    );
+    const olderResponse = deferred<{
+      matchRequestId: number;
+      status: 'WAITING';
+      chatRoomId: null;
+    }>();
+    const terminalResponse = deferred<{
+      matchRequestId: number;
+      status: 'FAILED';
+      chatRoomId: null;
+    }>();
+    vi.mocked(getMatchRequestState)
+      .mockResolvedValueOnce({ matchRequestId: 90, status: 'WAITING', chatRoomId: null })
+      .mockReturnValueOnce(olderResponse.promise)
+      .mockReturnValueOnce(terminalResponse.promise);
+
+    renderPage();
+    await flushEffects();
+    fireEvent(window, new Event('focus'));
+    fireEvent(window, new Event('focus'));
+    await flushEffects();
+    expect(getMatchRequestState).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      terminalResponse.resolve({ matchRequestId: 90, status: 'FAILED', chatRoomId: null });
+      await terminalResponse.promise;
+    });
+    await act(async () => {
+      olderResponse.resolve({ matchRequestId: 90, status: 'WAITING', chatRoomId: null });
+      await olderResponse.promise;
+    });
+
+    expect(
+      screen.getByText('채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'),
+    ).toBeVisible();
+    expect(screen.queryByText('의견이 다른 상대를 찾고 있어요.')).not.toBeInTheDocument();
+    expect(window.sessionStorage.getItem('mulo-match-request-v1')).toContain('"matchRequestId":90');
+  });
+
+  it('restores FAILED from the retained request snapshot after remount without retrying', async () => {
+    window.sessionStorage.setItem(
+      'mulo-match-request-v1',
+      JSON.stringify({ version: 1, userId: '35', matchRequestId: 90 }),
+    );
+    vi.mocked(getMatchRequestState).mockResolvedValue({
+      matchRequestId: 90,
+      status: 'FAILED',
+      chatRoomId: null,
+    });
+
+    const firstPage = renderPage();
+    await flushEffects();
+    expect(
+      screen.getByText('채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'),
+    ).toBeVisible();
+    firstPage.unmount();
+
+    renderPage();
+    await flushEffects();
+
+    expect(getMatchRequestState).toHaveBeenCalledTimes(2);
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'),
+    ).toBeVisible();
+    expect(window.sessionStorage.getItem('mulo-match-request-v1')).toContain('"userId":"35"');
+  });
+
+  it('shows polling network errors separately from the server FAILED state', async () => {
+    window.sessionStorage.setItem(
+      'mulo-match-request-v1',
+      JSON.stringify({ version: 1, userId: '35', matchRequestId: 90 }),
+    );
+    vi.mocked(getMatchRequestState)
+      .mockResolvedValueOnce({ matchRequestId: 90, status: 'WAITING', chatRoomId: null })
+      .mockRejectedValueOnce(new ApiError(503, '서버에 연결할 수 없습니다.', 'NETWORK_ERROR'));
+
+    renderPage();
+    await flushEffects();
+    await flushEffects();
+    await act(async () => {
+      vi.advanceTimersByTime(3_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('서버에 연결할 수 없습니다.');
+    expect(screen.getByText('의견이 다른 상대를 찾고 있어요.')).toBeVisible();
+    expect(
+      screen.queryByText('채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'),
+    ).not.toBeInTheDocument();
+    expect(window.sessionStorage.getItem('mulo-match-request-v1')).not.toBeNull();
   });
 });
