@@ -14,6 +14,7 @@ const playlist = {
   tracks: [
     {
       musicTrackId: 3,
+      externalTrackId: 'track-1',
       title: '비 오는 날엔',
       artistName: '헤이즈',
       albumImageUrl: 'https://i.scdn.co/image/example',
@@ -21,6 +22,7 @@ const playlist = {
     },
     ...Array.from({ length: 4 }, (_, index) => ({
       musicTrackId: index + 4,
+      externalTrackId: `track-${index + 2}`,
       title: `추천곡 ${index + 2}`,
       artistName: '테스트 아티스트',
       albumImageUrl: 'https://i.scdn.co/image/example',
@@ -45,7 +47,7 @@ describe('recommendationPlaylistApi', () => {
   it('저장된 플레이리스트를 화면용 트랙 목록으로 변환한다', async () => {
     const request = vi.fn().mockResolvedValue({
       message: '현재 추천 플레이리스트 조회 성공',
-      data: { playlist },
+      data: { playlist, replaced: true },
     });
 
     await expect(getRecommendationPlaylist(request)).resolves.toEqual(playlist);
@@ -75,17 +77,24 @@ describe('recommendationPlaylistApi', () => {
     vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
     const request = vi.fn().mockResolvedValue({
       message: '추천 플레이리스트 생성 성공',
-      data: { playlist },
+      data: { playlist, replaced: true },
     });
 
     await expect(
-      createRecommendationPlaylist({ latitude: 37.5665, longitude: 126.978 }, request),
+      createRecommendationPlaylist(
+        { latitude: 37.5665, longitude: 126.978, excludeTrackIds: ['previous-track'] },
+        request,
+      ),
     ).resolves.toEqual(playlist);
     expect(request).toHaveBeenCalledWith('/recommendations/playlists', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': 'csrf-token' },
-      body: JSON.stringify({ latitude: 37.5665, longitude: 126.978 }),
+      body: JSON.stringify({
+        latitude: 37.5665,
+        longitude: 126.978,
+        excludeTrackIds: ['previous-track'],
+      }),
     });
   });
 
@@ -112,12 +121,56 @@ describe('recommendationPlaylistApi', () => {
     const request = vi.fn();
 
     await expect(
-      createRecommendationPlaylist({ latitude: 91, longitude: 127 }, request),
+      createRecommendationPlaylist({ latitude: 91, longitude: 127, excludeTrackIds: [] }, request),
     ).rejects.toMatchObject({
       status: 400,
       code: 'INVALID_COORDINATES',
     } satisfies Partial<ApiError>);
     expect(getCsrfToken).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
+  });
+  it.each([playlist, null])(
+    '기존 추천 유지 응답은 새 추천 성공으로 반환하지 않는다',
+    async (retained) => {
+      vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
+      const request = vi.fn().mockResolvedValue({
+        message: '기존 목록 유지',
+        data: { playlist: retained, replaced: false },
+      });
+      await expect(
+        createRecommendationPlaylist(
+          { latitude: 37.5, longitude: 127, excludeTrackIds: [] },
+          request,
+        ),
+      ).rejects.toMatchObject({ code: 'RECOMMENDATION_NOT_CREATED' });
+    },
+  );
+
+  it('외부 곡 ID가 없는 응답을 거부한다', async () => {
+    const request = vi.fn().mockResolvedValue({
+      message: '조회 성공',
+      data: {
+        playlist: {
+          ...playlist,
+          tracks: playlist.tracks.map((track) => ({ ...track, externalTrackId: undefined })),
+        },
+      },
+    });
+    await expect(getRecommendationPlaylist(request)).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
+  });
+
+  it('제외한 곡이 다시 반환되면 성공으로 처리하지 않는다', async () => {
+    vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
+    const request = vi
+      .fn()
+      .mockResolvedValue({ message: '생성 성공', data: { playlist, replaced: true } });
+    await expect(
+      createRecommendationPlaylist(
+        { latitude: 37.5, longitude: 127, excludeTrackIds: ['track-1'] },
+        request,
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
   });
 });
