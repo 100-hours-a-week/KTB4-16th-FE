@@ -100,9 +100,9 @@
 
 .popular-tracks-sheet-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   padding: 9px 0;
   border-bottom: 1px solid #ece3f7;
 }

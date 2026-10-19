@@ -1,3 +1,4 @@
+import { MusicPreviewButton } from '../../../entities/music/ui/MusicPreviewButton';
 import { useEffect, useRef, useState } from 'react';
 
 import { getWeatherEmoji } from '../../../entities/weather/model/weather';
@@ -161,9 +162,11 @@ export function LockDetail({
               <strong>{detail.music.title}</strong>
               <small>{detail.music.artistName}</small>
             </span>
-            <span aria-hidden="true" className="lock-detail-music-note">
-              ♪
-            </span>
+            <MusicPreviewButton
+              title={detail.music.title}
+              artistName={detail.music.artistName}
+              externalUrl={detail.music.externalUrl}
+            />
           </section>
 
           <div className="lock-detail-meta">

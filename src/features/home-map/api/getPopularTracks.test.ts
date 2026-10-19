@@ -59,4 +59,31 @@ describe('getPopularTracks', () => {
       expect(fetchJson).not.toHaveBeenCalled();
     },
   );
+
+  it('preserves the Spotify link supplied for preview', async () => {
+    vi.mocked(fetchJson).mockResolvedValueOnce({
+      message: 'ok',
+      data: {
+        recordCount: 1,
+        nextCursor: null,
+        music: [
+          {
+            rank: 1,
+            count: 1,
+            recordId: 1,
+            placeId: 10,
+            musicTrackId: 7,
+            title: '곡',
+            artistName: '가수',
+            createdAt: '2026-10-19T12:00:00',
+            externalUrl: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
+          },
+        ],
+      },
+    });
+    const result = await getPopularTracks([10], new AbortController().signal);
+    expect(result.music[0]).toMatchObject({
+      externalUrl: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
+    });
+  });
 });

@@ -1,0 +1,78 @@
+.music-preview-trigger {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 8px 10px;
+  border: 1px solid #dccbf0;
+  border-radius: 20px;
+  background: #f3edfc;
+  color: #66539b;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.music-preview-trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.music-preview-trigger:focus-visible,
+.music-preview-panel button:focus-visible {
+  outline: 3px solid #a78ad7;
+  outline-offset: 3px;
+}
+.music-preview-dialog {
+  position: fixed;
+  /* 화면이 길어져도 원래 목록과 멀어지지 않도록 플레이어를 중앙에 표시한다. */
+  inset: 0;
+  width: calc(100% - 24px);
+  max-width: 456px;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #dccbf0;
+  border-radius: 24px;
+  color: #332b4a;
+  background: #fff;
+  box-shadow: 0 -12px 40px rgb(51 43 74 / 20%);
+}
+.music-preview-dialog::backdrop {
+  background: rgb(51 43 74 / 38%);
+}
+.music-preview-panel {
+  padding: 18px;
+}
+.music-preview-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.music-preview-heading h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.music-preview-heading p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.music-preview-heading button {
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f3edfc;
+  color: #66539b;
+  font-size: 24px;
+}
+.music-preview-panel iframe {
+  display: block;
+  border: 0;
+  border-radius: 12px;
+}
+.music-preview-help {
+  color: #74698b;
+  font-size: 11px;
+  line-height: 1.6;
+}

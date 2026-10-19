@@ -141,7 +141,7 @@
   background: linear-gradient(135deg, #c9b7ec, #a7e3d0);
   object-fit: cover;
 }
-.home-playlist-track > span:last-child {
+.home-playlist-track-content > span:last-child {
   display: grid;
   gap: 2px;
   min-width: 0;
@@ -182,4 +182,12 @@
   margin-top: 6px;
   color: #7a5cbe;
   font-weight: 700;
+}
+
+.home-playlist-track-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
