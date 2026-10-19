@@ -1,3 +1,4 @@
+import { MusicPreviewButton } from '../../../entities/music/ui/MusicPreviewButton';
 import { useEffect, useRef } from 'react';
 import type { MyPlaceRecord } from '../api/getMyPlaceRecords';
 import { Link } from 'react-router';
@@ -100,31 +101,34 @@ export function MyLocksSheet({
       {loadState === 'ready' ? (
         <div className="my-locks-sheet-list">
           {records.map((record) => (
-            <Link
-              className="my-locks-sheet-row"
-              key={record.recordId}
-              to={`/records/${record.recordId}`}
-            >
-              {record.albumImageUrl ? (
-                <span className="my-locks-sheet-cover">
-                  <img
-                    alt={`${record.title} - ${record.artistName} 앨범 커버`}
-                    src={record.albumImageUrl}
-                    onError={(event) => {
-                      event.currentTarget.hidden = true;
-                    }}
-                  />
+            <article className="my-locks-sheet-row" key={record.recordId}>
+              <Link className="my-locks-sheet-record" to={`/records/${record.recordId}`}>
+                {record.albumImageUrl ? (
+                  <span className="my-locks-sheet-cover">
+                    <img
+                      alt={`${record.title} - ${record.artistName} 앨범 커버`}
+                      src={record.albumImageUrl}
+                      onError={(event) => {
+                        event.currentTarget.hidden = true;
+                      }}
+                    />
+                  </span>
+                ) : (
+                  <span className="my-locks-sheet-cover" aria-hidden="true" />
+                )}
+                <span>
+                  <strong>{record.title}</strong>
+                  <small>
+                    {record.artistName} · {record.createdAt.slice(0, 10).replaceAll('-', '.')}
+                  </small>
                 </span>
-              ) : (
-                <span className="my-locks-sheet-cover" aria-hidden="true" />
-              )}
-              <span>
-                <strong>{record.title}</strong>
-                <small>
-                  {record.artistName} · {record.createdAt.slice(0, 10).replaceAll('-', '.')}
-                </small>
-              </span>
-            </Link>
+              </Link>
+              <MusicPreviewButton
+                title={record.title}
+                artistName={record.artistName}
+                externalUrl={record.externalUrl}
+              />
+            </article>
           ))}
           {hasNextPage ? (
             <button

@@ -1,3 +1,4 @@
+import { MusicPreviewButton } from '../../../entities/music/ui/MusicPreviewButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -63,15 +64,26 @@ function RecommendationTrackItem({ track }: { track: RecommendationTrack }) {
     </>
   );
 
-  if (!isSafeExternalUrl(track.externalUrl)) {
-    return <li className="home-playlist-track">{content}</li>;
-  }
-
   return (
-    <li>
-      <a className="home-playlist-track" href={track.externalUrl} rel="noreferrer" target="_blank">
-        {content}
-      </a>
+    <li className="home-playlist-track">
+      {isSafeExternalUrl(track.externalUrl) ? (
+        <a
+          className="home-playlist-track-content"
+          href={track.externalUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {content}
+        </a>
+      ) : (
+        <span className="home-playlist-track-content">{content}</span>
+      )}
+      <MusicPreviewButton
+        title={track.title}
+        artistName={track.artistName}
+        externalUrl={track.externalUrl}
+        externalTrackId={track.externalTrackId}
+      />
     </li>
   );
 }

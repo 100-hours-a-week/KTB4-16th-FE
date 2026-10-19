@@ -98,4 +98,36 @@ describe('getMyPlaceRecords', () => {
       records: [{ albumImageUrl: 'https://image.test/really-really.jpg' }],
     });
   });
+
+  it('preserves the Spotify link supplied for preview', async () => {
+    fetchAuthenticatedJson.mockResolvedValueOnce({
+      message: 'ok',
+      data: {
+        recordCount: 1,
+        nextCursor: null,
+        records: [
+          {
+            rank: 1,
+            count: 1,
+            recordId: 1,
+            placeId: 10,
+            musicTrackId: 7,
+            title: '곡',
+            artistName: '가수',
+            createdAt: '2026-10-19T12:00:00',
+            externalUrl: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
+          },
+        ],
+      },
+    });
+    const result = await getMyPlaceRecords(
+      [10],
+      null,
+      fetchAuthenticatedJson,
+      new AbortController().signal,
+    );
+    expect(result.records[0]).toMatchObject({
+      externalUrl: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
+    });
+  });
 });

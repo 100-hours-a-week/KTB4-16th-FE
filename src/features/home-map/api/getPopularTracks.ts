@@ -6,6 +6,7 @@ export type PopularTrack = {
   musicTrackId: number;
   title: string;
   artistName: string;
+  externalUrl?: string | null;
   count: number;
 };
 
@@ -82,6 +83,8 @@ function parsePopularTrack(value: unknown): PopularTrack {
     musicTrackId: value.musicTrackId,
     title: value.title,
     artistName: value.artistName,
+    // 구버전 서버의 필드 누락은 허용하고 유효한 문자열만 플레이어에 전달한다.
+    ...(typeof value.externalUrl === 'string' ? { externalUrl: value.externalUrl } : {}),
     count: value.count,
   };
 }

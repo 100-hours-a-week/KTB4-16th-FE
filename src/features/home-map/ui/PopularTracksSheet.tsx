@@ -1,3 +1,4 @@
+import { MusicPreviewButton } from '../../../entities/music/ui/MusicPreviewButton';
 import { useEffect, useRef } from 'react';
 import type { PopularTracksResult } from '../api/getPopularTracks';
 
@@ -109,6 +110,11 @@ export function PopularTracksSheet({
                 <small>{track.artistName}</small>
               </span>
               <small className="popular-tracks-sheet-plays">{track.count}회</small>
+              <MusicPreviewButton
+                title={track.title}
+                artistName={track.artistName}
+                externalUrl={track.externalUrl}
+              />
             </article>
           ))}
         </div>
