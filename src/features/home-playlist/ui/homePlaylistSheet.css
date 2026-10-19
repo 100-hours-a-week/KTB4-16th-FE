@@ -1,11 +1,41 @@
+.home-playlist-layer {
+  /* 하단 메뉴를 포함한 홈 페이지 테두리 안에서 시트와 배경을 표시한다. */
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.home-playlist-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: rgb(51 43 74 / 32%);
+}
+
 .home-playlist-sheet {
   position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: 2;
-  max-height: calc(100% - 16px);
-  overflow-y: auto;
+  /* 긴 곡명·안내가 와도 창의 너비와 높이는 기존 영역 안으로 제한한다. */
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  /* 첫 진입부터 화면의 70%를 확보해 추천 전후의 시트 높이를 일정하게 유지한다. */
+  height: 70vh;
+  height: 70dvh;
+  max-height: min(70vh, calc(100% - max(24px, env(safe-area-inset-top))));
+  max-height: min(70dvh, calc(100% - max(24px, env(safe-area-inset-top))));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden auto;
+  overflow-wrap: anywhere;
   overscroll-behavior: contain;
   padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
   border-top: 1px solid #dccbf0;
@@ -51,6 +81,7 @@
   width: 36px;
   height: 4px;
   margin: 0 auto 12px;
+  flex-shrink: 0;
   border-radius: 4px;
   background: #dccbf0;
 }
@@ -62,12 +93,14 @@
   margin-bottom: 12px;
 }
 .home-playlist-title-row h2 {
+  min-width: 0;
   margin: 0;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 16px;
   font-weight: 600;
 }
 .home-playlist-title-row > span {
+  flex-shrink: 0;
   color: #9a90b3;
   font-size: 10.5px;
   white-space: nowrap;
@@ -76,14 +109,18 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
   padding: 8px 0;
   border-bottom: 1px solid #ece3f7;
 }
 .home-playlist-track-list {
   /* 추천 다섯 곡이 와도 하단의 새 추천 버튼을 가리지 않도록 목록 영역만 스크롤한다. */
-  max-height: min(232px, 38vh);
+  max-height: min(360px, 48dvh);
+  min-height: 0;
+  flex: 0 1 auto;
   margin: 0;
-  overflow-y: auto;
+  overflow: hidden auto;
   overscroll-behavior: contain;
   padding: 0;
   list-style: none;
@@ -118,7 +155,9 @@
 }
 .home-playlist-save-button {
   width: 100%;
-  margin-top: 10px;
+  /* 추천 목록이 비어 있어도 주요 버튼은 시트 하단에 배치한다. */
+  margin-top: auto;
+  flex-shrink: 0;
   padding: 12px;
   border-radius: 12px;
   background: linear-gradient(120deg, #5fc4a6, #3faf8e);

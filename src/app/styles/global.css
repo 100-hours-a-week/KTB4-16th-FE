@@ -17,6 +17,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* 모달이 스크롤바를 숨겨도 공간을 유지해 가운데 정렬된 화면이 움직이지 않게 한다. */
+  scrollbar-gutter: stable;
+}
+
 html,
 body,
 #root {

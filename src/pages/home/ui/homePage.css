@@ -18,6 +18,8 @@
 }
 
 .home-page {
+  /* 추천 모달이 하단 메뉴까지 덮도록 홈 전체를 배치 기준으로 삼는다. */
+  position: relative;
   display: flex;
   width: 100%;
   min-height: 100vh;
@@ -40,6 +42,20 @@
       height: 100dvh;
     }
   }
+}
+
+/* 하단 메뉴를 제외한 본문 높이를 유지한다. */
+.home-page-stage {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.home-page-navigation {
+  flex-shrink: 0;
 }
 
 .home-page-content {
