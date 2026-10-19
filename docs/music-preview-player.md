@@ -31,6 +31,15 @@
 
 브라우저 자동화가 Work 설정에서 비활성화되어 실제 소리와 모바일 배치는 직접 확인해야 한다. 단위 테스트는 패널 열기·닫기, ESC 격리, iframe 제거, URL 검증과 API 링크 전달을 검증한다.
 
+## 한국어 카드 표시
+
+- Embed URL에 `?locale=ko`를 전달해 한국어 표시를 요청한다.
+- 기존 음악 검색은 `Accept-Language: ko`로 한국어 메타데이터를 요청하지만, 브라우저 iframe에서는 URL 설정을 사용한다.
+- 동일한 곡 ID `33q2T6Bt6N1JKGQ4lSYjPm`의 공개 응답을 비교했다. 기본 URL은 `the moon of Seoul / Kim Gun Mo`, `locale=ko`는 `서울의 달 / 김건모`와 카드 언어 `ko`를 반환했다. 별도 한국어 HTTP 헤더 없이 확인했다.
+- `locale=ko_KR`와 `locale=ko-KR`는 같은 비교에서 영어 응답을 반환했다.
+- `locale`은 현재 공식 Embed API 문서의 명시된 옵션이 아니다. 실측 동작에 근거한 설정이며, 곡별 번역 제공과 향후 Spotify 동작은 보장하지 않는다. 실제 카드 버튼 문구는 브라우저 확인이 필요하다.
+- 백엔드·DB·API 계약 변경은 없다.
+
 ## 근거
 
 - [Spotify Embed 생성](https://developer.spotify.com/documentation/embeds/tutorials/creating-an-embed): 공식 iframe과 제공되는 재생 경험.

@@ -115,11 +115,11 @@ function MusicPreviewPanel({
             ×
           </button>
         </div>
-        {/* 실제 재생 조작과 제공 범위는 Spotify 공식 플레이어가 담당한다. */}
+        {/* locale는 실측에서 동작한 ko를 사용한다. 재생과 번역 제공 범위는 Spotify가 담당한다. */}
         <iframe
           key={trackId}
           title={`${title} Spotify 플레이어`}
-          src={`https://open.spotify.com/embed/track/${trackId}`}
+          src={`https://open.spotify.com/embed/track/${trackId}?locale=ko`}
           width="100%"
           height="152"
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
