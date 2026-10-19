@@ -108,7 +108,8 @@ export function MatchingPage() {
   /** 저장된 같은 사용자 요청을 복원하고, 이미 종료된 요청은 다음 새로고침에 남기지 않는다. */
   const applyMatchState = useCallback(
     (matchRequestId: number, status: MatchRequestStatus, chatRoomId: number | null) => {
-      activeMatchRequestIdRef.current = matchRequestId;
+      activeMatchRequestIdRef.current =
+        status === 'WAITING' || status === 'MATCHING' ? matchRequestId : null;
       setState((current) => ({
         ...current,
         isCreatingMatch: false,
@@ -117,11 +118,9 @@ export function MatchingPage() {
         matchStatus: status,
       }));
       if (status === 'EXPIRED') {
-        activeMatchRequestIdRef.current = null;
         clearMatchRequestSnapshot();
       }
       if (status === 'MATCHED' && chatRoomId !== null) {
-        activeMatchRequestIdRef.current = null;
         clearMatchRequestSnapshot();
         navigate(`/chat/${chatRoomId}`, { replace: true });
       }
@@ -132,6 +131,7 @@ export function MatchingPage() {
   /** 현재 요청 ID와 일치하는 서버 상태만 화면에 반영해 늦은 응답 경합을 막는다. */
   const refreshMatchState = useCallback(
     async (matchRequestId: number): Promise<void> => {
+      if (activeMatchRequestIdRef.current !== matchRequestId) return;
       try {
         const matchState = await getMatchRequestState(fetchAuthenticatedJson, matchRequestId);
         if (activeMatchRequestIdRef.current !== matchRequestId) return;

@@ -4,7 +4,7 @@ import type { PreferenceVoteResult, TodayPreferenceVote } from '../api/preferenc
 import './preferenceVote.css';
 
 type PreferenceVoteOption = 'A' | 'B';
-type MatchStatus = 'WAITING' | 'MATCHING' | 'MATCHED' | 'EXPIRED';
+type MatchStatus = 'WAITING' | 'MATCHING' | 'MATCHED' | 'EXPIRED' | 'FAILED';
 
 interface PreferenceVoteProps {
   vote: TodayPreferenceVote | null;
@@ -142,7 +142,9 @@ function MatchStatusNotice({ status }: { status: MatchStatus }) {
         ? '상대를 찾았어요. 채팅방을 준비하고 있어요.'
         : status === 'MATCHED'
           ? '채팅방으로 이동하고 있어요.'
-          : '오늘의 매칭 요청이 만료되었어요.';
+          : status === 'FAILED'
+            ? '채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'
+            : '오늘의 매칭 요청이 만료되었어요.';
   return (
     <p className="preference-vote-unavailable" role="status">
       {message}
