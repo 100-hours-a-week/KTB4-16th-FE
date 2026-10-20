@@ -102,18 +102,27 @@ describe('PreferenceVote', () => {
       matchStatus: 'MATCHING',
     });
     expect(screen.getByText('상대를 찾았어요. 채팅방을 준비하고 있어요.')).toBeVisible();
-    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
+    ).not.toBeInTheDocument();
   });
 
-  it('shows a distinct failed state and keeps matching disabled', () => {
+  it('shows a distinct failed state with GET-only status refresh and no matching POST action', async () => {
+    const user = userEvent.setup();
+    const onRefreshMatchStatus = vi.fn();
     renderVote({
       vote: { ...vote, myAnswer: '산책하면서 듣기', voteAnswerId: 43 },
       matchStatus: 'FAILED',
+      onRefreshMatchStatus,
     });
 
     expect(
-      screen.getByText('채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'),
+      screen.getByText('채팅방을 만드는 중 문제가 발생했어요. 매칭 상태를 다시 확인해 주세요.'),
     ).toBeVisible();
-    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '상태 다시 확인' }));
+    expect(onRefreshMatchStatus).toHaveBeenCalledOnce();
   });
 });

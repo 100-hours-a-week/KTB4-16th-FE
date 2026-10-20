@@ -31,3 +31,35 @@
   width: 30px;
   height: 30px;
 }
+
+.matching-inline-chat-shell {
+  width: 100%;
+  min-height: 0;
+  margin: 16px 0 28px;
+}
+
+.matching-inline-chat-shell.is-expanded {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+}
+
+.matching-inline-chat-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(42 36 56 / 48%);
+}
+
+.matching-inline-chat-shell.is-expanded .chat-room-page {
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 481px) {
+  .matching-inline-chat-shell {
+    margin-top: 20px;
+  }
+}
