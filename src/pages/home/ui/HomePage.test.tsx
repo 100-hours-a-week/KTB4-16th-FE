@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -58,7 +58,7 @@ describe('HomePage weather location handling', () => {
     vi.useRealTimers();
   });
 
-  it('shows a new notification indicator and clears it after a focused refresh finds all read', async () => {
+  it('checks unread notifications on home entry and refreshes only on re-entry', async () => {
     mocks.isAuthenticated = true;
     let readAt: string | null = null;
     mocks.fetchAuthenticatedJson.mockImplementation(async () => ({
@@ -80,14 +80,27 @@ describe('HomePage weather location handling', () => {
       },
     }));
 
-    render(<HomePage />);
+    const home = render(<HomePage />);
     expect(await screen.findByRole('status', { name: '새 알림' })).toBeInTheDocument();
+    expect(mocks.fetchAuthenticatedJson).toHaveBeenCalledTimes(1);
 
     readAt = '2026-10-12T16:03:00';
-    window.dispatchEvent(new Event('focus'));
+    vi.useFakeTimers();
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+    });
+    expect(mocks.fetchAuthenticatedJson).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('status', { name: '새 알림' })).toBeInTheDocument();
+    vi.useRealTimers();
+
+    home.unmount();
+    render(<HomePage />);
     await waitFor(() =>
       expect(screen.queryByRole('status', { name: '새 알림' })).not.toBeInTheDocument(),
     );
+    expect(mocks.fetchAuthenticatedJson).toHaveBeenCalledTimes(2);
   });
 
   it('renders home without an onboarding dialog', async () => {
