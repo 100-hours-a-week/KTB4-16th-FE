@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -99,6 +99,111 @@ function card(id: number) {
 }
 
 describe('MemorySearchPage', () => {
+  it.each([
+    { readingHistory: false, expectedTop: 900 },
+    { readingHistory: true, expectedTop: 0 },
+  ])(
+    '새 질문은 하단으로 이동하고 답변 도착 시 과거 읽기=$readingHistory 위치를 존중한다',
+    async ({ readingHistory, expectedTop }) => {
+      let resolveSearch!: (result: Awaited<ReturnType<typeof searchMemory>>) => void;
+      vi.mocked(searchMemory).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSearch = resolve;
+          }),
+      );
+      const user = userEvent.setup();
+      renderPage();
+      const input = screen.getByRole('textbox', { name: '기억 검색 질문' });
+      await waitFor(() => expect(input).toBeEnabled());
+      const viewport = screen.getByRole('region', { name: '기억 검색 대화' });
+      let contentHeight = 1_000;
+      // JSDOM에는 레이아웃이 없으므로 실제 스크롤 영역의 높이만 고정한다.
+      Object.defineProperties(viewport, {
+        clientHeight: { configurable: true, value: 300 },
+        scrollHeight: { configurable: true, get: () => contentHeight },
+      });
+      viewport.scrollTop = 0;
+      fireEvent.scroll(viewport);
+      await user.type(input, '가을에 공원에서 들었던 노래');
+      await user.click(screen.getByRole('button', { name: '질문 보내기' }));
+      await waitFor(() => expect(viewport.scrollTop).toBe(700));
+
+      viewport.scrollTop = readingHistory ? 0 : 700;
+      fireEvent.scroll(viewport);
+      contentHeight = 1_200;
+      await act(async () => {
+        resolveSearch({
+          answer: '가을 기억을 찾아봤어요.',
+          records: [card(1)],
+          suggestedRecords: [],
+        });
+      });
+      await waitFor(() => expect(viewport.scrollTop).toBe(expectedTop));
+
+      if (readingHistory) {
+        await user.click(await screen.findByRole('button', { name: '새 답변 보기' }));
+        expect(viewport.scrollTop).toBe(900);
+        expect(screen.getByRole('group', { name: '최근 검색 결과' })).toHaveFocus();
+      }
+      expect(screen.queryByRole('button', { name: '새 답변 보기' })).not.toBeInTheDocument();
+    },
+  );
+
+  it('입장 확인 중에는 입력을 막고 보유 여부를 확인한 뒤 첫 인사로 전환한다', async () => {
+    let resolveCount!: (count: number) => void;
+    vi.mocked(getMemoryRecordCount).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCount = resolve;
+        }),
+    );
+    renderPage();
+
+    expect(screen.getByRole('status', { name: '자물쇠 확인 중' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '기억 검색 질문' })).toBeDisabled();
+    expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument();
+    expect(createMemorySearchConversation).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveCount(8);
+    });
+    expect(
+      await screen.findByRole('heading', { name: /어떤 기억을 찾고 싶으세요/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: '자물쇠 확인 중' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '기억 검색 질문' })).toBeEnabled();
+  });
+
+  it('요청 중인 질문과 응답 대기 상태를 표시하고 완료 후에는 결과로 교체한다', async () => {
+    let resolveSearch!: (result: Awaited<ReturnType<typeof searchMemory>>) => void;
+    vi.mocked(searchMemory).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSearch = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    const input = screen.getByRole('textbox', { name: '기억 검색 질문' });
+    await waitFor(() => expect(input).toBeEnabled());
+    await user.type(input, '비 오는 날 공원에서 들었던 노래');
+    await user.click(screen.getByRole('button', { name: '질문 보내기' }));
+
+    expect(screen.getByText('비 오는 날 공원에서 들었던 노래')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'AI 응답 대기 중' })).toBeInTheDocument();
+    expect(input).toBeDisabled();
+    expect(screen.getByRole('button', { name: '질문 보내기' })).toBeDisabled();
+
+    await act(async () => {
+      resolveSearch({ answer: '기억을 살펴봤어요.', records: [card(1)], suggestedRecords: [] });
+    });
+    expect(await screen.findByText('기억을 살펴봤어요.')).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'AI 응답 대기 중' })).not.toBeInTheDocument();
+    expect(screen.getAllByText('비 오는 날 공원에서 들었던 노래')).toHaveLength(1);
+    expect(input).toBeEnabled();
+  });
+
   it('계정 전환 전의 성공 응답이 새 계정의 작성 중 질문을 지우지 않는다', async () => {
     let resolveOldRequest!: (result: Awaited<ReturnType<typeof searchMemory>>) => void;
     vi.mocked(searchMemory).mockImplementation(
@@ -218,10 +323,25 @@ describe('MemorySearchPage', () => {
 
     expect(await screen.findByText('가을 기억을 살펴봤어요.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '노래6 상세보기' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '전체보기 (6건)' }));
+    const opener = screen.getByRole('button', { name: '전체보기 (6건)' });
+    await user.click(opener);
     const sheet = screen.getByRole('dialog', { name: '전체보기' });
     expect(within(sheet).getAllByRole('button', { name: /상세보기/ })).toHaveLength(6);
-    await user.click(within(sheet).getByRole('button', { name: '노래6 상세보기' }));
+    const close = within(sheet).getByRole('button', { name: '전체보기 닫기' });
+    expect(close).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(within(sheet).getByRole('button', { name: '노래6 상세보기' })).toHaveFocus();
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab();
+    expect(within(sheet).getByRole('button', { name: '노래1 상세보기' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: '전체보기' })).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+
+    await user.click(opener);
+    const reopenedSheet = screen.getByRole('dialog', { name: '전체보기' });
+    await user.click(within(reopenedSheet).getByRole('button', { name: '노래6 상세보기' }));
     await user.click(screen.getByRole('button', { name: '상세 닫기' }));
     expect(screen.getByRole('dialog', { name: '전체보기' })).toBeInTheDocument();
     expect(deleteMemorySearchConversation).not.toHaveBeenCalled();
@@ -257,10 +377,14 @@ describe('MemorySearchPage', () => {
     await waitFor(() => expect(input).toBeEnabled());
     await user.type(input, '가을');
     await user.click(screen.getByRole('button', { name: '질문 보내기' }));
-    expect(await screen.findByText('새 대화창을 시작해주세요.')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: '새 대화를 시작해 주세요' }),
+    ).toBeInTheDocument();
+    expect(input).toBeDisabled();
     expect(createMemorySearchConversation).toHaveBeenCalledOnce();
     await user.click(screen.getByRole('button', { name: '새 대화 시작' }));
     await waitFor(() => expect(createMemorySearchConversation).toHaveBeenCalledTimes(2));
+    expect(input).toBeEnabled();
   });
 
   it('정확히 5건이면 전체보기 버튼을 표시하지 않는다', async () => {
