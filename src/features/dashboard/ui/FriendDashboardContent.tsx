@@ -176,7 +176,7 @@ export function FriendDashboardContent({ friendUserId }: { friendUserId: number 
     <div className="friend-dashboard-content">
       <section className="friend-dashboard-summary" aria-label="친구 프로필">
         <strong>{dashboard.nickname}</strong>
-        <span>FRIEND DASHBOARD</span>
+        <span>함께 나누는 음악과 기억</span>
         <small>자물쇠 {dashboard.recordsCount}개</small>
       </section>
 
@@ -229,13 +229,19 @@ export function FriendDashboardContent({ friendUserId }: { friendUserId: number 
                 <Link
                   className="dashboard-record"
                   key={record.recordId}
-                  to={`/records/${record.recordId}?origin=friend`}
+                  data-record-id={record.recordId}
+                  to={`/friends/${friendUserId}/dashboard/records/${record.recordId}`}
+                  state={{ friendDashboardId: friendUserId }}
                 >
                   {record.albumImageUrl ? (
                     <span className="dashboard-cover">
                       <img
                         alt={`${record.title} - ${record.artistName} 앨범 커버`}
                         src={record.albumImageUrl}
+                        loading="lazy"
+                        decoding="async"
+                        width={48}
+                        height={48}
                       />
                     </span>
                   ) : (
