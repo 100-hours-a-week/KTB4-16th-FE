@@ -17,9 +17,12 @@ type LoadState = 'loading' | 'ready' | 'error';
 export function LockDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { recordId: recordIdParam } = useParams();
+  const { recordId: recordIdParam, friendUserId: friendUserIdParam } = useParams();
+  const friendUserId = Number(friendUserIdParam);
+  const isNestedFriendDetail = Number.isSafeInteger(friendUserId) && friendUserId > 0;
   const { fetchAuthenticatedJson } = useSession();
-  const isFriendOrigin = new URLSearchParams(location.search).get('origin') === 'friend';
+  const isFriendOrigin =
+    isNestedFriendDetail || new URLSearchParams(location.search).get('origin') === 'friend';
   const requestIdRef = useRef(0);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [detail, setDetail] = useState<LockDetailData | null>(null);
@@ -65,7 +68,22 @@ export function LockDetailPage() {
     };
   }, [fetchAuthenticatedJson, isFriendOrigin, navigate, recordIdParam]);
 
+  /** 목록에서 연 상세는 같은 기록으로 돌아가고 직접 진입은 친구의 목록으로 안전하게 닫는다. */
   const closeDetail = () => {
+    if (isNestedFriendDetail) {
+      const state: unknown = location.state;
+      if (
+        typeof state === 'object' &&
+        state !== null &&
+        'friendDashboardId' in state &&
+        state.friendDashboardId === friendUserId
+      ) {
+        navigate(-1);
+      } else {
+        navigate(`/friends/${friendUserId}/dashboard`, { replace: true });
+      }
+      return;
+    }
     if (isFriendOrigin) {
       navigate('/friends', { replace: true });
       return;

@@ -64,7 +64,7 @@ describe('FriendDashboardContent', () => {
     expect(await screen.findByText('밤편지')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /밤편지/ })).toHaveAttribute(
       'href',
-      '/records/15?origin=friend',
+      '/friends/22/dashboard/records/15',
     );
     expect(mocks.getFriendRegionRecords).toHaveBeenCalledWith(
       22,
@@ -90,7 +90,7 @@ describe('FriendDashboardContent', () => {
 
     expect(await screen.findByText('친구가 아직 자물쇠를 만들지 않았어요.')).toBeInTheDocument();
     const profile = screen.getByRole('region', { name: '친구 프로필' });
-    expect(profile.textContent).toMatch(/^지수FRIEND DASHBOARD자물쇠 0개$/);
+    expect(profile.textContent).toMatch(/^지수함께 나누는 음악과 기억자물쇠 0개$/);
   });
 
   it('appends the next cursor page without replacing the first page', async () => {

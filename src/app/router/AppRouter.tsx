@@ -71,7 +71,9 @@ export function AppRouter() {
             isAuthenticated,
             <FriendDashboardPage />,
           )}
-        />
+        >
+          <Route path="records/:recordId" element={<LockDetailPage />} />
+        </Route>
         <Route
           path="/report"
           element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <ReportPage />)}
