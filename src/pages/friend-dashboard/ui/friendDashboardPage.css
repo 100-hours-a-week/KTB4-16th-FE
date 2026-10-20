@@ -1,6 +1,90 @@
+.friend-dashboard-page .static-page-header {
+  margin-bottom: 24px;
+}
+.friend-dashboard-page .static-page-title {
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
 .friend-dashboard-back-link {
-  color: #7655ae;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #694993;
+  font-size: 13px;
   font-weight: 700;
   text-decoration: none;
+}
+.friend-dashboard-page .friend-dashboard-summary {
+  display: grid;
+  gap: 7px;
+  padding: 22px;
+  border-radius: 22px;
+  background: linear-gradient(120deg, #eee6f8, #faf2ea);
+}
+.friend-dashboard-page .friend-dashboard-summary strong {
+  color: #403154;
+  font-size: 24px;
+}
+.friend-dashboard-page .friend-dashboard-summary span {
+  color: #6c6285;
+  font-size: 13px;
+  letter-spacing: normal;
+}
+.friend-dashboard-page .friend-dashboard-summary small {
+  color: #65478c;
+  font-size: 13px;
+}
+.friend-dashboard-page .dashboard-eyebrow {
+  color: #6c6285;
+  font-size: 12px;
+}
+.friend-dashboard-page .dashboard-detail-heading h2 {
+  font-size: 21px;
+}
+.friend-dashboard-page .dashboard-detail-heading span {
+  color: #6c6285;
+  font-size: 13px;
+}
+.friend-dashboard-page .dashboard-record {
+  min-height: 76px;
+  padding: 14px;
+  gap: 12px;
+  border-radius: 18px;
+}
+.friend-dashboard-page .dashboard-record strong {
+  font-size: 15px;
+}
+.friend-dashboard-page .dashboard-record small {
+  color: #6c6285;
+  font-size: 12px;
+}
+.friend-dashboard-page .dashboard-cover {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
+  border-radius: 14px;
+}
+.friend-dashboard-page :is(.dashboard-close, .dashboard-more, .dashboard-retry) {
+  min-height: 44px;
+  font-size: 13px;
+  color: #694993;
+}
+.friend-dashboard-page .dashboard-region {
+  min-height: 84px;
+  border-radius: 18px;
+}
+.friend-dashboard-page .dashboard-region strong {
+  font-size: 16px;
+}
+.friend-dashboard-page .dashboard-region span {
+  color: #6c6285;
+  font-size: 13px;
+}
+.friend-dashboard-page .dashboard-status {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.friend-dashboard-page :is(button, a):focus-visible {
+  outline: 3px solid #7952b4;
+  outline-offset: 3px;
 }

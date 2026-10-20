@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import {
   createMatchRequest,
+  getMatchRequestByVoteAnswer,
   getMatchRequestState,
   type MatchRequestStatus,
 } from '../../../features/matching/api/matchRequestApi';
 import {
   clearMatchRequestSnapshot,
-  loadMatchRequestSnapshot,
   readMatchRequestUserId,
   saveMatchRequestSnapshot,
 } from '../../../features/matching/model/matchRequestSnapshot';
+import {
+  clearMatchedChatRoomSnapshot,
+  saveMatchedChatRoomSnapshot,
+} from '../../../features/matching/model/matchedChatRoomSnapshot';
 import {
   getTodayPreferenceVote,
   submitPreferenceVote,
@@ -21,6 +25,7 @@ import {
 } from '../../../features/preference-vote/api/preferenceVoteApi';
 import { PreferenceVote } from '../../../features/preference-vote/ui/PreferenceVote';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
+import { ChatRoomPage } from '../../chat-room/ui/ChatRoomPage';
 import { ApiError } from '../../../shared/api/apiError';
 import '../../pageShell.css';
 import './matchingPage.css';
@@ -32,6 +37,8 @@ interface VotePageState {
   isLoading: boolean;
   isSubmitting: boolean;
   isCreatingMatch: boolean;
+  isRestoringMatch: boolean;
+  matchLookupFailed: boolean;
   matchStatus: MatchRequestStatus | null;
   matchRequestId: number | null;
   matchErrorMessage: string | null;
@@ -43,6 +50,8 @@ const initialVotePageState: VotePageState = {
   isLoading: true,
   isSubmitting: false,
   isCreatingMatch: false,
+  isRestoringMatch: false,
+  matchLookupFailed: false,
   matchStatus: null,
   matchRequestId: null,
   matchErrorMessage: null,
@@ -54,15 +63,123 @@ const MATCH_POLL_INTERVAL_MS = 3_000;
 export function MatchingPage() {
   const { accessToken, fetchAuthenticatedJson } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
   const [state, setState] = useState<VotePageState>(initialVotePageState);
+  const [matchedChatRoomId, setMatchedChatRoomId] = useState<number | null>(null);
   const activeMatchRequestIdRef = useRef<number | null>(null);
   const matchRequestPromiseRef = useRef<Promise<void> | null>(null);
   const voteRequestRef = useRef<Promise<void> | null>(null);
   const voteRequestIdRef = useRef(0);
+  const matchRestoreRef = useRef<{
+    voteAnswerId: number;
+    voteRequestId: number;
+    promise: Promise<void>;
+  } | null>(null);
+
+  /** Keeps the request snapshot synchronized with server-confirmed match state. */
+  const applyMatchState = useCallback(
+    (matchRequestId: number, status: MatchRequestStatus, chatRoomId: number | null) => {
+      activeMatchRequestIdRef.current =
+        status === 'WAITING' || status === 'MATCHING' ? matchRequestId : null;
+      setState((current) => ({
+        ...current,
+        isCreatingMatch: false,
+        isRestoringMatch: false,
+        matchLookupFailed: false,
+        matchErrorMessage: null,
+        matchRequestId,
+        matchStatus: status,
+      }));
+      if (status === 'EXPIRED') clearMatchRequestSnapshot();
+      if (status === 'MATCHED' && chatRoomId !== null) {
+        clearMatchRequestSnapshot();
+        setMatchedChatRoomId(chatRoomId);
+        const userId = accessToken ? readMatchRequestUserId(accessToken) : null;
+        if (userId) saveMatchedChatRoomSnapshot(userId, { chatRoomId });
+      } else {
+        setMatchedChatRoomId(null);
+      }
+    },
+    [accessToken],
+  );
+
+  /** Recovers an existing request by the server-owned vote answer instead of creating a duplicate. */
+  const restoreMatchForVote = useCallback(
+    async (voteAnswerId: number, voteRequestId: number): Promise<void> => {
+      if (
+        matchRestoreRef.current?.voteAnswerId === voteAnswerId &&
+        matchRestoreRef.current.voteRequestId === voteRequestId
+      ) {
+        return matchRestoreRef.current.promise;
+      }
+      const userId = accessToken ? readMatchRequestUserId(accessToken) : null;
+      if (!userId) {
+        setState((current) => ({
+          ...current,
+          isRestoringMatch: false,
+          matchLookupFailed: true,
+          matchErrorMessage: '로그인 정보를 확인하지 못했어요. 다시 로그인해 주세요.',
+        }));
+        return;
+      }
+
+      setState((current) => ({
+        ...current,
+        isRestoringMatch: true,
+        matchLookupFailed: false,
+        matchErrorMessage: null,
+      }));
+      const request = (async () => {
+        try {
+          const existing = await getMatchRequestByVoteAnswer(fetchAuthenticatedJson, voteAnswerId);
+          if (voteRequestIdRef.current !== voteRequestId) return;
+          saveMatchRequestSnapshot(userId, { matchRequestId: existing.matchRequestId });
+          applyMatchState(existing.matchRequestId, existing.status, existing.chatRoomId);
+        } catch (error: unknown) {
+          if (voteRequestIdRef.current !== voteRequestId) return;
+          if (
+            error instanceof ApiError &&
+            error.status === 404 &&
+            error.code === 'MATCH_REQUEST_NOT_FOUND'
+          ) {
+            activeMatchRequestIdRef.current = null;
+            clearMatchRequestSnapshot();
+            clearMatchedChatRoomSnapshot({ userId });
+            setMatchedChatRoomId(null);
+            setState((current) => ({
+              ...current,
+              isRestoringMatch: false,
+              matchLookupFailed: false,
+              matchRequestId: null,
+              matchStatus: null,
+              matchErrorMessage: null,
+            }));
+            return;
+          }
+          setState((current) => ({
+            ...current,
+            isRestoringMatch: false,
+            matchLookupFailed: true,
+            matchErrorMessage: getMatchErrorMessage(error),
+          }));
+        }
+      })();
+      const entry = { voteAnswerId, voteRequestId, promise: request };
+      matchRestoreRef.current = entry;
+      try {
+        await request;
+      } finally {
+        if (matchRestoreRef.current === entry) matchRestoreRef.current = null;
+      }
+    },
+    [accessToken, applyMatchState, fetchAuthenticatedJson],
+  );
+
   const loadVote = useCallback((): Promise<void> => {
     if (voteRequestRef.current) return voteRequestRef.current;
 
     const requestId = ++voteRequestIdRef.current;
+    activeMatchRequestIdRef.current = null;
     setState((current) => ({
       ...current,
       vote: null,
@@ -70,7 +187,13 @@ export function MatchingPage() {
       errorMessage: null,
       isLoading: true,
       isSubmitting: false,
+      isRestoringMatch: false,
+      matchLookupFailed: false,
+      matchStatus: null,
+      matchRequestId: null,
+      matchErrorMessage: null,
     }));
+    setMatchedChatRoomId(null);
     const request = (async () => {
       try {
         const vote = await getTodayPreferenceVote(fetchAuthenticatedJson);
@@ -82,7 +205,24 @@ export function MatchingPage() {
           errorMessage: null,
           isLoading: false,
           isSubmitting: false,
+          isRestoringMatch: vote.voteAnswerId !== null,
+          matchLookupFailed: false,
         }));
+        if (vote.voteAnswerId !== null) {
+          await restoreMatchForVote(vote.voteAnswerId, requestId);
+        } else {
+          activeMatchRequestIdRef.current = null;
+          clearMatchRequestSnapshot();
+          setMatchedChatRoomId(null);
+          setState((current) => ({
+            ...current,
+            matchRequestId: null,
+            matchStatus: null,
+            isRestoringMatch: false,
+            matchLookupFailed: false,
+            matchErrorMessage: null,
+          }));
+        }
       } catch (error: unknown) {
         if (voteRequestIdRef.current !== requestId) return;
         setState((current) => ({
@@ -92,6 +232,7 @@ export function MatchingPage() {
           errorMessage: getVoteErrorMessage(error),
           isLoading: false,
           isSubmitting: false,
+          isRestoringMatch: false,
         }));
       }
     })();
@@ -100,38 +241,15 @@ export function MatchingPage() {
       if (voteRequestRef.current === request) voteRequestRef.current = null;
     });
     return request;
-  }, [fetchAuthenticatedJson]);
+  }, [fetchAuthenticatedJson, restoreMatchForVote]);
   useEffect(() => {
     void loadVote();
   }, [loadVote]);
 
-  /** 저장된 같은 사용자 요청을 복원하고, 이미 종료된 요청은 다음 새로고침에 남기지 않는다. */
-  const applyMatchState = useCallback(
-    (matchRequestId: number, status: MatchRequestStatus, chatRoomId: number | null) => {
-      activeMatchRequestIdRef.current = matchRequestId;
-      setState((current) => ({
-        ...current,
-        isCreatingMatch: false,
-        matchErrorMessage: null,
-        matchRequestId,
-        matchStatus: status,
-      }));
-      if (status === 'EXPIRED') {
-        activeMatchRequestIdRef.current = null;
-        clearMatchRequestSnapshot();
-      }
-      if (status === 'MATCHED' && chatRoomId !== null) {
-        activeMatchRequestIdRef.current = null;
-        clearMatchRequestSnapshot();
-        navigate(`/chat/${chatRoomId}`, { replace: true });
-      }
-    },
-    [navigate],
-  );
-
   /** 현재 요청 ID와 일치하는 서버 상태만 화면에 반영해 늦은 응답 경합을 막는다. */
   const refreshMatchState = useCallback(
     async (matchRequestId: number): Promise<void> => {
+      if (activeMatchRequestIdRef.current !== matchRequestId) return;
       try {
         const matchState = await getMatchRequestState(fetchAuthenticatedJson, matchRequestId);
         if (activeMatchRequestIdRef.current !== matchRequestId) return;
@@ -140,33 +258,31 @@ export function MatchingPage() {
         if (activeMatchRequestIdRef.current !== matchRequestId) return;
         if (error instanceof ApiError && error.code === 'MATCH_REQUEST_NOT_FOUND') {
           activeMatchRequestIdRef.current = null;
-          clearMatchRequestSnapshot();
-          setState((current) => ({
-            ...current,
-            matchRequestId: null,
-            matchStatus: null,
-            matchErrorMessage: '매칭 요청을 찾을 수 없어요. 다시 요청해 주세요.',
-          }));
+          const voteAnswerId = state.vote?.voteAnswerId;
+          if (voteAnswerId != null) {
+            void restoreMatchForVote(voteAnswerId, voteRequestIdRef.current);
+          } else {
+            setState((current) => ({
+              ...current,
+              matchLookupFailed: true,
+              matchErrorMessage: '매칭 상태를 확인하지 못했어요. 다시 조회해 주세요.',
+            }));
+          }
           return;
         }
         setState((current) => ({ ...current, matchErrorMessage: getMatchErrorMessage(error) }));
       }
     },
-    [applyMatchState, fetchAuthenticatedJson],
+    [applyMatchState, fetchAuthenticatedJson, restoreMatchForVote, state.vote],
   );
 
-  useEffect(() => {
-    if (!accessToken) return;
-    const userId = readMatchRequestUserId(accessToken);
-    if (!userId) {
-      clearMatchRequestSnapshot();
-      return;
-    }
-    const snapshot = loadMatchRequestSnapshot(userId);
-    if (!snapshot) return;
-    activeMatchRequestIdRef.current = snapshot.matchRequestId;
-    void refreshMatchState(snapshot.matchRequestId);
-  }, [accessToken, refreshMatchState]);
+  /** Allows a user-triggered GET refresh for terminal states without enabling another POST. */
+  const refreshCurrentMatchStatus = useCallback(() => {
+    const matchRequestId = state.matchRequestId;
+    if (matchRequestId === null) return;
+    activeMatchRequestIdRef.current = matchRequestId;
+    void refreshMatchState(matchRequestId);
+  }, [refreshMatchState, state.matchRequestId]);
 
   useEffect(() => {
     if (
@@ -222,6 +338,8 @@ export function MatchingPage() {
     if (
       !state.vote?.voteAnswerId ||
       state.isCreatingMatch ||
+      state.isRestoringMatch ||
+      state.matchLookupFailed ||
       state.matchStatus !== null ||
       matchRequestPromiseRef.current
     ) {
@@ -236,15 +354,25 @@ export function MatchingPage() {
       return;
     }
     setState((current) => ({ ...current, isCreatingMatch: true, matchErrorMessage: null }));
-    const promise = createMatchRequest(fetchAuthenticatedJson, state.vote.voteAnswerId)
+    const voteAnswerId = state.vote.voteAnswerId;
+    const promise = createMatchRequest(fetchAuthenticatedJson, voteAnswerId)
       .then((created) => {
         saveMatchRequestSnapshot(userId, { matchRequestId: created.matchRequestId });
         applyMatchState(created.matchRequestId, created.status, null);
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
+        if (
+          error instanceof ApiError &&
+          error.status === 409 &&
+          error.code === 'MATCH_REQUEST_ALREADY_EXISTS'
+        ) {
+          await restoreMatchForVote(voteAnswerId, voteRequestIdRef.current);
+          return;
+        }
         setState((current) => ({
           ...current,
           isCreatingMatch: false,
+          matchLookupFailed: true,
           matchErrorMessage: getMatchErrorMessage(error),
         }));
       })
@@ -256,19 +384,83 @@ export function MatchingPage() {
     accessToken,
     applyMatchState,
     fetchAuthenticatedJson,
+    restoreMatchForVote,
+    state.isRestoringMatch,
+    state.matchLookupFailed,
     state.isCreatingMatch,
     state.matchStatus,
     state.vote,
   ]);
   /** 매칭 오류는 기존 요청 상태를 다시 읽거나, 생성 실패라면 같은 답변으로 다시 요청한다. */
   const retryMatching = useCallback(() => {
+    if (state.matchLookupFailed && state.vote?.voteAnswerId != null) {
+      void restoreMatchForVote(state.vote.voteAnswerId, voteRequestIdRef.current);
+      return;
+    }
     if (state.matchRequestId !== null) {
       activeMatchRequestIdRef.current = state.matchRequestId;
       void refreshMatchState(state.matchRequestId);
       return;
     }
     startMatching();
-  }, [refreshMatchState, startMatching, state.matchRequestId]);
+  }, [
+    refreshMatchState,
+    restoreMatchForVote,
+    startMatching,
+    state.matchLookupFailed,
+    state.matchRequestId,
+    state.vote,
+  ]);
+
+  const isChatExpanded = isRecord(location.state) && location.state.inlineChatExpanded === true;
+  const setChatExpanded = useCallback(
+    (expanded: boolean, replace = false) => {
+      navigate('/matching', {
+        replace,
+        state: {
+          ...(isRecord(location.state) ? location.state : {}),
+          inlineChatExpanded: expanded,
+        },
+      });
+    },
+    [location.state, navigate],
+  );
+
+  useEffect(() => {
+    if (!isChatExpanded) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        document.querySelector('[role="dialog"], [role="menu"]')
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setChatExpanded(false, true);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isChatExpanded, setChatExpanded]);
+
+  const handleInlineChatLeave = useCallback(() => {
+    const userId = accessToken ? readMatchRequestUserId(accessToken) : null;
+    if (userId && matchedChatRoomId !== null) {
+      clearMatchedChatRoomSnapshot({ userId, chatRoomId: matchedChatRoomId });
+    }
+    setMatchedChatRoomId(null);
+    setChatExpanded(false, true);
+  }, [accessToken, matchedChatRoomId, setChatExpanded]);
+
+  const handleInlineChatSnapshotInvalidated = useCallback(
+    (chatRoomId: string) => {
+      const userId = accessToken ? readMatchRequestUserId(accessToken) : null;
+      const numericRoomId = Number(chatRoomId);
+      if (!userId || !Number.isSafeInteger(numericRoomId) || numericRoomId <= 0) return;
+      clearMatchedChatRoomSnapshot({ userId, chatRoomId: numericRoomId });
+    },
+    [accessToken],
+  );
   return (
     <main className="static-page">
       <div className="static-page-content matching-page-content">
@@ -285,16 +477,40 @@ export function MatchingPage() {
           isMatching={state.isCreatingMatch}
           isSubmitting={state.isSubmitting}
           matchStatus={state.matchStatus}
+          isRestoringMatch={state.isRestoringMatch}
+          isMatchLookupFailed={state.matchLookupFailed}
+          onRefreshMatchStatus={refreshCurrentMatchStatus}
           result={state.result}
           vote={state.vote}
           onRetry={state.matchErrorMessage ? retryMatching : () => void loadVote()}
           onStartMatching={startMatching}
           onSubmit={(selectedOption) => void submitVote(selectedOption)}
         />
+        {matchedChatRoomId !== null ? (
+          <div className={`matching-inline-chat-shell${isChatExpanded ? ' is-expanded' : ''}`}>
+            {isChatExpanded ? (
+              <div aria-hidden="true" className="matching-inline-chat-backdrop" />
+            ) : null}
+            <ChatRoomPage
+              key={matchedChatRoomId}
+              embeddedRoomId={String(matchedChatRoomId)}
+              inlineMode
+              expanded={isChatExpanded}
+              onToggleExpanded={(expanded) => setChatExpanded(expanded, !expanded)}
+              onLeaveSuccess={handleInlineChatLeave}
+              onRoomSnapshotInvalidated={handleInlineChatSnapshotInvalidated}
+            />
+          </div>
+        ) : null}
       </div>
       <MainNavigation activeItem="home" />
     </main>
   );
+}
+
+/** Restricts navigation state reads to plain objects before merging UI-only flags. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** API 오류 코드를 매칭 화면에서 다음 행동이 명확한 안내로 변환한다. */

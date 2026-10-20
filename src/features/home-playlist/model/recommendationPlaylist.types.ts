@@ -4,9 +4,15 @@ export type RecommendationCoordinates = {
   longitude: number;
 };
 
+/** 이번 추천 화면에서 누적한 외부 곡 ID를 좌표와 함께 전달한다. */
+export type RecommendationPlaylistRequest = RecommendationCoordinates & {
+  excludeTrackIds: string[];
+};
+
 /** 추천 플레이리스트 안의 서버 저장 음악 한 곡을 표현한다. */
 export type RecommendationTrack = {
   musicTrackId: number;
+  externalTrackId: string;
   title: string;
   artistName: string;
   albumImageUrl: string;

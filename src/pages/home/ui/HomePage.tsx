@@ -10,41 +10,25 @@ import { hasUnreadNotifications } from '../../../features/notification/api/notif
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
 import './homePage.css';
 
-/** 로그인 중에만 미읽음 여부를 조회하고 홈의 새 알림 점을 표시한다. */
+/** 로그인한 사용자의 홈 진입 시 미읽음 여부를 확인해 새 알림 점을 표시한다. */
 function HomeNotificationIndicator({ request }: { request: AuthenticatedApiClient['fetchJson'] }) {
   const [hasUnread, setHasUnread] = useState(false);
 
   useEffect(() => {
     let active = true;
-    let controller: AbortController | null = null;
-    /** 새 조회가 시작되면 이전 조회를 취소하고 현재 서버의 미읽음 여부를 반영한다. */
-    const refreshUnread = () => {
-      controller?.abort();
-      const nextController = new AbortController();
-      controller = nextController;
-      void hasUnreadNotifications(request, nextController.signal)
-        .then((unread) => {
-          if (active && !nextController.signal.aborted) setHasUnread(unread);
-        })
-        .catch(() => {
-          // 일시적인 조회 실패에는 마지막으로 확인한 표시를 유지한다.
-        });
-    };
-    /** 숨겨진 탭에서는 조회하지 않고 다시 보일 때 최신 상태를 확인한다. */
-    const refreshWhenVisible = () => {
-      if (!document.hidden) refreshUnread();
-    };
+    const controller = new AbortController();
+    // 홈 진입 시 확인하고, 머무는 동안에는 타이머나 포커스로 재조회하지 않는다.
+    void hasUnreadNotifications(request, controller.signal)
+      .then((unread) => {
+        if (active && !controller.signal.aborted) setHasUnread(unread);
+      })
+      .catch(() => {
+        // 조회 실패 시 홈 화면은 유지하고 다음 홈 진입에서 다시 확인한다.
+      });
 
-    refreshUnread();
-    const interval = window.setInterval(refreshWhenVisible, 60_000);
-    window.addEventListener('focus', refreshWhenVisible);
-    document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       active = false;
-      controller?.abort();
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshWhenVisible);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      controller.abort();
     };
   }, [request]);
 
@@ -97,10 +81,10 @@ export function HomePage() {
   function finishClosingPlaylist() {
     if (!isPlaylistOpen) {
       setIsPlaylistVisible(false);
-      playlistTriggerRef.current?.focus();
     }
   }
 
+  /** 추천 시트의 확인 절차가 끝난 뒤 닫힘 애니메이션을 시작한다. */
   function closePlaylist() {
     setIsPlaylistRequested(false);
     if (openAnimationFrameRef.current !== null) {
@@ -110,99 +94,113 @@ export function HomePage() {
     setIsPlaylistOpen(false);
   }
 
+  useEffect(() => {
+    if (!isPlaylistVisible) playlistTriggerRef.current?.focus();
+  }, [isPlaylistVisible]);
+
+  useEffect(() => {
+    if (!isPlaylistVisible || isPlaylistOpen) return;
+    // transitionend가 발생하지 않는 환경에서도 닫은 세션은 제거한다.
+    const timeout = window.setTimeout(() => setIsPlaylistVisible(false), 320);
+    return () => window.clearTimeout(timeout);
+  }, [isPlaylistVisible, isPlaylistOpen]);
+
   return (
-    <main className="home-page" onClick={() => isPlaylistOpen && closePlaylist()}>
-      <div className="home-page-content">
-        <header className="home-topbar">
-          <h1 className="home-topbar__brand">MULO</h1>
-          <div className="home-topbar-actions">
-            {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
-            <HomeWeather coordinates={currentLocation} />
+    <main className="home-page">
+      <div className="home-page-stage">
+        <div className="home-page-content" inert={isPlaylistVisible}>
+          <header className="home-topbar">
+            <h1 className="home-topbar__brand">MULO</h1>
+            <div className="home-topbar-actions">
+              {/* 실제 위치를 확보한 경우에만 현재 날씨를 조회한다. */}
+              <HomeWeather coordinates={currentLocation} />
+              <button
+                aria-label="알림 목록"
+                className="home-notification-button"
+                type="button"
+                onClick={() => navigate('/notifications')}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M12 2V1" />
+                </svg>
+                {isAuthenticated && !isSessionRestoring ? (
+                  <HomeNotificationIndicator request={fetchAuthenticatedJson} />
+                ) : null}
+              </button>
+            </div>
+          </header>
+
+          <button
+            className="home-memory-search"
+            type="button"
+            onClick={() => navigate('/memory-search')}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <span>“비 오던 날 홍대에서 들었던 노래” 같은 기억, 물어보세요</span>
+          </button>
+
+          <section className="home-shortcuts" aria-label="추천 기능">
             <button
-              aria-label="알림 목록"
-              className="home-notification-button"
+              className="home-shortcut-card"
               type="button"
-              onClick={() => navigate('/notifications')}
+              onClick={(event) => {
+                event.stopPropagation();
+                openPlaylist(event.currentTarget);
+              }}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M12 2V1" />
-              </svg>
-              {isAuthenticated && !isSessionRestoring ? (
-                <HomeNotificationIndicator request={fetchAuthenticatedJson} />
-              ) : null}
+              <span className="home-shortcut-icon" aria-hidden="true">
+                🎧
+              </span>
+              <span>
+                <strong>지금 나를 위한 플레이리스트</strong>
+                <small>위치·날씨·시간·히스토리 기반 추천</small>
+              </span>
+            </button>
+            <button
+              className="home-shortcut-card home-shortcut-card--matching"
+              type="button"
+              onClick={() => navigate('/matching')}
+            >
+              <span className="home-shortcut-icon home-shortcut-icon--matching" aria-hidden="true">
+                💬
+              </span>
+              <span>
+                <strong>취향 투표로 랜덤 채팅</strong>
+                <small>회원님이 좋아할 만한 취향 투표 질문을 준비했어요</small>
+              </span>
+            </button>
+          </section>
+
+          <HomeMap
+            isPlaylistRequested={isPlaylistRequested}
+            isPlaylistVisible={isPlaylistVisible}
+            onPlaylistReady={showPlaylistAfterMapSheetExit}
+            onClosePlaylist={closePlaylist}
+            onCurrentLocationResolved={setCurrentLocation}
+          />
+
+          <div className="home-create-action">
+            <button type="button" onClick={() => navigate('/locks/create')}>
+              🔒 자물쇠 만들기
             </button>
           </div>
-        </header>
-
-        <button
-          className="home-memory-search"
-          type="button"
-          onClick={() => navigate('/memory-search')}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <span>“비 오던 날 홍대에서 들었던 노래” 같은 기억, 물어보세요</span>
-        </button>
-
-        <section className="home-shortcuts" aria-label="추천 기능">
-          <button
-            className="home-shortcut-card"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              openPlaylist(event.currentTarget);
-            }}
-          >
-            <span className="home-shortcut-icon" aria-hidden="true">
-              🎧
-            </span>
-            <span>
-              <strong>지금 나를 위한 플레이리스트</strong>
-              <small>위치·날씨·시간·히스토리 기반 추천</small>
-            </span>
-          </button>
-          <button
-            className="home-shortcut-card home-shortcut-card--matching"
-            type="button"
-            onClick={() => navigate('/matching')}
-          >
-            <span className="home-shortcut-icon home-shortcut-icon--matching" aria-hidden="true">
-              💬
-            </span>
-            <span>
-              <strong>취향 투표로 랜덤 채팅</strong>
-              <small>회원님이 좋아할 만한 취향 투표 질문을 준비했어요</small>
-            </span>
-          </button>
-        </section>
-
-        <HomeMap
-          isPlaylistRequested={isPlaylistRequested}
-          isPlaylistVisible={isPlaylistVisible}
-          onPlaylistReady={showPlaylistAfterMapSheetExit}
-          onClosePlaylist={closePlaylist}
-          onCurrentLocationResolved={setCurrentLocation}
-        >
-          {isPlaylistVisible ? (
-            <HomePlaylistSheet
-              currentLocation={currentLocation}
-              isOpen={isPlaylistOpen}
-              onClose={closePlaylist}
-              onExited={finishClosingPlaylist}
-            />
-          ) : null}
-        </HomeMap>
-
-        <div className="home-create-action">
-          <button type="button" onClick={() => navigate('/locks/create')}>
-            🔒 자물쇠 만들기
-          </button>
         </div>
       </div>
-
-      <MainNavigation />
+      <div className="home-page-navigation" inert={isPlaylistVisible}>
+        <MainNavigation />
+      </div>
+      {/* 하단 메뉴까지 덮되 홈 페이지의 바깥 경계는 넘지 않는 추천 모달이다. */}
+      {isPlaylistVisible ? (
+        <HomePlaylistSheet
+          currentLocation={currentLocation}
+          isOpen={isPlaylistOpen}
+          onClose={closePlaylist}
+          onExited={finishClosingPlaylist}
+        />
+      ) : null}
     </main>
   );
 }

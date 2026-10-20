@@ -4,6 +4,7 @@ import { getCsrfToken } from '../../../shared/api/csrf';
 import type {
   RecommendationCoordinates,
   RecommendationPlaylist,
+  RecommendationPlaylistRequest,
   RecommendationTrack,
 } from '../model/recommendationPlaylist.types';
 
@@ -20,11 +21,11 @@ export async function getRecommendationPlaylist(
 
 /** 확인된 위치와 CSRF 토큰으로 새 추천을 생성하고 반환 계약을 검증한다. */
 export async function createRecommendationPlaylist(
-  coordinates: RecommendationCoordinates,
+  request: RecommendationPlaylistRequest,
   fetchAuthenticatedJson: AuthenticatedApiClient['fetchJson'],
   signal?: AbortSignal,
 ): Promise<RecommendationPlaylist> {
-  if (!isCoordinates(coordinates)) {
+  if (!isCoordinates(request)) {
     throw new ApiError(400, '현재 위치 정보를 확인할 수 없습니다.', 'INVALID_COORDINATES');
   }
 
@@ -33,15 +34,33 @@ export async function createRecommendationPlaylist(
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
-    body: JSON.stringify(coordinates),
+    body: JSON.stringify(request),
     signal,
   });
+  if (
+    !isRecord(response) ||
+    !isRecord(response.data) ||
+    typeof response.data.replaced !== 'boolean'
+  ) {
+    throw invalidResponse();
+  }
+  // 기존 DB 목록을 돌려준 200 응답은 이번 세션의 새 추천으로 노출하거나 차감하지 않는다.
+  if (!response.data.replaced) {
+    throw new ApiError(
+      503,
+      '새 추천을 만들지 못했습니다. 다시 시도해 주세요.',
+      'RECOMMENDATION_NOT_CREATED',
+    );
+  }
   const playlist = parseRecommendationPlaylistResponse(response);
 
   if (playlist === null) {
     throw invalidResponse();
   }
 
+  if (playlist.tracks.some((track) => request.excludeTrackIds.includes(track.externalTrackId))) {
+    throw invalidResponse();
+  }
   return playlist;
 }
 
@@ -72,10 +91,11 @@ function parseRecommendationPlaylist(value: Record<string, unknown>): Recommenda
     throw invalidResponse();
   }
 
-  return {
-    recommendationPlaylistId: value.recommendationPlaylistId,
-    tracks: value.tracks.map(parseRecommendationTrack),
-  };
+  const tracks = value.tracks.map(parseRecommendationTrack);
+  if (new Set(tracks.map((track) => track.externalTrackId)).size !== tracks.length) {
+    throw invalidResponse();
+  }
+  return { recommendationPlaylistId: value.recommendationPlaylistId, tracks };
 }
 
 /** 추천 음악의 식별자·표시 문자열·앨범 이미지 URL·외부 링크 문자열을 검증한다. */
@@ -83,6 +103,7 @@ function parseRecommendationTrack(value: unknown): RecommendationTrack {
   if (
     !isRecord(value) ||
     !isPositiveInteger(value.musicTrackId) ||
+    !isNonEmptyString(value.externalTrackId) ||
     !isNonEmptyString(value.title) ||
     !isNonEmptyString(value.artistName) ||
     !isNonEmptyString(value.albumImageUrl) ||
@@ -93,6 +114,7 @@ function parseRecommendationTrack(value: unknown): RecommendationTrack {
 
   return {
     musicTrackId: value.musicTrackId,
+    externalTrackId: value.externalTrackId,
     title: value.title,
     artistName: value.artistName,
     albumImageUrl: value.albumImageUrl,

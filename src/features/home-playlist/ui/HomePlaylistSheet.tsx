@@ -1,11 +1,9 @@
+import { MusicPreviewButton } from '../../../entities/music/ui/MusicPreviewButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
-import {
-  createRecommendationPlaylist,
-  getRecommendationPlaylist,
-} from '../api/recommendationPlaylistApi';
+import { createRecommendationPlaylist } from '../api/recommendationPlaylistApi';
 import type {
   RecommendationCoordinates,
   RecommendationPlaylist,
@@ -20,8 +18,8 @@ type HomePlaylistSheetProps = {
   onExited: () => void;
 };
 
-type LoadState = 'idle' | 'loading' | 'ready' | 'error' | 'creating';
-type FailedOperation = 'load' | 'create' | null;
+const MAX_RECOMMENDATIONS = 3;
+type LoadState = 'idle' | 'ready' | 'error' | 'creating';
 
 /** 외부 링크가 브라우저에서 안전하게 열 수 있는 HTTP(S) URL인지 확인한다. */
 function isSafeExternalUrl(value: string): boolean {
@@ -66,20 +64,31 @@ function RecommendationTrackItem({ track }: { track: RecommendationTrack }) {
     </>
   );
 
-  if (!isSafeExternalUrl(track.externalUrl)) {
-    return <li className="home-playlist-track">{content}</li>;
-  }
-
   return (
-    <li>
-      <a className="home-playlist-track" href={track.externalUrl} rel="noreferrer" target="_blank">
-        {content}
-      </a>
+    <li className="home-playlist-track">
+      {isSafeExternalUrl(track.externalUrl) ? (
+        <a
+          className="home-playlist-track-content"
+          href={track.externalUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {content}
+        </a>
+      ) : (
+        <span className="home-playlist-track-content">{content}</span>
+      )}
+      <MusicPreviewButton
+        title={track.title}
+        artistName={track.artistName}
+        externalUrl={track.externalUrl}
+        externalTrackId={track.externalTrackId}
+      />
     </li>
   );
 }
 
-/** 인증 상태와 실제 위치를 사용해 추천 조회·생성 상태를 관리하는 홈 시트다. */
+/** 한 번 열린 화면의 추천 횟수·제외 곡·요청 수명을 관리하는 홈 추천 모달이다. */
 export function HomePlaylistSheet({
   currentLocation,
   isOpen,
@@ -88,17 +97,30 @@ export function HomePlaylistSheet({
 }: HomePlaylistSheetProps) {
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
   const [playlist, setPlaylist] = useState<RecommendationPlaylist | null>(null);
-  const [loadState, setLoadState] = useState<LoadState>(() =>
-    isAuthenticated && isOpen ? 'loading' : 'idle',
-  );
-  const [failedOperation, setFailedOperation] = useState<FailedOperation>(null);
+  const [loadState, setLoadState] = useState<LoadState>('idle');
+  const [successCount, setSuccessCount] = useState(0);
+  const excludedTrackIdsRef = useRef(new Set<string>());
+  const successCountRef = useRef(0);
   const createControllerRef = useRef<AbortController | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  /** 모든 닫기 경로에서 의사를 확인하고, 동의한 경우에만 요청과 화면 세션을 종료한다. */
+  const requestClose = useCallback(() => {
+    const pending = createControllerRef.current;
+    const message =
+      pending && !pending.signal.aborted
+        ? '추천을 만드는 중이에요. 기다리지 않고 나갈까요? 닫으면 이번 추천 목록과 횟수가 초기화돼요.'
+        : '추천 창을 닫을까요? 닫으면 이번 추천 목록과 횟수가 초기화돼요.';
+    if (!window.confirm(message)) return;
+    pending?.abort();
+    onCloseRef.current();
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -110,52 +132,44 @@ export function HomePlaylistSheet({
         : null;
     closeButtonRef.current?.focus();
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    /** 모달 안에서 Tab 초점을 순환하고 ESC도 동일한 닫기 확인을 거친다. */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onCloseRef.current();
+        requestClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(
+        sheetRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], [tabindex="0"]',
+        ) ?? [],
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (
+        (!event.shiftKey && active === last) ||
+        !focusable.some((element) => element === active)
+      ) {
+        event.preventDefault();
+        first?.focus();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
       if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [isOpen]);
-
-  /** 열린 시트에서만 현재 저장 추천을 조회하고 취소된 응답은 반영하지 않는다. */
-  const loadPlaylist = useCallback(
-    async (signal: AbortSignal) => {
-      setLoadState('loading');
-      setFailedOperation(null);
-
-      try {
-        const nextPlaylist = await getRecommendationPlaylist(fetchAuthenticatedJson, signal);
-        if (!signal.aborted) {
-          setPlaylist(nextPlaylist);
-          setLoadState('ready');
-        }
-      } catch {
-        if (!signal.aborted) {
-          setLoadState('error');
-          setFailedOperation('load');
-        }
-      }
-    },
-    [fetchAuthenticatedJson],
-  );
-
-  useEffect(() => {
-    if (!isOpen || !isAuthenticated) {
-      return undefined;
-    }
-
-    const controller = new AbortController();
-    queueMicrotask(() => void loadPlaylist(controller.signal));
-
-    return () => controller.abort();
-  }, [isAuthenticated, isOpen, loadPlaylist]);
+  }, [isOpen, requestClose]);
 
   useEffect(
     () => () => {
@@ -164,133 +178,131 @@ export function HomePlaylistSheet({
     [],
   );
 
-  /** 실제 geolocation 성공 좌표로만 새 추천 생성을 요청한다. */
+  /** 세션의 누적 제외 ID로 추천하며 성공한 새 목록에만 3회 예산을 사용한다. */
   const createPlaylist = useCallback(async () => {
-    if (currentLocation === null) {
+    // ref 잠금은 React가 버튼을 다시 그리기 전의 연속 클릭도 막는다.
+    if (
+      !isOpen ||
+      !isAuthenticated ||
+      currentLocation === null ||
+      createControllerRef.current ||
+      successCountRef.current >= MAX_RECOMMENDATIONS
+    )
       return;
-    }
-
-    createControllerRef.current?.abort();
     const controller = new AbortController();
     createControllerRef.current = controller;
     setLoadState('creating');
-    setFailedOperation(null);
-
     try {
       const nextPlaylist = await createRecommendationPlaylist(
-        currentLocation,
+        { ...currentLocation, excludeTrackIds: [...excludedTrackIdsRef.current] },
         fetchAuthenticatedJson,
         controller.signal,
       );
-      if (!controller.signal.aborted) {
-        setPlaylist(nextPlaylist);
-        setLoadState('ready');
-      }
+      if (controller.signal.aborted) return;
+      for (const track of nextPlaylist.tracks)
+        excludedTrackIdsRef.current.add(track.externalTrackId);
+      successCountRef.current += 1;
+      setSuccessCount(successCountRef.current);
+      setPlaylist(nextPlaylist);
+      setLoadState('ready');
     } catch {
-      if (!controller.signal.aborted) {
-        setLoadState('error');
-        setFailedOperation('create');
-      }
+      if (!controller.signal.aborted) setLoadState('error');
+    } finally {
+      if (createControllerRef.current === controller) createControllerRef.current = null;
     }
-  }, [currentLocation, fetchAuthenticatedJson]);
+  }, [currentLocation, fetchAuthenticatedJson, isAuthenticated, isOpen]);
 
-  /** 마지막 실패 작업에 맞춰 조회 또는 생성 요청을 다시 시작한다. */
-  function retry() {
-    if (failedOperation === 'create') {
-      void createPlaylist();
-      return;
-    }
-
-    const controller = new AbortController();
-    void loadPlaylist(controller.signal);
-  }
+  const remainingCount = MAX_RECOMMENDATIONS - successCount;
+  const isCreating = loadState === 'creating';
+  const buttonLabel =
+    remainingCount === 0
+      ? '추천 3회를 모두 받았어요'
+      : isCreating
+        ? '추천을 만드는 중…'
+        : loadState === 'error'
+          ? `다시 시도 · ${remainingCount}회 남음`
+          : successCount === 0
+            ? '추천 받기'
+            : `다시 추천받기 · ${remainingCount}회 남음`;
 
   return (
-    <section
-      className={`home-playlist-sheet${isOpen ? ' is-open' : ''}`}
-      aria-label="AI 추천 플레이리스트"
-      aria-hidden={!isOpen}
-      inert={!isOpen}
-      role="region"
-      onClick={(event) => event.stopPropagation()}
-      onTransitionEnd={(event) => {
-        if (!isOpen && event.target === event.currentTarget && event.propertyName === 'transform') {
-          onExited();
-        }
-      }}
-    >
-      <span className="home-playlist-handle" aria-hidden="true" />
+    <div className="home-playlist-layer" onClick={(event) => event.stopPropagation()}>
       <button
-        ref={closeButtonRef}
-        className="home-playlist-close"
+        className="home-playlist-backdrop"
         type="button"
-        aria-label="플레이리스트 안내 닫기"
-        onClick={onClose}
+        tabIndex={-1}
+        aria-label="플레이리스트 배경 닫기"
+        onClick={requestClose}
+        disabled={!isOpen}
+      />
+      <section
+        ref={sheetRef}
+        className={`home-playlist-sheet${isOpen ? ' is-open' : ''}`}
+        aria-label="AI 추천 플레이리스트"
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+        role="dialog"
+        aria-modal="true"
+        onTransitionEnd={(event) => {
+          if (!isOpen && event.target === event.currentTarget && event.propertyName === 'transform')
+            onExited();
+        }}
       >
-        ×
-      </button>
-      <div className="home-playlist-title-row">
-        <h2>AI 추천 플레이리스트</h2>
-        <span>현재 추천</span>
-      </div>
-      {!isAuthenticated ? (
-        <div className="home-playlist-notice">
-          <p>로그인 후 나만의 추천을 확인할 수 있어요.</p>
-          <Link to="/login">로그인하기</Link>
-        </div>
-      ) : null}
-      {isAuthenticated && loadState === 'loading' ? (
-        <p role="status">추천을 불러오는 중이에요.</p>
-      ) : null}
-      {isAuthenticated && loadState === 'error' ? (
-        <section className="home-playlist-notice" role="alert">
-          <p>
-            {failedOperation === 'create'
-              ? '추천을 만들지 못했습니다.'
-              : '추천을 불러오지 못했습니다.'}
-          </p>
-          <button onClick={retry} type="button">
-            다시 시도
-          </button>
-        </section>
-      ) : null}
-      {isAuthenticated && loadState !== 'loading' && playlist !== null ? (
-        <ul className="home-playlist-track-list">
-          {playlist.tracks.map((track) => (
-            <RecommendationTrackItem key={track.musicTrackId} track={track} />
-          ))}
-        </ul>
-      ) : null}
-      {isAuthenticated && loadState === 'ready' && playlist !== null ? (
-        <>
-          <button
-            className="home-playlist-save-button"
-            disabled={currentLocation === null}
-            onClick={() => void createPlaylist()}
-            type="button"
-          >
-            새 추천 받기
-          </button>
-          {currentLocation === null ? (
-            <p className="home-playlist-notice">현재 위치를 확인한 뒤 새 추천을 받을 수 있어요.</p>
-          ) : null}
-        </>
-      ) : null}
-      {isAuthenticated && loadState === 'ready' && playlist === null && currentLocation === null ? (
-        <p className="home-playlist-notice">현재 위치를 확인한 뒤 추천을 만들 수 있어요.</p>
-      ) : null}
-      {isAuthenticated && loadState === 'ready' && playlist === null && currentLocation !== null ? (
+        <span className="home-playlist-handle" aria-hidden="true" />
         <button
-          className="home-playlist-save-button"
-          onClick={() => void createPlaylist()}
+          ref={closeButtonRef}
+          className="home-playlist-close"
           type="button"
+          aria-label="플레이리스트 안내 닫기"
+          onClick={requestClose}
         >
-          새 추천 만들기
+          ×
         </button>
-      ) : null}
-      {isAuthenticated && loadState === 'creating' ? (
-        <p role="status">새 추천을 만드는 중이에요.</p>
-      ) : null}
-    </section>
+        <div className="home-playlist-title-row">
+          <h2>AI 추천 플레이리스트</h2>
+          {isAuthenticated ? <span>{successCount} / 3회</span> : null}
+        </div>
+        <p className="home-playlist-notice">
+          이 창에서 최대 3번 추천받을 수 있어요. 추천에 실패한 경우에는 횟수가 줄어들지 않아요.
+        </p>
+        {!isAuthenticated ? (
+          <div className="home-playlist-notice">
+            <p>로그인 후 나만의 추천을 받을 수 있어요.</p>
+            <Link to="/login">로그인하기</Link>
+          </div>
+        ) : (
+          <>
+            {playlist !== null ? (
+              <ul className="home-playlist-track-list">
+                {playlist.tracks.map((track) => (
+                  <RecommendationTrackItem key={track.externalTrackId} track={track} />
+                ))}
+              </ul>
+            ) : null}
+            {loadState === 'error' ? (
+              <p className="home-playlist-notice" role="alert">
+                추천을 만들지 못했습니다. 횟수는 줄어들지 않았어요.
+              </p>
+            ) : null}
+            {isCreating ? (
+              <p className="home-playlist-notice" role="status">
+                새 추천을 만드는 중이에요.
+              </p>
+            ) : null}
+            <button
+              className="home-playlist-save-button"
+              type="button"
+              disabled={!isOpen || currentLocation === null || isCreating || remainingCount === 0}
+              onClick={() => void createPlaylist()}
+            >
+              {buttonLabel}
+            </button>
+            {currentLocation === null ? (
+              <p className="home-playlist-notice">현재 위치를 확인한 뒤 추천을 받을 수 있어요.</p>
+            ) : null}
+          </>
+        )}
+      </section>
+    </div>
   );
 }

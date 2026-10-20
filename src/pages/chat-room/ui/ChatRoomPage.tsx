@@ -34,6 +34,12 @@ export type ChatRoomHeaderInfo = {
 };
 
 type ChatRoomPageProps = {
+  embeddedRoomId?: string;
+  expanded?: boolean;
+  inlineMode?: boolean;
+  onLeaveSuccess?: () => void;
+  onRoomSnapshotInvalidated?: (chatRoomId: string) => void;
+  onToggleExpanded?: (expanded: boolean) => void;
   connectionState?: ChatConnectionState;
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
@@ -119,6 +125,12 @@ function formatExpiration(expiresAt: string | undefined): string | undefined {
 
 /** 최신 채팅 UI의 입력 계약을 유지하면서 인증된 화면 수명에 실제 연결을 조립한다. */
 export function ChatRoomPage({
+  embeddedRoomId,
+  expanded = false,
+  inlineMode = false,
+  onLeaveSuccess,
+  onRoomSnapshotInvalidated,
+  onToggleExpanded,
   connectionState,
   hasOlderMessages,
   isLoadingOlderMessages: suppliedIsLoadingOlderMessages,
@@ -130,7 +142,8 @@ export function ChatRoomPage({
   roomInfo,
   roomStatus: suppliedRoomStatus,
 }: ChatRoomPageProps = {}) {
-  const { chatRoomId } = useParams();
+  const { chatRoomId: routeChatRoomId } = useParams();
+  const chatRoomId = embeddedRoomId ?? routeChatRoomId;
   const navigate = useNavigate();
   const {
     isAuthenticated,
@@ -452,6 +465,9 @@ export function ChatRoomPage({
         let nextLoadState: ChatRoomLoadState = 'error';
         let nextRoomStatus: ChatRoomStatus = 'active';
         if (error instanceof ApiError) {
+          if (isSnapshotInvalidatingError(error.code)) {
+            onRoomSnapshotInvalidated?.(requestedRoomId);
+          }
           if (error.code === 'CHAT_ROOM_EXPIRED') {
             nextRoomStatus = 'expired';
             nextLoadState = 'ready';
@@ -486,6 +502,7 @@ export function ChatRoomPage({
     hasInjectedRoomData,
     isAuthenticated,
     isSessionRestoring,
+    onRoomSnapshotInvalidated,
     retryKey,
     validRoomId,
   ]);
@@ -538,7 +555,11 @@ export function ChatRoomPage({
     setLeaveError('');
     try {
       await leaveChatRoom(fetchAuthenticatedJson, chatRoomId);
-      navigate('/matching', { replace: true });
+      if (inlineMode) {
+        onLeaveSuccess?.();
+      } else {
+        navigate('/matching', { replace: true });
+      }
     } catch (error: unknown) {
       if (error instanceof ApiError && error.code === 'CHAT_ROOM_EXPIRED') {
         setRoomResult({ chatRoomId, status: 'expired' });
@@ -638,24 +659,32 @@ export function ChatRoomPage({
 
   if (!validRoomId) {
     return (
-      <main className="chat-room-page chat-room-invalid-page">
+      <div className={`chat-room-page chat-room-invalid-page${inlineMode ? ' is-inline' : ''}`}>
         <section className="chat-room-terminal-state" role="alert">
           <h1>채팅방에 접근할 수 없어요.</h1>
           <p>채팅방 주소를 확인한 뒤 다시 시도해 주세요.</p>
           <Link to="/matching">취향 투표로 돌아가기</Link>
         </section>
-      </main>
+      </div>
     );
   }
 
   const expirationLabel = formatExpiration(resolvedRoomInfo?.expiresAt);
+  const Root: 'section' | 'main' = inlineMode ? 'section' : 'main';
 
   return (
-    <main className="chat-room-page">
+    <Root
+      aria-label={inlineMode ? '매칭된 채팅방' : undefined}
+      className={`chat-room-page${inlineMode ? ' is-inline' : ''}${expanded ? ' is-expanded' : ''}`}
+    >
       <header className="chat-room-header">
-        <Link aria-label="취향 투표로 돌아가기" className="chat-room-back-button" to="/matching">
-          ‹
-        </Link>
+        {inlineMode ? (
+          <span aria-hidden="true" className="chat-room-header-spacer" />
+        ) : (
+          <Link aria-label="취향 투표로 돌아가기" className="chat-room-back-button" to="/matching">
+            ‹
+          </Link>
+        )}
         <div className="chat-room-title" title={resolvedRoomInfo?.partnerNickname}>
           <div className="chat-room-title-copy">
             <h1>채팅방</h1>
@@ -671,6 +700,16 @@ export function ChatRoomPage({
             </p>
           </div>
         </div>
+        {inlineMode ? (
+          <button
+            aria-label={expanded ? '채팅창 축소' : '채팅 전체보기'}
+            className="chat-room-expand-button"
+            onClick={() => onToggleExpanded?.(!expanded)}
+            type="button"
+          >
+            {expanded ? '×' : '전체보기'}
+          </button>
+        ) : null}
         <div className="chat-room-menu-container">
           <button
             aria-expanded={isMenuOpen}
@@ -806,7 +845,18 @@ export function ChatRoomPage({
         onSendMessage={hasInjectedRoomData ? onSendMessage : sendMessage}
         roomStatus={resolvedRoomStatus}
       />
-    </main>
+    </Root>
+  );
+}
+
+/** Only definitive room lifecycle errors invalidate the saved matched-room hint. */
+function isSnapshotInvalidatingError(code: string | undefined): boolean {
+  return (
+    code === 'CHAT_ROOM_EXPIRED' ||
+    code === 'CHAT_REENTRY_FORBIDDEN' ||
+    code === 'CHAT_ALREADY_LEFT' ||
+    code === 'CHAT_ALREADY_LEFT_FORBIDDEN' ||
+    code === 'CHAT_ROOM_NOT_FOUND'
   );
 }
 

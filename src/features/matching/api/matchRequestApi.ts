@@ -4,7 +4,7 @@ import { getCsrfToken } from '../../../shared/api/csrf';
 
 type MatchRequest = AuthenticatedApiClient['fetchJson'];
 
-export type MatchRequestStatus = 'WAITING' | 'MATCHING' | 'MATCHED' | 'EXPIRED';
+export type MatchRequestStatus = 'WAITING' | 'MATCHING' | 'MATCHED' | 'EXPIRED' | 'FAILED';
 
 export interface CreatedMatchRequest {
   matchRequestId: number;
@@ -42,6 +42,20 @@ export async function getMatchRequestState(
   matchRequestId: number,
 ): Promise<MatchRequestState> {
   const response = await request<unknown>(`/match-requests/${matchRequestId}`);
+  return parseMatchRequestState(response);
+}
+
+/** 현재 사용자의 투표 답변으로 기존 매칭 요청을 복원한다. */
+export async function getMatchRequestByVoteAnswer(
+  request: MatchRequest,
+  voteAnswerId: number,
+): Promise<MatchRequestState> {
+  const response = await request<unknown>(`/match-requests/by-vote-answer/${voteAnswerId}`);
+  return parseMatchRequestState(response);
+}
+
+/** 매칭 요청 조회 응답을 공통 계약으로 검증한다. */
+function parseMatchRequestState(response: unknown): MatchRequestState {
   const data = getData(response);
   if (
     !isPositiveInteger(data.matchRequestId) ||
@@ -92,5 +106,11 @@ function isPendingStatus(value: unknown): value is CreatedMatchRequest['status']
 
 /** 조회 응답의 서버 상태 enum을 계약에 따라 제한한다. */
 function isMatchRequestStatus(value: unknown): value is MatchRequestStatus {
-  return value === 'WAITING' || value === 'MATCHING' || value === 'MATCHED' || value === 'EXPIRED';
+  return (
+    value === 'WAITING' ||
+    value === 'MATCHING' ||
+    value === 'MATCHED' ||
+    value === 'EXPIRED' ||
+    value === 'FAILED'
+  );
 }

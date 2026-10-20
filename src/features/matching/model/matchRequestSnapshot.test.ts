@@ -13,6 +13,7 @@ describe('matchRequestSnapshot', () => {
     expect(saveMatchRequestSnapshot('35', { matchRequestId: 90 })).toBe(true);
     expect(loadMatchRequestSnapshot('35')).toEqual({ matchRequestId: 90 });
     expect(loadMatchRequestSnapshot('36')).toBeNull();
+    expect(window.sessionStorage.getItem('mulo-match-request-v1')).toBeNull();
   });
 
   it('removes a completed or expired request snapshot', () => {
