@@ -10,41 +10,25 @@ import { hasUnreadNotifications } from '../../../features/notification/api/notif
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
 import './homePage.css';
 
-/** 로그인 중에만 미읽음 여부를 조회하고 홈의 새 알림 점을 표시한다. */
+/** 로그인한 사용자의 홈 진입 시 미읽음 여부를 확인해 새 알림 점을 표시한다. */
 function HomeNotificationIndicator({ request }: { request: AuthenticatedApiClient['fetchJson'] }) {
   const [hasUnread, setHasUnread] = useState(false);
 
   useEffect(() => {
     let active = true;
-    let controller: AbortController | null = null;
-    /** 새 조회가 시작되면 이전 조회를 취소하고 현재 서버의 미읽음 여부를 반영한다. */
-    const refreshUnread = () => {
-      controller?.abort();
-      const nextController = new AbortController();
-      controller = nextController;
-      void hasUnreadNotifications(request, nextController.signal)
-        .then((unread) => {
-          if (active && !nextController.signal.aborted) setHasUnread(unread);
-        })
-        .catch(() => {
-          // 일시적인 조회 실패에는 마지막으로 확인한 표시를 유지한다.
-        });
-    };
-    /** 숨겨진 탭에서는 조회하지 않고 다시 보일 때 최신 상태를 확인한다. */
-    const refreshWhenVisible = () => {
-      if (!document.hidden) refreshUnread();
-    };
+    const controller = new AbortController();
+    // 홈 진입 시 확인하고, 머무는 동안에는 타이머나 포커스로 재조회하지 않는다.
+    void hasUnreadNotifications(request, controller.signal)
+      .then((unread) => {
+        if (active && !controller.signal.aborted) setHasUnread(unread);
+      })
+      .catch(() => {
+        // 조회 실패 시 홈 화면은 유지하고 다음 홈 진입에서 다시 확인한다.
+      });
 
-    refreshUnread();
-    const interval = window.setInterval(refreshWhenVisible, 60_000);
-    window.addEventListener('focus', refreshWhenVisible);
-    document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       active = false;
-      controller?.abort();
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshWhenVisible);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      controller.abort();
     };
   }, [request]);
 
