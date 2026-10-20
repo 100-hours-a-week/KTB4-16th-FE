@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
@@ -7,12 +7,18 @@ import { searchMemory } from '../../../features/memory-search/api/memorySearchQu
 import type { MemoryRecordCard } from '../../../features/memory-search/model/memorySearch.types';
 import { searchWithConflictWait } from '../../../features/memory-search/model/searchWithConflictWait';
 import { useMemorySearchConversation } from '../../../features/memory-search/model/useMemorySearchConversation';
-import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
 import { ApiError } from '../../../shared/api/apiError';
 import '../../pageShell.css';
 import './memorySearchPage.css';
 import { MemorySearchEmptyState } from './MemorySearchEmptyState';
+import {
+  MemorySearchConversationExpired,
+  MemorySearchEntryLoading,
+  MemorySearchPending,
+} from './MemorySearchStates';
 import { MemorySearchWelcome } from './MemorySearchWelcome';
+import { useMemorySearchScroll } from './useMemorySearchScroll';
+import { useMemorySearchSheetFocus } from './useMemorySearchSheetFocus';
 
 type Availability = 'loading' | 'ready' | 'empty' | 'error';
 const MAX_QUERY_LENGTH = 500;
@@ -23,14 +29,22 @@ export function MemorySearchPage() {
   const navigate = useNavigate();
   const { fetchAuthenticatedJson } = useSession();
   const conversation = useMemorySearchConversation();
-  const { startConversation, status } = conversation;
+  const { startConversation, status, setAllResultsOpen, allResultsTurnIndex } = conversation;
   const [availability, setAvailability] = useState<Availability>('loading');
   const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [draft, setDraft] = useState('');
   const [feedback, setFeedback] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const latestTurnRef = useRef<HTMLDivElement>(null);
   const questionControllerRef = useRef<AbortController | null>(null);
   const exitingRef = useRef(false);
+  const moreButtonsRef = useRef(new Map<number, HTMLButtonElement>());
+  const { scrollRef, handleConversationScroll, hasNewAnswer, scrollToLatest } =
+    useMemorySearchScroll({
+      conversationId: conversation.conversationId,
+      turnCount: conversation.turns.length,
+      pendingQuery: conversation.pendingQuery,
+    });
 
   // 화면 진입마다 전체 활성 자물쇠 수를 새로 확인해 0개 사용자 입력을 차단한다.
   useEffect(() => {
@@ -60,6 +74,12 @@ export function MemorySearchPage() {
     inputRef.current?.focus();
   }
 
+  /** 새 답변으로 이동한 뒤 결과에 초점을 주어 입력 키보드를 열지 않고 탐색을 이어간다. */
+  function showLatestAnswer() {
+    scrollToLatest();
+    latestTurnRef.current?.focus({ preventScroll: true });
+  }
+
   /** 사용자가 명시적으로 채팅을 나갈 때만 서버 대화를 닫고 홈으로 이동한다. */
   function exitChat() {
     exitingRef.current = true;
@@ -84,6 +104,7 @@ export function MemorySearchPage() {
     }
     const conversationId = conversation.conversationId;
     if (!conversation.beginQuestion(query)) return;
+    scrollToLatest();
     setFeedback('');
     const controller = new AbortController();
     questionControllerRef.current = controller;
@@ -130,10 +151,26 @@ export function MemorySearchPage() {
     conversation.allResultsTurnIndex === null
       ? null
       : conversation.turns[conversation.allResultsTurnIndex];
+  const isResultsOpen = Boolean(conversation.isAllResultsOpen && selectedTurn);
+
+  /** 전체보기만 닫아 서버 대화와 완료된 검색 결과를 유지한다. */
+  const closeResults = useCallback(() => setAllResultsOpen(false), [setAllResultsOpen]);
+
+  /** 현재 턴의 전체보기를 열었던 버튼으로 키보드 탐색 위치를 복원한다. */
+  const restoreResultsFocus = useCallback(() => {
+    if (allResultsTurnIndex === null) return;
+    moreButtonsRef.current.get(allResultsTurnIndex)?.focus({ preventScroll: true });
+  }, [allResultsTurnIndex]);
+
+  const { sheetRef, closeButtonRef, handleSheetKeyDown } = useMemorySearchSheetFocus({
+    open: isResultsOpen,
+    onClose: closeResults,
+    restoreFocus: restoreResultsFocus,
+  });
 
   return (
     <main className="static-page memory-search-page">
-      <div className="static-page-content memory-search-content">
+      <div className="static-page-content memory-search-content" inert={isResultsOpen}>
         <header className="memory-search-header">
           <button
             aria-label="채팅 나가기"
@@ -147,7 +184,12 @@ export function MemorySearchPage() {
           <span aria-hidden="true" className="memory-search-header-spacer" />
         </header>
 
-        <section aria-label="기억 검색 대화" className="memory-search-results">
+        <section
+          aria-label="기억 검색 대화"
+          className="memory-search-results"
+          onScroll={handleConversationScroll}
+          ref={scrollRef}
+        >
           {/* 인사말은 화면 안내이므로 AI 히스토리에 추가하지 않고 첫 질문 전에만 표시한다. */}
           {conversation.turns.length === 0 &&
           availability === 'ready' &&
@@ -157,7 +199,16 @@ export function MemorySearchPage() {
             <MemorySearchWelcome onSelectExample={selectExample} />
           ) : null}
           {conversation.turns.map((turn, turnIndex) => (
-            <div className="memory-turn" key={turnIndex}>
+            <div
+              aria-label={
+                turnIndex === conversation.turns.length - 1 ? '최근 검색 결과' : undefined
+              }
+              className="memory-turn"
+              key={turnIndex}
+              ref={turnIndex === conversation.turns.length - 1 ? latestTurnRef : undefined}
+              role={turnIndex === conversation.turns.length - 1 ? 'group' : undefined}
+              tabIndex={turnIndex === conversation.turns.length - 1 ? -1 : undefined}
+            >
               <p className="memory-query">{turn.query}</p>
               <div className="memory-answer">
                 <p>{turn.answer}</p>
@@ -170,7 +221,11 @@ export function MemorySearchPage() {
                 {turn.records.length > INITIAL_VISIBLE_RECORDS ? (
                   <button
                     className="memory-more-button"
-                    onClick={() => conversation.setAllResultsOpen(true, turnIndex)}
+                    onClick={() => setAllResultsOpen(true, turnIndex)}
+                    ref={(button) => {
+                      if (button) moreButtonsRef.current.set(turnIndex, button);
+                      else moreButtonsRef.current.delete(turnIndex);
+                    }}
                     type="button"
                   >
                     전체보기 ({turn.records.length}건)
@@ -206,11 +261,12 @@ export function MemorySearchPage() {
             </div>
           ))}
           {conversation.pendingQuery ? (
-            <p aria-live="polite" role="status">
-              기억을 찾고 있어요...
-            </p>
+            <MemorySearchPending query={conversation.pendingQuery} />
           ) : null}
-          {availability === 'loading' ? <p role="status">자물쇠를 확인하고 있어요.</p> : null}
+          {availability === 'loading' ? <MemorySearchEntryLoading /> : null}
+          {availability === 'ready' && status === 'starting' ? (
+            <MemorySearchEntryLoading preparing />
+          ) : null}
           {availability === 'empty' ? <MemorySearchEmptyState /> : null}
           {availability === 'error' ? (
             <div role="alert">
@@ -227,12 +283,9 @@ export function MemorySearchPage() {
             </div>
           ) : null}
           {status === 'gone' ? (
-            <div role="alert">
-              새 대화창을 시작해주세요.
-              <button onClick={() => void startConversation().catch(() => undefined)} type="button">
-                새 대화 시작
-              </button>
-            </div>
+            <MemorySearchConversationExpired
+              onStart={() => void startConversation().catch(() => undefined)}
+            />
           ) : null}
           {status === 'error' ? (
             <button onClick={() => void startConversation().catch(() => undefined)} type="button">
@@ -245,6 +298,15 @@ export function MemorySearchPage() {
           ) : null}
         </section>
 
+        <div className="memory-new-answer-anchor">
+          {hasNewAnswer ? (
+            <div className="memory-new-answer" role="status">
+              <button className="memory-new-answer-button" onClick={showLatestAnswer} type="button">
+                <span aria-hidden="true">↓</span> 새 답변 보기
+              </button>
+            </div>
+          ) : null}
+        </div>
         <form className="memory-search-form" onSubmit={(event) => void submitQuestion(event)}>
           <input
             aria-label="기억 검색 질문"
@@ -260,9 +322,11 @@ export function MemorySearchPage() {
             placeholder={
               availability === 'empty'
                 ? '자물쇠를 남긴 뒤 검색할 수 있어요'
-                : '기억나는 단서로 물어보세요'
+                : status === 'gone'
+                  ? '새 대화를 시작해 주세요'
+                  : '기억나는 단서로 물어보세요'
             }
-            value={inputValue}
+            value={conversation.pendingQuery ? '' : inputValue}
           />
           <button
             aria-label="질문 보내기"
@@ -278,20 +342,22 @@ export function MemorySearchPage() {
           </button>
         </form>
       </div>
-      <MainNavigation activeItem="home" />
-      {conversation.isAllResultsOpen && selectedTurn ? (
+      {isResultsOpen && selectedTurn ? (
         <div className="memory-sheet-backdrop">
           <section
             aria-label="전체보기"
             aria-modal="true"
             className="memory-results-sheet"
+            onKeyDown={handleSheetKeyDown}
+            ref={sheetRef}
             role="dialog"
           >
             <header>
               <h2>조건에 맞는 자물쇠 {selectedTurn.records.length}건</h2>
               <button
                 aria-label="전체보기 닫기"
-                onClick={() => conversation.setAllResultsOpen(false)}
+                onClick={closeResults}
+                ref={closeButtonRef}
                 type="button"
               >
                 ×
