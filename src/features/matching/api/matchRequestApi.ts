@@ -42,6 +42,20 @@ export async function getMatchRequestState(
   matchRequestId: number,
 ): Promise<MatchRequestState> {
   const response = await request<unknown>(`/match-requests/${matchRequestId}`);
+  return parseMatchRequestState(response);
+}
+
+/** 현재 사용자의 투표 답변으로 기존 매칭 요청을 복원한다. */
+export async function getMatchRequestByVoteAnswer(
+  request: MatchRequest,
+  voteAnswerId: number,
+): Promise<MatchRequestState> {
+  const response = await request<unknown>(`/match-requests/by-vote-answer/${voteAnswerId}`);
+  return parseMatchRequestState(response);
+}
+
+/** 매칭 요청 조회 응답을 공통 계약으로 검증한다. */
+function parseMatchRequestState(response: unknown): MatchRequestState {
   const data = getData(response);
   if (
     !isPositiveInteger(data.matchRequestId) ||

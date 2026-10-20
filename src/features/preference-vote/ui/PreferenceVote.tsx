@@ -15,8 +15,11 @@ interface PreferenceVoteProps {
   onSubmit: (selectedOption: PreferenceVoteOption) => void;
   onRetry: () => void;
   isMatching: boolean;
+  isRestoringMatch?: boolean;
+  isMatchLookupFailed?: boolean;
   matchStatus: MatchStatus | null;
   onStartMatching: () => void;
+  onRefreshMatchStatus?: () => void;
 }
 
 /** 오늘의 질문, 기존 응답과 제출 결과를 표시하고 A/B 답변을 선택하게 한다. */
@@ -29,8 +32,11 @@ export function PreferenceVote({
   onSubmit,
   onRetry,
   isMatching,
+  isRestoringMatch = false,
+  isMatchLookupFailed = false,
   matchStatus,
   onStartMatching,
+  onRefreshMatchStatus,
 }: PreferenceVoteProps) {
   const [selection, setSelection] = useState<{
     voteQuestionId: number;
@@ -119,36 +125,51 @@ export function PreferenceVote({
         >
           {isSubmitting ? '투표 중...' : isAnswered ? '투표 완료' : '투표하기'}
         </button>
-        <button
-          className="preference-vote-match-button"
-          disabled={vote?.voteAnswerId == null || isMatching || matchStatus !== null}
-          type="button"
-          onClick={() => onStartMatching()}
-        >
-          {isMatching ? '매칭 요청 중...' : '의견 다른 사람과 채팅하기'}
-        </button>
+        {matchStatus === null ? (
+          <button
+            className="preference-vote-match-button"
+            disabled={
+              vote?.voteAnswerId == null || isMatching || isRestoringMatch || isMatchLookupFailed
+            }
+            type="button"
+            onClick={() => onStartMatching()}
+          >
+            {isRestoringMatch
+              ? '매칭 상태 확인 중...'
+              : isMatching
+                ? '매칭 요청 중...'
+                : '의견 다른 사람과 채팅하기'}
+          </button>
+        ) : null}
       </div>
-      {matchStatus ? <MatchStatusNotice status={matchStatus} /> : null}
+      {matchStatus ? (
+        <MatchStatusNotice status={matchStatus} onRefresh={onRefreshMatchStatus} />
+      ) : null}
     </section>
   );
 }
 
 /** 서버가 확정한 매칭 상태만 사용자에게 안내하고, 완료 이동은 페이지가 처리한다. */
-function MatchStatusNotice({ status }: { status: MatchStatus }) {
+function MatchStatusNotice({ status, onRefresh }: { status: MatchStatus; onRefresh?: () => void }) {
   const message =
     status === 'WAITING'
       ? '의견이 다른 상대를 찾고 있어요.'
       : status === 'MATCHING'
         ? '상대를 찾았어요. 채팅방을 준비하고 있어요.'
         : status === 'MATCHED'
-          ? '채팅방으로 이동하고 있어요.'
+          ? '매칭이 완료됐어요. 아래에서 채팅을 이어가세요.'
           : status === 'FAILED'
-            ? '채팅방을 만드는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'
+            ? '채팅방을 만드는 중 문제가 발생했어요. 매칭 상태를 다시 확인해 주세요.'
             : '오늘의 매칭 요청이 만료되었어요.';
   return (
-    <p className="preference-vote-unavailable" role="status">
-      {message}
-    </p>
+    <div className="preference-vote-unavailable" role="status">
+      <p>{message}</p>
+      {status === 'FAILED' && onRefresh ? (
+        <button type="button" onClick={onRefresh}>
+          상태 다시 확인
+        </button>
+      ) : null}
+    </div>
   );
 }
 

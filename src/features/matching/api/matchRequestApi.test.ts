@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCsrfToken } from '../../../shared/api/csrf';
-import { createMatchRequest, getMatchRequestState } from './matchRequestApi';
+import {
+  createMatchRequest,
+  getMatchRequestByVoteAnswer,
+  getMatchRequestState,
+} from './matchRequestApi';
 
 vi.mock('../../../shared/api/csrf', () => ({ getCsrfToken: vi.fn() }));
 
@@ -37,6 +41,29 @@ describe('matchRequestApi', () => {
       chatRoomId: 41,
     });
     expect(request).toHaveBeenCalledWith('/match-requests/90');
+  });
+
+  it('restores the existing request by vote answer and accepts terminal FAILED without a room', async () => {
+    const request = vi.fn().mockResolvedValue({
+      data: { matchRequestId: 91, status: 'FAILED', chatRoomId: null },
+    });
+
+    await expect(getMatchRequestByVoteAnswer(request, 43)).resolves.toEqual({
+      matchRequestId: 91,
+      status: 'FAILED',
+      chatRoomId: null,
+    });
+    expect(request).toHaveBeenCalledWith('/match-requests/by-vote-answer/43');
+  });
+
+  it('rejects a by-vote-answer response with an invalid room/status combination', async () => {
+    const request = vi.fn().mockResolvedValue({
+      data: { matchRequestId: 91, status: 'WAITING', chatRoomId: 42 },
+    });
+
+    await expect(getMatchRequestByVoteAnswer(request, 43)).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
   });
 
   it('rejects a MATCHED response without a chat room id', async () => {

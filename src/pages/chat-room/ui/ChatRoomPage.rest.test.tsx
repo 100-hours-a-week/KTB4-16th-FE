@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
@@ -113,7 +114,69 @@ function renderPage(session: SessionContextValue) {
   );
 }
 
+function renderInlinePage(session: SessionContextValue, onLeaveSuccess = vi.fn()) {
+  function InlineHarness() {
+    const [expanded, setExpanded] = useState(false);
+    return (
+      <>
+        <h1>취향 투표 화면</h1>
+        <ChatRoomPage
+          embeddedRoomId="42"
+          inlineMode
+          expanded={expanded}
+          onToggleExpanded={setExpanded}
+          onLeaveSuccess={onLeaveSuccess}
+        />
+      </>
+    );
+  }
+
+  return {
+    ...render(
+      <SessionContext value={session}>
+        <MemoryRouter initialEntries={['/matching']}>
+          <InlineHarness />
+        </MemoryRouter>
+      </SessionContext>,
+    ),
+    onLeaveSuccess,
+  };
+}
+
 describe('ChatRoomPage REST integration', () => {
+  it('uses the embedded room ID and keeps loaded chat state through compact/expanded toggles', async () => {
+    const user = userEvent.setup();
+    const { session, requests } = createSession();
+    renderInlinePage(session);
+    await screen.findByText('상대 메시지');
+    const initialRequestCount = requests.length;
+
+    await user.click(screen.getByRole('button', { name: '채팅 전체보기' }));
+    expect(screen.getByRole('button', { name: '채팅창 축소' })).toBeInTheDocument();
+    expect(screen.getByText('상대 메시지')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '채팅창 축소' }));
+
+    expect(screen.getByRole('button', { name: '채팅 전체보기' })).toBeInTheDocument();
+    expect(screen.getByText('상대 메시지')).toBeInTheDocument();
+    expect(requests).toHaveLength(initialRequestCount);
+    expect(requests[0]?.path).toBe('/chat-rooms/42/members');
+  });
+
+  it('returns from an inline chat leave through its callback without navigating away', async () => {
+    const user = userEvent.setup();
+    const { session, requests } = createSession();
+    const { onLeaveSuccess } = renderInlinePage(session);
+    await screen.findByText('상대 메시지');
+
+    await user.click(screen.getByRole('button', { name: '채팅방 메뉴' }));
+    await user.click(screen.getByRole('menuitem', { name: '채팅방 나가기' }));
+    await user.click(screen.getByRole('button', { name: '나가기' }));
+
+    await waitFor(() => expect(onLeaveSuccess).toHaveBeenCalledOnce());
+    expect(screen.getByRole('heading', { name: '취향 투표 화면' })).toBeInTheDocument();
+    expect(requests.some(({ path }) => path === '/chat-rooms/42/leave')).toBe(true);
+  });
+
   it('enters first, then loads the current profile, room detail, and first history page', async () => {
     const { session, requests } = createSession();
     renderPage(session);
