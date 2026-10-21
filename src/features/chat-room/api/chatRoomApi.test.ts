@@ -32,19 +32,89 @@ describe('chatRoomApi', () => {
       message: '채팅방 정보 조회 성공',
       data: {
         chatRoomId: 42,
+        roomType: 'DIRECT',
+        groupDate: null,
+        voteQuestionId: null,
+        roomSequence: null,
+        capacity: 2,
+        admittedParticipantCount: 2,
+        activeParticipantCount: 2,
+        expiresAt: '2026-10-22T00:00:00+09:00',
         participants: [
-          { userId: 7, nickname: 'me' },
-          { userId: 8, nickname: 'partner' },
+          { userId: 7, nickname: 'me', voteChoice: null, hasLeft: false },
+          { userId: 8, nickname: 'partner', voteChoice: null, hasLeft: false },
         ],
       },
     });
 
     await expect(getChatRoomDetail(request, '42')).resolves.toEqual({
       chatRoomId: 42,
+      roomType: 'DIRECT',
+      groupDate: null,
+      voteQuestionId: null,
+      roomSequence: null,
+      capacity: 2,
+      admittedParticipantCount: 2,
+      activeParticipantCount: 2,
+      expiresAt: '2026-10-22T00:00:00+09:00',
       participants: [
-        { userId: 7, nickname: 'me' },
-        { userId: 8, nickname: 'partner' },
+        { userId: 7, nickname: 'me', voteChoice: null, hasLeft: false },
+        { userId: 8, nickname: 'partner', voteChoice: null, hasLeft: false },
       ],
+    });
+  });
+
+  it('accepts server-authoritative variable participant counts and GROUP metadata', async () => {
+    const { request } = createRequest({
+      message: '채팅방 정보 조회 성공',
+      data: {
+        chatRoomId: 99,
+        roomType: 'GROUP',
+        groupDate: '2026-10-21',
+        voteQuestionId: 8,
+        roomSequence: 3,
+        capacity: 30,
+        admittedParticipantCount: 3,
+        activeParticipantCount: 2,
+        expiresAt: '2026-10-22T00:00:00+09:00',
+        participants: [
+          { userId: 7, nickname: 'me', voteChoice: 'A', hasLeft: false },
+          { userId: 8, nickname: 'peer', voteChoice: 'B', hasLeft: false },
+          { userId: 9, nickname: 'left', voteChoice: 'A', hasLeft: true },
+        ],
+      },
+    });
+
+    await expect(getChatRoomDetail(request, '99')).resolves.toMatchObject({
+      roomType: 'GROUP',
+      capacity: 30,
+      admittedParticipantCount: 3,
+      activeParticipantCount: 2,
+      participants: expect.arrayContaining([
+        expect.objectContaining({ nickname: 'peer', voteChoice: 'B', hasLeft: false }),
+      ]),
+    });
+  });
+
+  it('rejects DIRECT detail data unless the server returns exactly two participants', async () => {
+    const { request } = createRequest({
+      message: 'ok',
+      data: {
+        chatRoomId: 42,
+        roomType: 'DIRECT',
+        groupDate: null,
+        voteQuestionId: null,
+        roomSequence: null,
+        capacity: 2,
+        admittedParticipantCount: 2,
+        activeParticipantCount: 1,
+        expiresAt: '2026-10-22T00:00:00+09:00',
+        participants: [{ userId: 7, nickname: 'me', voteChoice: null, hasLeft: false }],
+      },
+    });
+
+    await expect(getChatRoomDetail(request, '42')).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
     });
   });
 

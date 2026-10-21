@@ -11,7 +11,12 @@ import {
 import { ApiError } from '../../../shared/api/apiError';
 import { ChatRoomPage } from './ChatRoomPage';
 
-const participant = (userId: number, nickname: string) => ({ userId, nickname });
+const participant = (userId: number, nickname: string) => ({
+  userId,
+  nickname,
+  voteChoice: null,
+  hasLeft: false,
+});
 const message = (chatMessageId: number, userId: number, nickname: string, content: string) => ({
   chatMessageId,
   clientMessageId: `550e8400-e29b-41d4-a716-${String(chatMessageId).padStart(12, '0')}`,
@@ -54,7 +59,18 @@ function createSession(
     if (path === '/chat-rooms/42') {
       return {
         message: 'detail',
-        data: { chatRoomId: 42, participants: [participant(7, 'me'), participant(8, 'partner')] },
+        data: {
+          chatRoomId: 42,
+          roomType: 'DIRECT',
+          groupDate: null,
+          voteQuestionId: null,
+          roomSequence: null,
+          capacity: 2,
+          admittedParticipantCount: 2,
+          activeParticipantCount: 2,
+          expiresAt: '2026-10-22T00:00:00+09:00',
+          participants: [participant(7, 'me'), participant(8, 'partner')],
+        },
       } as T;
     }
     if (path === '/chat-rooms/42/messages') {

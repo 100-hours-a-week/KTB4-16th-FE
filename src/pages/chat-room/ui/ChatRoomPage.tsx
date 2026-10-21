@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import { getMyProfile } from '../../../features/user-profile/api/userProfileApi';
@@ -19,6 +19,7 @@ import { ChatSendFailure } from '../../../features/chat-room/model/chatSendFailu
 import {
   ChatRoomContent,
   type ChatMessage,
+  type ChatSystemNotice,
   type ChatHistoryHandler,
   type ChatConnectionState,
   type ChatRoomLoadState,
@@ -28,8 +29,12 @@ import {
 import './chatRoomPage.css';
 
 export type ChatRoomHeaderInfo = {
+  roomType?: 'DIRECT' | 'GROUP';
+  roomSequence?: number | null;
   partnerNickname?: string;
   participantCount?: number;
+  admittedParticipantCount?: number;
+  capacity?: number;
   expiresAt?: string;
 };
 
@@ -72,6 +77,7 @@ type StompMessage = {
   userId: number;
   content: string;
   createdAt: string;
+  voteChoice?: 'A' | 'B' | null;
 };
 
 type StompMessageError = {
@@ -86,6 +92,16 @@ type ParticipantLeftEvent = {
   userId: number;
   nickname: string;
   leftAt: string;
+};
+
+type ParticipantJoinedEvent = {
+  type: 'PARTICIPANT_JOINED';
+  chatRoomId: number;
+  userId: number;
+  nickname: string;
+  voteChoice: 'A' | 'B';
+  activeParticipantCount: number;
+  occurredAt: string;
 };
 
 /** API의 양의 64-bit 정수 식별자 형식에 맞는 경로 파라미터인지 확인한다. */
@@ -144,6 +160,7 @@ export function ChatRoomPage({
 }: ChatRoomPageProps = {}) {
   const { chatRoomId: routeChatRoomId } = useParams();
   const chatRoomId = embeddedRoomId ?? routeChatRoomId;
+  const location = useLocation();
   const navigate = useNavigate();
   const {
     isAuthenticated,
@@ -161,6 +178,7 @@ export function ChatRoomPage({
     detail: ChatRoomDetail;
     history: ChatRoomMessageHistory;
     messages: ChatMessage[];
+    systemNotices: ChatSystemNotice[];
     roomInfo: ChatRoomHeaderInfo;
     currentUserId: number;
   } | null>(null);
@@ -192,6 +210,7 @@ export function ChatRoomPage({
   const frameHandler = useRef<(destination: ChatDestination, body: string) => void>(
     () => undefined,
   );
+  const handledRoomEvents = useRef(new Set<string>());
 
   useEffect(() => {
     if (!isLeaveConfirmationOpen) return;
@@ -242,6 +261,74 @@ export function ChatRoomPage({
     onFrame,
   });
 
+  /** GROUP 입퇴장 이벤트 후 상세 응답을 다시 읽어 서버 기준 참가자 상태를 반영한다. */
+  const refreshGroupRoomDetail = useCallback(
+    async (requestedRoomId: string) => {
+      try {
+        const detail = await getChatRoomDetail(fetchAuthenticatedJson, requestedRoomId);
+        setLoadedRoom((current) => {
+          if (!current || current.chatRoomId !== requestedRoomId) return current;
+          const partner = detail.participants.find(
+            (participant) => participant.userId !== current.currentUserId,
+          );
+          return {
+            ...current,
+            detail,
+            roomInfo: roomInfoFromDetail(detail, partner?.nickname),
+            messages: current.messages.map((message) => {
+              const participant = detail.participants.find(
+                (item) => item.userId === message.userId,
+              );
+              return participant
+                ? { ...message, nickname: participant.nickname, voteChoice: participant.voteChoice }
+                : message;
+            }),
+          };
+        });
+        const activeRoom = currentRoom.current.loadedRoom;
+        if (!activeRoom || activeRoom.chatRoomId !== requestedRoomId) return;
+        const currentUserId = activeRoom.currentUserId;
+        const hasLeftPartner =
+          detail.roomType === 'DIRECT' &&
+          detail.participants.some(
+            (participant) => participant.userId !== currentUserId && participant.hasLeft,
+          );
+        setRoomResult({
+          chatRoomId: requestedRoomId,
+          status:
+            detail.roomType === 'GROUP'
+              ? groupRoomStatus(detail, currentUserId)
+              : hasLeftPartner
+                ? 'partner-left'
+                : 'active',
+        });
+        setTransportError('');
+      } catch (error: unknown) {
+        if (error instanceof ApiError && error.code === 'CHAT_ROOM_EXPIRED') {
+          setRoomResult((current) =>
+            current.chatRoomId === requestedRoomId && current.status === 'self-left'
+              ? current
+              : { chatRoomId: requestedRoomId, status: 'expired' },
+          );
+          setTransportError('');
+          return;
+        }
+        if (
+          error instanceof ApiError &&
+          (error.code === 'CHAT_ALREADY_LEFT' ||
+            error.code === 'CHAT_ALREADY_LEFT_FORBIDDEN' ||
+            error.code === 'CHAT_REENTRY_FORBIDDEN')
+        ) {
+          setRoomResult({ chatRoomId: requestedRoomId, status: 'self-left' });
+          setTransportError('');
+          return;
+        }
+        setTransportError('참가자 정보를 새로고침하지 못했어요. 잠시 후 다시 확인해 주세요.');
+      }
+    },
+    [fetchAuthenticatedJson],
+  );
+
   const settlePendingMessage = useCallback(
     (
       clientMessageId: string,
@@ -278,6 +365,24 @@ export function ChatRoomPage({
   }, [chatRoomId, loadedRoom]);
 
   useEffect(() => {
+    if (!loadedRoom || loadedRoom.detail.roomType !== 'GROUP') return;
+    const expiresAt = Date.parse(loadedRoom.detail.expiresAt);
+    if (!Number.isFinite(expiresAt)) return;
+
+    const timeoutId = setTimeout(
+      () => {
+        setRoomResult((current) =>
+          current.chatRoomId === loadedRoom.chatRoomId && current.status !== 'self-left'
+            ? { chatRoomId: loadedRoom.chatRoomId, status: 'expired' }
+            : current,
+        );
+      },
+      Math.max(0, expiresAt - Date.now()),
+    );
+    return () => clearTimeout(timeoutId);
+  }, [loadedRoom]);
+
+  useEffect(() => {
     frameHandler.current = (destination, body) => {
       let frame: unknown;
       try {
@@ -306,8 +411,10 @@ export function ChatRoomPage({
         const mapped: ChatMessage = {
           id: String(message.chatMessageId),
           clientMessageId: message.clientMessageId,
+          userId: message.userId,
           sender: message.userId === loaded.currentUserId ? 'me' : 'partner',
           nickname: participant?.nickname,
+          voteChoice: message.voteChoice ?? participant?.voteChoice,
           content: message.content,
           createdAt: message.createdAt,
           deliveryState: 'success',
@@ -349,7 +456,11 @@ export function ChatRoomPage({
             ? pendingMessages.current.keys().next().value
             : null;
         if (error.code === 'CHAT_ROOM_EXPIRED' && activeRoomId) {
-          setRoomResult({ chatRoomId: activeRoomId, status: 'expired' });
+          setRoomResult((current) =>
+            activeRoom?.detail.roomType === 'GROUP' && current.status === 'self-left'
+              ? current
+              : { chatRoomId: activeRoomId, status: 'expired' },
+          );
         } else if (error.code === 'CHAT_PEER_NOT_JOINED' && activeRoomId && correlatedPendingId) {
           setRoomResult({ chatRoomId: activeRoomId, status: 'peer-waiting' });
         } else if (error.code === 'CHAT_SEND_FORBIDDEN' && activeRoomId) {
@@ -361,7 +472,7 @@ export function ChatRoomPage({
             'failed',
             message,
             error.code !== 'CLIENT_MESSAGE_ID_CONFLICT',
-            error.code !== 'CHAT_PEER_NOT_JOINED',
+            error.code !== 'CHAT_PEER_NOT_JOINED' && error.code !== 'CHAT_ROOM_EXPIRED',
           );
         } else if (error.code !== 'CHAT_PEER_NOT_JOINED') {
           setTransportError(message);
@@ -370,18 +481,44 @@ export function ChatRoomPage({
       }
 
       if (destination === '/user/queue/chat-events') {
-        const event = parseParticipantLeftEvent(frame);
+        const joined = parseParticipantJoinedEvent(frame);
+        const left = parseParticipantLeftEvent(frame);
+        const event = joined ?? left;
         if (
-          event &&
-          String(event.chatRoomId) === activeRoomId &&
-          activeRoom?.chatRoomId === activeRoomId &&
-          event.userId !== activeRoom.currentUserId
-        ) {
-          setRoomResult({ chatRoomId: activeRoomId, status: 'partner-left' });
+          !event ||
+          String(event.chatRoomId) !== activeRoomId ||
+          activeRoom?.chatRoomId !== activeRoomId
+        )
+          return;
+        if (event.userId === activeRoom.currentUserId) return;
+        if (activeRoom.detail.roomType === 'DIRECT') {
+          if (left) setRoomResult({ chatRoomId: activeRoomId, status: 'partner-left' });
+          return;
         }
+        const occurredAt = joined?.occurredAt ?? left?.leftAt;
+        if (!occurredAt) return;
+        const eventKey = `${event.type}:${event.chatRoomId}:${event.userId}:${occurredAt}`;
+        if (handledRoomEvents.current.has(eventKey)) return;
+        handledRoomEvents.current.add(eventKey);
+        const eventParticipant = activeRoom.detail.participants.find(
+          (participant) => participant.userId === event.userId,
+        );
+        const notice: ChatSystemNotice = {
+          id: eventKey,
+          text: joined
+            ? `${joined.nickname}님이 입장했습니다.`
+            : `${left?.nickname ?? ''}님이 퇴장했습니다.`,
+          voteChoice: joined?.voteChoice ?? eventParticipant?.voteChoice,
+        };
+        setLoadedRoom((current) =>
+          current && current.chatRoomId === activeRoomId
+            ? { ...current, systemNotices: [...current.systemNotices, notice] }
+            : current,
+        );
+        void refreshGroupRoomDetail(activeRoomId);
       }
     };
-  }, [settlePendingMessage]);
+  }, [refreshGroupRoomDetail, settlePendingMessage]);
 
   const wasConnected = useRef(false);
   useEffect(() => {
@@ -455,7 +592,7 @@ export function ChatRoomPage({
         const partner = detail.participants.find(
           (participant) => participant.userId !== profile.userId,
         );
-        if (!self || !partner) {
+        if (!self || (detail.roomType === 'DIRECT' && !partner)) {
           throw new ApiError(502, '채팅방 참가자 정보를 확인할 수 없습니다.', 'INVALID_RESPONSE');
         }
 
@@ -465,13 +602,19 @@ export function ChatRoomPage({
           detail,
           history,
           messages: history.messages.map((message) => mapMessage(message, profile.userId, detail)),
-          roomInfo: {
-            partnerNickname: partner.nickname,
-            participantCount: detail.participants.length,
-          },
+          systemNotices: [],
+          roomInfo: roomInfoFromDetail(detail, partner?.nickname),
           currentUserId: profile.userId,
         });
-        setRoomResult({ chatRoomId: requestedRoomId, status: 'active' });
+        setRoomResult({
+          chatRoomId: requestedRoomId,
+          status:
+            detail.roomType === 'GROUP'
+              ? groupRoomStatus(detail, profile.userId)
+              : partner?.hasLeft
+                ? 'partner-left'
+                : 'active',
+        });
         setLoadResult({ chatRoomId: requestedRoomId, state: 'ready' });
       } catch (error: unknown) {
         if (!isCurrent || controller.signal.aborted) return;
@@ -499,7 +642,13 @@ export function ChatRoomPage({
             nextLoadState = 'server-error';
           }
         }
-        setRoomResult({ chatRoomId: requestedRoomId, status: nextRoomStatus });
+        setRoomResult((current) =>
+          current.chatRoomId === requestedRoomId &&
+          current.status === 'self-left' &&
+          nextRoomStatus !== 'self-left'
+            ? current
+            : { chatRoomId: requestedRoomId, status: nextRoomStatus },
+        );
         setLoadResult({ chatRoomId: requestedRoomId, state: nextLoadState });
       }
     }
@@ -599,14 +748,18 @@ export function ChatRoomPage({
         ? 'loading'
         : DEFAULT_LOAD_STATE);
   const resolvedMessages = suppliedMessages ?? activeLoadedRoom?.messages ?? [];
-  const resolvedRoomInfo = roomInfo ?? activeLoadedRoom?.roomInfo;
+  const resolvedRoomInfo =
+    roomInfo ?? activeLoadedRoom?.roomInfo ?? roomInfoFromNavigationState(location.state);
   const resolvedRoomStatus =
     suppliedRoomStatus ??
     (roomResult.chatRoomId === chatRoomId ? roomResult.status : DEFAULT_ROOM_STATUS);
   const resolvedHasOlderMessages = hasOlderMessages ?? activeLoadedRoom?.history.hasNext ?? false;
   const resolvedIsLoadingOlderMessages = suppliedIsLoadingOlderMessages ?? isRequestingOlderPage;
   const canLeaveRoom =
-    !hasInjectedRoomData && resolvedLoadState === 'ready' && resolvedRoomStatus === 'active';
+    !hasInjectedRoomData &&
+    resolvedLoadState === 'ready' &&
+    (resolvedRoomStatus === 'active' ||
+      (activeLoadedRoom?.detail.roomType === 'GROUP' && resolvedRoomStatus === 'peer-waiting'));
 
   async function sendMessage(content: string): Promise<void> {
     if (
@@ -618,6 +771,12 @@ export function ChatRoomPage({
     ) {
       throw new ChatSendFailure('연결된 채팅방에서만 메시지를 보낼 수 있어요.');
     }
+    if (
+      activeLoadedRoom.detail.roomType === 'GROUP' &&
+      activeLoadedRoom.detail.activeParticipantCount < 2
+    ) {
+      throw new ChatSendFailure('다른 참가자가 입장하면 채팅을 시작할 수 있어요.');
+    }
     if (content.trim().length === 0 || content.length > 500) {
       throw new ChatSendFailure('메시지는 공백이 아닌 1~500자로 입력해 주세요.');
     }
@@ -628,8 +787,14 @@ export function ChatRoomPage({
     const pendingMessage: ChatMessage = {
       id: `pending:${clientMessageId}`,
       clientMessageId,
+      userId: activeLoadedRoom.currentUserId,
       sender: 'me',
-      nickname: activeLoadedRoom.roomInfo.partnerNickname,
+      nickname: activeLoadedRoom.detail.participants.find(
+        (item) => item.userId === activeLoadedRoom.currentUserId,
+      )?.nickname,
+      voteChoice: activeLoadedRoom.detail.participants.find(
+        (item) => item.userId === activeLoadedRoom.currentUserId,
+      )?.voteChoice,
       content,
       createdAt: new Date().toISOString(),
       deliveryState: 'pending',
@@ -700,16 +865,22 @@ export function ChatRoomPage({
         )}
         <div className="chat-room-title" title={resolvedRoomInfo?.partnerNickname}>
           <div className="chat-room-title-copy">
-            <h1>채팅방</h1>
+            <h1>
+              {resolvedRoomInfo?.roomType === 'GROUP'
+                ? `그룹 채팅${resolvedRoomInfo.roomSequence ? ` ${resolvedRoomInfo.roomSequence}번 방` : ''}`
+                : '채팅방'}
+            </h1>
             <p className="chat-room-partner">
-              {resolvedRoomInfo?.partnerNickname ?? '상대방 정보는 연동 후 표시됩니다.'}
+              {resolvedRoomInfo?.roomType === 'GROUP'
+                ? `오늘의 취향 투표 · 참여 인원 ${resolvedRoomInfo.admittedParticipantCount ?? '—'}/${resolvedRoomInfo.capacity ?? '—'}명`
+                : (resolvedRoomInfo?.partnerNickname ?? '상대방 정보는 연동 후 표시됩니다.')}
             </p>
             <p className="chat-room-meta">
-              {resolvedRoomInfo?.participantCount !== undefined
-                ? `참여자 ${resolvedRoomInfo.participantCount}명`
-                : '참여자 정보 대기 중'}
-              <span aria-hidden="true"> · </span>
-              {expirationLabel ? `종료 ${expirationLabel}` : '종료 시간 대기 중'}
+              {resolvedRoomInfo?.roomType === 'GROUP'
+                ? expirationLabel
+                  ? `종료 ${expirationLabel}`
+                  : '종료 시간 대기 중'
+                : `${resolvedRoomInfo?.participantCount !== undefined ? `참여자 ${resolvedRoomInfo.participantCount}명` : '참여자 정보 대기 중'} · ${expirationLabel ? `종료 ${expirationLabel}` : '종료 시간 대기 중'}`}
             </p>
           </div>
         </div>
@@ -799,11 +970,21 @@ export function ChatRoomPage({
               }
             }}
           >
-            <h2 id="chat-room-leave-title">채팅방을 나가시겠어요?</h2>
+            <h2 id="chat-room-leave-title">
+              {resolvedRoomInfo?.roomType === 'GROUP'
+                ? '채팅방에서 나가시겠어요?'
+                : '채팅방을 나가시겠어요?'}
+            </h2>
             <p id="chat-room-leave-description">
-              채팅방을 나가면 다시 입장할 수 없으며,
-              <br />
-              상대방과 더 이상 메시지를 주고받을 수 없어요.
+              {resolvedRoomInfo?.roomType === 'GROUP' ? (
+                '채팅방을 나가면 오늘은 다시 입장할 수 없어요.'
+              ) : (
+                <>
+                  채팅방을 나가면 다시 입장할 수 없으며,
+                  <br />
+                  상대방과 더 이상 메시지를 주고받을 수 없어요.
+                </>
+              )}
             </p>
             {leaveError ? (
               <p className="chat-room-leave-dialog-error" role="alert">
@@ -857,6 +1038,9 @@ export function ChatRoomPage({
         }
         onSendMessage={hasInjectedRoomData ? onSendMessage : sendMessage}
         roomStatus={resolvedRoomStatus}
+        roomType={activeLoadedRoom?.detail.roomType ?? resolvedRoomInfo?.roomType}
+        activeParticipantCount={activeLoadedRoom?.detail.activeParticipantCount}
+        systemNotices={activeLoadedRoom?.systemNotices}
       />
     </Root>
   );
@@ -883,8 +1067,10 @@ function mapMessage(
   return {
     id: String(message.chatMessageId),
     clientMessageId: message.clientMessageId,
+    userId: message.userId,
     sender: message.userId === currentUserId ? 'me' : 'partner',
     nickname: message.nickname || participant?.nickname,
+    voteChoice: message.voteChoice ?? participant?.voteChoice,
     content: message.content,
     createdAt: message.createdAt,
     deliveryState: 'success',
@@ -902,6 +1088,11 @@ function parseStompMessage(value: Record<string, unknown>): StompMessage | null 
     typeof value.content !== 'string' ||
     value.content.length < 1 ||
     value.content.length > 500 ||
+    !(
+      value.voteChoice === undefined ||
+      value.voteChoice === null ||
+      isVoteChoice(value.voteChoice)
+    ) ||
     !isDateTime(value.createdAt)
   ) {
     return null;
@@ -914,6 +1105,7 @@ function parseStompMessage(value: Record<string, unknown>): StompMessage | null 
     userId: value.userId,
     content: value.content,
     createdAt: value.createdAt,
+    voteChoice: value.voteChoice,
   };
 }
 
@@ -951,6 +1143,79 @@ function parseParticipantLeftEvent(value: Record<string, unknown>): ParticipantL
     nickname: value.nickname,
     leftAt: value.leftAt,
   };
+}
+
+/** 그룹 참가자 입장 이벤트의 서버 필드만 검증해 시스템 안내와 상세 재조회를 시작한다. */
+function parseParticipantJoinedEvent(
+  value: Record<string, unknown>,
+): ParticipantJoinedEvent | null {
+  if (
+    value.type !== 'PARTICIPANT_JOINED' ||
+    !isPositiveSafeInteger(value.chatRoomId) ||
+    !isPositiveSafeInteger(value.userId) ||
+    typeof value.nickname !== 'string' ||
+    !isVoteChoice(value.voteChoice) ||
+    !isNonNegativeSafeInteger(value.activeParticipantCount) ||
+    !isDateTime(value.occurredAt)
+  ) {
+    return null;
+  }
+  return {
+    type: 'PARTICIPANT_JOINED',
+    chatRoomId: value.chatRoomId,
+    userId: value.userId,
+    nickname: value.nickname,
+    voteChoice: value.voteChoice,
+    activeParticipantCount: value.activeParticipantCount,
+    occurredAt: value.occurredAt,
+  };
+}
+
+/** 상세 DTO의 서버 값을 헤더 표시 모델로 변환한다. */
+function roomInfoFromDetail(detail: ChatRoomDetail, partnerNickname?: string): ChatRoomHeaderInfo {
+  return {
+    roomType: detail.roomType,
+    roomSequence: detail.roomSequence,
+    partnerNickname,
+    participantCount: detail.participants.length,
+    admittedParticipantCount: detail.admittedParticipantCount,
+    capacity: detail.capacity,
+    expiresAt: detail.expiresAt,
+  };
+}
+
+/** GROUP 상세의 서버 상태를 퇴장, 만료, 대기 우선순위로 화면 상태에 매핑한다. */
+function groupRoomStatus(detail: ChatRoomDetail, currentUserId: number): ChatRoomStatus {
+  const currentParticipant = detail.participants.find(
+    (participant) => participant.userId === currentUserId,
+  );
+  if (currentParticipant?.hasLeft) return 'self-left';
+  if (Date.parse(detail.expiresAt) <= Date.now()) return 'expired';
+  return detail.activeParticipantCount < 2 ? 'peer-waiting' : 'active';
+}
+
+/** 그룹 배정 직후 REST 상세 실패 화면에서도 이동 시 전달된 방 종류만 안전하게 복구한다. */
+function roomInfoFromNavigationState(value: unknown): ChatRoomHeaderInfo | undefined {
+  if (!isRecord(value) || !isRecord(value.roomInfo) || value.roomInfo.roomType !== 'GROUP') {
+    return undefined;
+  }
+  const info = value.roomInfo;
+  return {
+    roomType: 'GROUP',
+    roomSequence: isPositiveSafeInteger(info.roomSequence) ? info.roomSequence : null,
+    admittedParticipantCount: isNonNegativeSafeInteger(info.admittedParticipantCount)
+      ? info.admittedParticipantCount
+      : undefined,
+    expiresAt: isDateTime(info.expiresAt) ? info.expiresAt : undefined,
+  };
+}
+
+function isVoteChoice(value: unknown): value is 'A' | 'B' {
+  return value === 'A' || value === 'B';
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
 /** 서버 오류 코드를 고정된 사용자 안내로 변환하며 원문 내부 메시지는 노출하지 않는다. */

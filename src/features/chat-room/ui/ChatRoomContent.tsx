@@ -11,11 +11,18 @@ import './chatRoomContent.css';
 export type ChatMessage = {
   id: string;
   clientMessageId?: string;
+  userId?: number;
   sender: 'me' | 'partner';
   nickname?: string;
+  voteChoice?: 'A' | 'B' | null;
   content: string;
   createdAt: string;
   deliveryState?: 'pending' | 'success' | 'failed';
+};
+export type ChatSystemNotice = {
+  id: string;
+  text: string;
+  voteChoice?: 'A' | 'B' | null;
 };
 
 export type ChatRoomLoadState =
@@ -39,6 +46,9 @@ type ChatRoomContentProps = {
   onRetryLoad?: ChatHistoryHandler;
   onSendMessage?: ChatSendHandler;
   roomStatus: ChatRoomStatus;
+  roomType?: 'DIRECT' | 'GROUP';
+  activeParticipantCount?: number;
+  systemNotices?: readonly ChatSystemNotice[];
 };
 
 const MAX_MESSAGE_LENGTH = 500;
@@ -129,6 +139,9 @@ export function ChatRoomContent({
   onRetryLoad,
   onSendMessage,
   roomStatus,
+  roomType = 'DIRECT',
+  activeParticipantCount,
+  systemNotices = [],
 }: ChatRoomContentProps) {
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -146,7 +159,19 @@ export function ChatRoomContent({
 
   const hasTerminalLoadState =
     loadState === 'forbidden' || loadState === 'not-found' || loadState === 'server-error';
-  const roomAllowsMessaging = roomStatus === 'active';
+  const visibleRoomStatus: ChatRoomStatus =
+    roomType === 'GROUP'
+      ? roomStatus === 'self-left'
+        ? 'self-left'
+        : roomStatus === 'expired'
+          ? 'expired'
+          : (activeParticipantCount ?? 0) < 2
+            ? 'peer-waiting'
+            : roomStatus === 'peer-waiting'
+              ? 'active'
+              : roomStatus
+      : roomStatus;
+  const roomAllowsMessaging = visibleRoomStatus === 'active';
   const canCompose =
     loadState === 'ready' &&
     connectionState === 'connected' &&
@@ -248,7 +273,7 @@ export function ChatRoomContent({
     }
   }
 
-  const roomNotice = roomStatusLabels[roomStatus];
+  const roomNotice = roomStatusLabels[visibleRoomStatus];
   const loadNotice = loadStateLabels[loadState];
   const connectionLabel = connectionStatus?.isOffline
     ? '네트워크 연결을 기다리는 중'
@@ -287,19 +312,58 @@ export function ChatRoomContent({
             ) : null}
           </div>
         ) : null}
-        {roomNotice ? (
+        {roomType === 'GROUP' && visibleRoomStatus === 'self-left' ? (
+          <div className="chat-room-terminal-overlay is-left" role="status">
+            <p>이미 퇴장한 채팅방입니다.</p>
+            <p>오늘은 이 채팅방에 다시 입장할 수 없어요.</p>
+          </div>
+        ) : null}
+        {roomType === 'GROUP' && visibleRoomStatus === 'expired' ? (
+          <div className="chat-room-room-status is-expired" role="status">
+            <p>오늘의 채팅이 종료되었어요.</p>
+          </div>
+        ) : null}
+        {roomNotice &&
+        !(
+          roomType === 'GROUP' &&
+          (visibleRoomStatus === 'self-left' ||
+            visibleRoomStatus === 'expired' ||
+            visibleRoomStatus === 'peer-waiting')
+        ) ? (
           <div
-            className={`chat-room-room-status${roomStatus === 'peer-waiting' ? ' is-peer-waiting' : ''}`}
+            className={`chat-room-room-status${visibleRoomStatus === 'peer-waiting' ? ' is-peer-waiting' : ''}`}
             role="status"
           >
             <p>{roomNotice}</p>
-            {roomStatus === 'peer-waiting' ? (
+            {visibleRoomStatus === 'peer-waiting' ? (
               <p className="chat-room-room-status-detail">
                 두 사람 모두 입장하면 채팅을 시작할 수 있어요.
               </p>
             ) : null}
           </div>
         ) : null}
+        {roomType === 'GROUP' &&
+        (activeParticipantCount ?? 0) < 2 &&
+        visibleRoomStatus === 'peer-waiting' ? (
+          <div className="chat-room-room-status is-peer-waiting" role="status">
+            <p>현재 채팅방에 1명만 참여 중이에요.</p>
+            <p className="chat-room-room-status-detail">
+              다른 참여자가 입장하면 채팅을 시작할 수 있어요.
+            </p>
+          </div>
+        ) : null}
+        {!(roomType === 'GROUP' && visibleRoomStatus === 'self-left') &&
+          systemNotices.map((notice) => (
+            <p className="chat-room-system-notice" key={notice.id} role="status">
+              {roomType === 'GROUP' && notice.voteChoice ? (
+                <span
+                  aria-label={`${notice.voteChoice} 선택`}
+                  className={`chat-room-vote-dot is-${notice.voteChoice.toLowerCase()}`}
+                />
+              ) : null}
+              {notice.text}
+            </p>
+          ))}
         {loadNotice ? (
           <div
             className={`chat-room-state${loadState === 'error' || loadState === 'server-error' ? ' is-error' : ''}`}
@@ -322,12 +386,12 @@ export function ChatRoomContent({
             이전 메시지를 불러오지 못했어요.
           </p>
         ) : null}
-        {showMessages && roomStatus === 'active' && sortedMessages.length === 0 ? (
+        {showMessages && visibleRoomStatus === 'active' && sortedMessages.length === 0 ? (
           <p className="chat-room-state" role="status">
             아직 주고받은 메시지가 없어요.
           </p>
         ) : null}
-        {showMessages && sortedMessages.length > 0 && roomStatus !== 'self-left' ? (
+        {showMessages && sortedMessages.length > 0 && visibleRoomStatus !== 'self-left' ? (
           <>
             {hasOlderMessages && onLoadOlderMessages ? (
               <button
@@ -359,8 +423,15 @@ export function ChatRoomContent({
                     ) : null}
                     <article className={`chat-room-message is-${message.sender}`}>
                       <div className="chat-room-message-body">
-                        {message.sender === 'partner' && message.nickname ? (
+                        {(roomType === 'GROUP' || message.sender === 'partner') &&
+                        message.nickname ? (
                           <p className="chat-room-sender-name" title={message.nickname}>
+                            {roomType === 'GROUP' && message.voteChoice ? (
+                              <span
+                                aria-label={`${message.voteChoice} 선택`}
+                                className={`chat-room-vote-dot is-${message.voteChoice.toLowerCase()}`}
+                              />
+                            ) : null}
                             {message.nickname}
                           </p>
                         ) : null}
@@ -419,7 +490,21 @@ export function ChatRoomContent({
             event.preventDefault();
             void sendDraft();
           }}
-          placeholder={inputDisabled ? '채팅 기능 연동 후 입력할 수 있어요' : '메시지를 입력하세요'}
+          placeholder={
+            roomType === 'GROUP'
+              ? visibleRoomStatus === 'expired'
+                ? '종료된 채팅방입니다'
+                : visibleRoomStatus === 'self-left'
+                  ? '이미 퇴장한 채팅방입니다'
+                  : visibleRoomStatus === 'peer-waiting'
+                    ? '다른 참여자를 기다리고 있어요'
+                    : inputDisabled
+                      ? '채팅 기능 연동 후 입력할 수 있어요'
+                      : '메시지를 입력하세요'
+              : inputDisabled
+                ? '채팅 기능 연동 후 입력할 수 있어요'
+                : '메시지를 입력하세요'
+          }
           rows={1}
           value={draft}
         />
