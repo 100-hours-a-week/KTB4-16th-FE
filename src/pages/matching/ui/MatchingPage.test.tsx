@@ -13,6 +13,10 @@ import {
   getTodayPreferenceVote,
   submitPreferenceVote,
 } from '../../../features/preference-vote/api/preferenceVoteApi';
+import {
+  getGroupChatAvailability,
+  joinGroupChat,
+} from '../../../features/chat-room/api/groupChatApi';
 import { MatchingPage } from './MatchingPage';
 import { ApiError } from '../../../shared/api/apiError';
 
@@ -52,6 +56,10 @@ vi.mock('../../../features/matching/api/matchRequestApi', () => ({
 vi.mock('../../../features/preference-vote/api/preferenceVoteApi', () => ({
   getTodayPreferenceVote: vi.fn(),
   submitPreferenceVote: vi.fn(),
+}));
+vi.mock('../../../features/chat-room/api/groupChatApi', () => ({
+  getGroupChatAvailability: vi.fn(),
+  joinGroupChat: vi.fn(),
 }));
 
 const tokenForUser = (userId: string) =>
@@ -102,6 +110,15 @@ beforeEach(() => {
   vi.mocked(getMatchRequestByVoteAnswer).mockRejectedValue(
     new ApiError(404, '요청 없음', 'MATCH_REQUEST_NOT_FOUND'),
   );
+  vi.mocked(getGroupChatAvailability).mockResolvedValue(false);
+  vi.mocked(joinGroupChat).mockResolvedValue({
+    chatRoomId: 21,
+    roomSequence: 1,
+    newlyAssigned: true,
+    admittedParticipantCount: 1,
+    activeParticipantCount: 0,
+    expiresAt: '2026-10-22T00:00:00+09:00',
+  });
   vi.mocked(useSession).mockReturnValue({
     accessToken: tokenForUser('35'),
     sessionVersion: 0,
@@ -127,6 +144,42 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('MatchingPage', () => {
+  it('joins the group room only after the user chooses chat and the Backend says it is available', async () => {
+    vi.mocked(getGroupChatAvailability).mockResolvedValue(true);
+    const { container } = renderPage();
+    await flushEffects();
+
+    await act(async () => {
+      screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getGroupChatAvailability).toHaveBeenCalledOnce();
+    expect(joinGroupChat).toHaveBeenCalledWith(expect.any(Function), 43);
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="current-path"]')).toHaveTextContent('/chat/21');
+  });
+
+  it('does not choose a matching flow when availability lookup fails and offers retry', async () => {
+    vi.mocked(getGroupChatAvailability).mockRejectedValueOnce(new Error('offline'));
+    renderPage();
+    await flushEffects();
+
+    fireEvent.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
+    await flushEffects();
+
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(joinGroupChat).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('채팅 방식을 확인하지 못했어요');
+
+    vi.mocked(getGroupChatAvailability).mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await flushEffects();
+    expect(getGroupChatAvailability).toHaveBeenCalledTimes(2);
+    expect(createMatchRequest).toHaveBeenCalledOnce();
+  });
+
   it('shows the snapshot preparation error without implying the user already voted', async () => {
     vi.mocked(getTodayPreferenceVote).mockRejectedValue(
       new ApiError(503, '오늘의 취향 투표를 준비 중입니다.', 'VOTE_SNAPSHOT_NOT_READY'),

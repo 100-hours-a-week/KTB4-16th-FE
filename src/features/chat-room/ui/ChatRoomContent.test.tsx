@@ -58,6 +58,105 @@ function setScrollMetrics(
 }
 
 describe('ChatRoomContent', () => {
+  it('keeps GROUP sending disabled with one active participant and shows server vote choices', async () => {
+    const onSendMessage = vi.fn();
+    renderContent({
+      roomType: 'GROUP',
+      roomStatus: 'peer-waiting',
+      activeParticipantCount: 1,
+      onSendMessage,
+    });
+
+    expect(screen.getByText('현재 채팅방에 1명만 참여 중이에요.')).toBeInTheDocument();
+    expect(screen.getByText('다른 참여자가 입장하면 채팅을 시작할 수 있어요.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('그룹 채팅 참가자')).not.toBeInTheDocument();
+    expect(screen.queryByText(/접속\s*\d+명/)).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '메시지' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: '메시지' })).toHaveAttribute(
+      'placeholder',
+      '다른 참여자를 기다리고 있어요',
+    );
+    expect(screen.getByRole('button', { name: '전송' })).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole('textbox', { name: '메시지' }), { key: 'Enter' });
+    expect(onSendMessage).not.toHaveBeenCalled();
+  });
+
+  it('shows server-expired GROUP rooms with history but blocks message composition', () => {
+    renderContent({
+      roomType: 'GROUP',
+      roomStatus: 'expired',
+      activeParticipantCount: 1,
+      messages: [messages[1]],
+    });
+
+    expect(screen.getByText('오늘의 채팅이 종료되었어요.')).toBeInTheDocument();
+    expect(screen.getByText('첫 메시지')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '메시지' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: '메시지' })).toHaveAttribute(
+      'placeholder',
+      '종료된 채팅방입니다',
+    );
+    expect(screen.getByRole('button', { name: '전송' })).toBeDisabled();
+  });
+
+  it('hides all GROUP chat contents after confirmed leave and shows the re-entry policy', () => {
+    renderContent({
+      roomType: 'GROUP',
+      roomStatus: 'self-left',
+      activeParticipantCount: 1,
+      messages: [messages[1]],
+      systemNotices: [{ id: 'old-notice', text: '이전 참가자가 입장했습니다.' }],
+    });
+
+    expect(screen.getByText('이미 퇴장한 채팅방입니다.')).toBeInTheDocument();
+    expect(screen.getByText('오늘은 이 채팅방에 다시 입장할 수 없어요.')).toBeInTheDocument();
+    expect(screen.queryByText('첫 메시지')).not.toBeInTheDocument();
+    expect(screen.queryByText('이전 참가자가 입장했습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '메시지' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: '메시지' })).toHaveAttribute(
+      'placeholder',
+      '이미 퇴장한 채팅방입니다',
+    );
+    expect(screen.getByRole('button', { name: '전송' })).toBeDisabled();
+  });
+
+  it('enables GROUP sending with two active participants and renders event notices', async () => {
+    const onSendMessage = vi.fn();
+    renderContent({
+      roomType: 'GROUP',
+      activeParticipantCount: 2,
+      systemNotices: [
+        { id: 'joined-1', text: 'peer님이 입장했습니다.', voteChoice: 'B' },
+        { id: 'left-2', text: 'other님이 퇴장했습니다.', voteChoice: 'A' },
+      ],
+      onSendMessage,
+    });
+
+    expect(screen.getByRole('textbox', { name: '메시지' })).toBeEnabled();
+    expect(screen.getByText('peer님이 입장했습니다.')).toBeInTheDocument();
+    expect(screen.getByText('other님이 퇴장했습니다.')).toBeInTheDocument();
+  });
+
+  it('keeps A/B markers beside GROUP message authors without rendering a participant roster', () => {
+    renderContent({
+      roomType: 'GROUP',
+      messages: [
+        {
+          id: 'group-message',
+          sender: 'partner',
+          nickname: 'B 참가자',
+          voteChoice: 'B',
+          content: '안녕하세요',
+          createdAt: '2026-10-14T06:22:00Z',
+        },
+      ],
+    });
+
+    expect(screen.getByLabelText('B 선택')).toBeInTheDocument();
+    expect(screen.queryByLabelText('그룹 채팅 참가자')).not.toBeInTheDocument();
+  });
+
   it('shows bounded retry exhaustion and delegates manual connection recovery', async () => {
     const retry = vi.fn();
     renderContent({
