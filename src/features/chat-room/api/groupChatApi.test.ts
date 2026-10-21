@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
-import { getGroupChatAvailability, joinGroupChat } from './groupChatApi';
+import { joinGroupChat } from './groupChatApi';
 
 vi.mock('../../../shared/api/csrf', () => ({
   getCsrfToken: vi.fn().mockResolvedValue('test-csrf-token'),
@@ -13,13 +13,6 @@ const request: AuthenticatedApiClient['fetchJson'] = <T>(path: string, init?: Re
 
 describe('groupChatApi', () => {
   afterEach(() => vi.resetAllMocks());
-
-  it('uses the Backend availability response without inferring activation from date', async () => {
-    calls.mockResolvedValue({ message: '채팅 방식 조회 성공', data: { available: true } });
-
-    await expect(getGroupChatAvailability(request)).resolves.toBe(true);
-    expect(calls).toHaveBeenCalledWith('/group-chat-rooms/availability', undefined);
-  });
 
   it('sends only voteAnswerId and parses an assigned room response', async () => {
     calls.mockResolvedValue({
@@ -42,13 +35,5 @@ describe('groupChatApi', () => {
     const [, init] = calls.mock.calls[0];
     expect(init?.method).toBe('POST');
     expect(JSON.parse(String(init?.body))).toEqual({ voteAnswerId: 43 });
-  });
-
-  it('rejects malformed availability instead of choosing a chat flow', async () => {
-    calls.mockResolvedValue({ message: 'ok', data: {} });
-
-    await expect(getGroupChatAvailability(request)).rejects.toMatchObject({
-      code: 'INVALID_RESPONSE',
-    });
   });
 });

@@ -8,10 +8,7 @@ import {
   getMatchRequestState,
   type MatchRequestStatus,
 } from '../../../features/matching/api/matchRequestApi';
-import {
-  getGroupChatAvailability,
-  joinGroupChat,
-} from '../../../features/chat-room/api/groupChatApi';
+import { joinGroupChat } from '../../../features/chat-room/api/groupChatApi';
 import {
   clearMatchRequestSnapshot,
   readMatchRequestUserId,
@@ -431,7 +428,7 @@ export function MatchingPage() {
     state.vote,
   ]);
 
-  /** 사용자가 채팅 진입을 선택했을 때 서버 기능 플래그에 따라 그룹 또는 DIRECT 흐름을 고른다. */
+  /** 신규 채팅 참여는 사용자 클릭 시 그룹 채팅방 배정 API로 진행한다. */
   const startChatEntry = useCallback(async () => {
     const voteAnswerId = state.vote?.voteAnswerId;
     if (
@@ -447,22 +444,17 @@ export function MatchingPage() {
     chatEntryInFlightRef.current = true;
     setState((current) => ({ ...current, isCreatingMatch: true, matchErrorMessage: null }));
     try {
-      const isGroupChatAvailable = await getGroupChatAvailability(fetchAuthenticatedJson);
-      if (isGroupChatAvailable) {
-        const room = await joinGroupChat(fetchAuthenticatedJson, voteAnswerId);
-        navigate(`/chat/${room.chatRoomId}`, {
-          state: {
-            roomInfo: {
-              roomType: 'GROUP',
-              roomSequence: room.roomSequence,
-              admittedParticipantCount: room.admittedParticipantCount,
-              expiresAt: room.expiresAt,
-            },
+      const room = await joinGroupChat(fetchAuthenticatedJson, voteAnswerId);
+      navigate(`/chat/${room.chatRoomId}`, {
+        state: {
+          roomInfo: {
+            roomType: 'GROUP',
+            roomSequence: room.roomSequence,
+            admittedParticipantCount: room.admittedParticipantCount,
+            expiresAt: room.expiresAt,
           },
-        });
-      } else {
-        startMatching();
-      }
+        },
+      });
     } catch (error: unknown) {
       setState((current) => ({
         ...current,
@@ -476,7 +468,6 @@ export function MatchingPage() {
   }, [
     fetchAuthenticatedJson,
     navigate,
-    startMatching,
     state.isCreatingMatch,
     state.isRestoringMatch,
     state.matchStatus,
@@ -619,7 +610,8 @@ function getVoteErrorMessage(error: unknown): string {
 
 /** 그룹 입장 API에서 확인된 서버 오류를 임의의 1:1 fallback 없이 안내한다. */
 function getGroupChatErrorMessage(error: unknown): string {
-  if (!(error instanceof ApiError)) return '채팅 방식을 확인하지 못했어요. 다시 시도해 주세요.';
+  if (!(error instanceof ApiError)) return '그룹 채팅에 참여하지 못했어요. 다시 시도해 주세요.';
+  if (error.status === 401) return '로그인이 만료되었어요. 다시 로그인해 주세요.';
   if (error.code === 'GROUP_CHAT_VOTE_REQUIRED')
     return '오늘의 투표를 완료한 뒤 채팅에 참여할 수 있어요.';
   if (error.code === 'GROUP_CHAT_FEATURE_DISABLED')
@@ -628,5 +620,7 @@ function getGroupChatErrorMessage(error: unknown): string {
     return '이미 퇴장한 그룹 채팅방에는 다시 입장할 수 없어요.';
   if (error.code === 'ONE_TO_ONE_MATCHING_REPLACED')
     return '채팅 방식을 확인하지 못했어요. 다시 조회해 주세요.';
-  return '채팅 방식을 확인하지 못했어요. 다시 시도해 주세요.';
+  if (error.status === 403) return '그룹 채팅에 참여할 권한이 없어요.';
+  if (error.status >= 500) return '그룹 채팅 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.';
+  return '그룹 채팅에 참여하지 못했어요. 다시 시도해 주세요.';
 }
