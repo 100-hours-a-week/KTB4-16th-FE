@@ -60,6 +60,20 @@
   cursor: pointer;
 }
 
+.preference-vote-option-label {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: #f0eafb;
+  color: #7a5cbe;
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
 .preference-vote-choice.is-selected {
   border-color: #5fc4a6;
   background: #5fc4a6;
@@ -94,6 +108,67 @@
   color: #6c6285;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.preference-vote-result-chart {
+  display: grid;
+  gap: 8px;
+}
+
+.preference-vote-result-options,
+.preference-vote-result-percentages {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.preference-vote-result-options p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.preference-vote-result-options strong {
+  color: #7a5cbe;
+}
+
+.preference-vote-result-options p:last-child strong {
+  color: #3e9f87;
+}
+
+.preference-vote-result-bar {
+  display: flex;
+  width: 100%;
+  height: 16px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9e3f2;
+}
+
+.preference-vote-result-bar-a {
+  flex: 0 0 auto;
+  background: #9475db;
+  transition: width 180ms ease;
+}
+
+.preference-vote-result-bar-b {
+  flex: 0 0 auto;
+  background: #65c6ad;
+  transition: width 180ms ease;
+}
+
+.preference-vote-result-percentages {
+  color: #51466c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.preference-vote-result-percentages span:last-child {
+  text-align: right;
+}
+
+.preference-vote-result-answer {
+  padding-top: 2px;
 }
 
 .preference-vote-error {
@@ -159,5 +234,10 @@
 @media (max-width: 360px) {
   .preference-vote-actions {
     grid-template-columns: 1fr;
+  }
+
+  .preference-vote-result-options,
+  .preference-vote-result-percentages {
+    gap: 8px;
   }
 }

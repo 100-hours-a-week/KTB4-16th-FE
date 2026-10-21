@@ -74,7 +74,7 @@ export function PreferenceVote({
             vote && setSelection({ voteQuestionId: vote.voteQuestionId, selectedOption: 'A' })
           }
         >
-          <span aria-hidden="true">⭕</span> {vote?.optionA ?? '그렇다'}
+          <span className="preference-vote-option-label">A</span> {vote?.optionA ?? '그렇다'}
         </button>
         <button
           aria-pressed={currentOption === 'B'}
@@ -86,7 +86,7 @@ export function PreferenceVote({
             vote && setSelection({ voteQuestionId: vote.voteQuestionId, selectedOption: 'B' })
           }
         >
-          <span aria-hidden="true">❌</span> {vote?.optionB ?? '아니다'}
+          <span className="preference-vote-option-label">B</span> {vote?.optionB ?? '아니다'}
         </button>
       </fieldset>
       {vote !== null ? (
@@ -95,10 +95,40 @@ export function PreferenceVote({
           className="preference-vote-result surface-card"
         >
           <h2 id="preference-vote-result-title">투표 결과</h2>
-          {result ? (
-            <p role="status">
-              {vote.optionA} {result.optionAPercent}% · {vote.optionB} {result.optionBPercent}%
-            </p>
+          {result && isAnswered ? (
+            <div className="preference-vote-result-chart" role="status">
+              <div className="preference-vote-result-options">
+                <p>
+                  <strong>A.</strong> {vote.optionA}
+                </p>
+                <p>
+                  <strong>B.</strong> {vote.optionB}
+                </p>
+              </div>
+              <div
+                aria-label={`투표 결과: A ${result.optionAPercent}%, B ${result.optionBPercent}%`}
+                className="preference-vote-result-bar"
+                role="img"
+              >
+                <span
+                  aria-hidden="true"
+                  className="preference-vote-result-bar-a"
+                  data-testid="preference-vote-result-a"
+                  style={{ width: `${result.optionAPercent}%` }}
+                />
+                <span
+                  aria-hidden="true"
+                  className="preference-vote-result-bar-b"
+                  data-testid="preference-vote-result-b"
+                  style={{ width: `${result.optionBPercent}%` }}
+                />
+              </div>
+              <div aria-hidden="true" className="preference-vote-result-percentages">
+                <span>A {result.optionAPercent}%</span>
+                <span>B {result.optionBPercent}%</span>
+              </div>
+              <p className="preference-vote-result-answer">내가 선택한 답: {vote.myAnswer}</p>
+            </div>
           ) : isAnswered ? (
             <p role="status">이미 참여한 투표입니다. 선택: {vote.myAnswer}</p>
           ) : (

@@ -373,4 +373,34 @@ describe('ChatRoomPage live connection', () => {
     expect(input).toHaveValue('상태 변경 확인');
     expect(screen.queryByRole('button', { name: '다시 보내기' })).not.toBeInTheDocument();
   });
+
+  it('shows a soft peer-waiting state and settles the rejected message', async () => {
+    const api = createRestRequest();
+    renderPage({ useRestApi: true, fetchAuthenticatedJson: api.fetchAuthenticatedJson });
+    const socket = await connectPage();
+    const user = userEvent.setup();
+    const input = screen.getByRole('textbox', { name: '메시지' });
+    await user.type(input, '상대방 입장 대기 확인');
+    await user.click(screen.getByRole('button', { name: '전송' }));
+
+    const sendFrame = socket.sentFrames.find((frame) => frame.startsWith('SEND'))!;
+    const payload = JSON.parse(sendFrame.split('\n\n')[1].replace('\u0000', '')) as {
+      clientMessageId: string;
+    };
+    act(() =>
+      receiveUserFrame(socket, '/user/queue/chat-errors', {
+        code: 'CHAT_PEER_NOT_JOINED',
+        message: '상대방이 아직 채팅방에 입장하지 않았습니다.',
+        clientMessageId: payload.clientMessageId,
+      }),
+    );
+
+    expect(await screen.findByText('상대방을 기다리고 있어요')).toBeVisible();
+    expect(screen.getByText('두 사람 모두 입장하면 채팅을 시작할 수 있어요.')).toBeVisible();
+    expect(input).toBeDisabled();
+    expect(input).toHaveValue('상대방 입장 대기 확인');
+    expect(screen.getByText('전송 실패')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다시 보내기' })).not.toBeInTheDocument();
+  });
 });

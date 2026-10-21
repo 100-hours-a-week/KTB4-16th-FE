@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 import type { ReactNode } from 'react';
 
 import { HomePage } from '../../pages/home/ui/HomePage';
@@ -21,6 +21,7 @@ import { ReportDetailPage } from '../../pages/report/ui/ReportDetailPage';
 import { SignupPage } from '../../pages/signup/SignupPage';
 import { useSession } from '../../entities/session/model/useSession';
 import { GenreOnboardingGate } from '../../pages/genre-onboarding/ui/GenreOnboardingGate';
+import { PreferenceVoteResultPreviewPage } from '../../pages/dev-preview/ui/PreferenceVoteResultPreviewPage';
 
 /** 세션 복원 중에는 보호 화면의 로그인 리다이렉트를 보류한다. */
 function getProtectedRouteElement(
@@ -43,6 +44,11 @@ function getSessionRestoringElement(): ReactNode {
 /** 홈은 공개하고 로그인 상태의 인증 화면 재진입만 홈으로 돌려보낸다. */
 export function AppRouter() {
   const { isAuthenticated, isSessionRestoring } = useSession();
+  const location = useLocation();
+
+  if (import.meta.env.DEV && location.pathname === '/__dev/preference-vote-result') {
+    return <PreferenceVoteResultPreviewPage />;
+  }
 
   return (
     <GenreOnboardingGate>

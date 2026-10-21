@@ -243,7 +243,13 @@ export function ChatRoomPage({
   });
 
   const settlePendingMessage = useCallback(
-    (clientMessageId: string, status: 'failed', errorMessage: string, reuseIdOnRetry = true) => {
+    (
+      clientMessageId: string,
+      status: 'failed',
+      errorMessage: string,
+      reuseIdOnRetry = true,
+      showInlineNotice = true,
+    ) => {
       const pending = pendingMessages.current.get(clientMessageId);
       if (!pending) return;
       clearTimeout(pending.timeoutId);
@@ -262,7 +268,7 @@ export function ChatRoomPage({
             }
           : current,
       );
-      pending.reject(new ChatSendFailure(errorMessage));
+      pending.reject(new ChatSendFailure(errorMessage, showInlineNotice));
     },
     [],
   );
@@ -335,22 +341,29 @@ export function ChatRoomPage({
           return;
         }
         const message = errorMessageForCode(error.code);
+        const correlatedPendingId = error.clientMessageId
+          ? pendingMessages.current.has(error.clientMessageId)
+            ? error.clientMessageId
+            : null
+          : pendingMessages.current.size === 1
+            ? pendingMessages.current.keys().next().value
+            : null;
         if (error.code === 'CHAT_ROOM_EXPIRED' && activeRoomId) {
           setRoomResult({ chatRoomId: activeRoomId, status: 'expired' });
+        } else if (error.code === 'CHAT_PEER_NOT_JOINED' && activeRoomId && correlatedPendingId) {
+          setRoomResult({ chatRoomId: activeRoomId, status: 'peer-waiting' });
         } else if (error.code === 'CHAT_SEND_FORBIDDEN' && activeRoomId) {
           setRoomResult({ chatRoomId: activeRoomId, status: 'send-blocked' });
         }
-        if (error.clientMessageId && pendingMessages.current.has(error.clientMessageId)) {
+        if (correlatedPendingId) {
           settlePendingMessage(
-            error.clientMessageId,
+            correlatedPendingId,
             'failed',
             message,
             error.code !== 'CLIENT_MESSAGE_ID_CONFLICT',
+            error.code !== 'CHAT_PEER_NOT_JOINED',
           );
-        } else if (!error.clientMessageId && pendingMessages.current.size === 1) {
-          const [clientMessageId] = pendingMessages.current.keys();
-          settlePendingMessage(clientMessageId, 'failed', message);
-        } else {
+        } else if (error.code !== 'CHAT_PEER_NOT_JOINED') {
           setTransportError(message);
         }
         return;
@@ -955,6 +968,8 @@ function errorMessageForCode(code: string): string {
       return '이 채팅방은 만료되어 메시지를 보낼 수 없어요.';
     case 'CHAT_SEND_FORBIDDEN':
       return '현재 채팅방에서는 메시지를 보낼 수 없어요.';
+    case 'CHAT_PEER_NOT_JOINED':
+      return '상대방이 입장하면 채팅을 시작할 수 있어요.';
     case 'CLIENT_MESSAGE_ID_CONFLICT':
       return '메시지 확인 정보가 충돌했어요. 다시 시도해 주세요.';
     case 'MESSAGE_TOO_LONG':
