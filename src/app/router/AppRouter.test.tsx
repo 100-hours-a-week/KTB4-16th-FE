@@ -76,6 +76,18 @@ describe('AppRouter', () => {
     expect(screen.queryByRole('heading', { name: '그룹' })).not.toBeInTheDocument();
   });
 
+  it('shows the development-only preference vote result preview without opening matching', async () => {
+    renderRoute('/__dev/preference-vote-result');
+
+    expect(
+      await screen.findByRole('heading', { name: '취향 투표 결과 미리보기' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '투표 결과: A 60%, B 40%' })).toBeInTheDocument();
+    expect(
+      screen.getByText('화면 확인용 예시입니다. 실제 투표나 매칭 요청은 전송되지 않습니다.'),
+    ).toBeInTheDocument();
+  });
+
   it.each(['/login', '/signup'])('sends an authenticated visitor from %s to home', async (path) => {
     const user = userEvent.setup();
     renderRoute(path);
