@@ -78,6 +78,46 @@ describe('PreferenceVote', () => {
     await user.click(screen.getByRole('button', { name: '투표하기' }));
     expect(onSubmit).toHaveBeenCalledExactlyOnceWith('A');
   });
+  it('labels the two choices A and B without changing their submitted option values', () => {
+    renderVote();
+
+    expect(screen.getByRole('button', { name: 'A 산책하면서 듣기' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'B 카페에서 듣기' })).toBeEnabled();
+  });
+  it.each([
+    [67, 33],
+    [60, 40],
+    [50, 50],
+    [100, 0],
+    [0, 100],
+  ])('renders the server result as an A/B comparison bar (%i/%i)', (aPercent, bPercent) => {
+    renderVote({
+      vote: { ...vote, myAnswer: '산책하면서 듣기', voteAnswerId: 43 },
+      result: {
+        voteAnswerId: 43,
+        myAnswer: '산책하면서 듣기',
+        optionAPercent: aPercent,
+        optionBPercent: bPercent,
+      },
+    });
+
+    expect(
+      screen.getByRole('img', { name: `투표 결과: A ${aPercent}%, B ${bPercent}%` }),
+    ).toBeVisible();
+    expect(screen.getByTestId('preference-vote-result-a')).toHaveStyle({ width: `${aPercent}%` });
+    expect(screen.getByTestId('preference-vote-result-b')).toHaveStyle({ width: `${bPercent}%` });
+    expect(screen.getByText('A.')).toBeVisible();
+    expect(screen.getByText('B.')).toBeVisible();
+    expect(screen.getAllByText('산책하면서 듣기')).toHaveLength(2);
+    expect(screen.getAllByText('카페에서 듣기')).toHaveLength(2);
+    expect(screen.getByText('내가 선택한 답: 산책하면서 듣기')).toBeVisible();
+  });
+  it('does not fabricate result percentages when the GET vote has no result data', () => {
+    renderVote({ vote: { ...vote, myAnswer: '산책하면서 듣기', voteAnswerId: 43 } });
+
+    expect(screen.getByText('이미 참여한 투표입니다. 선택: 산책하면서 듣기')).toBeVisible();
+    expect(screen.queryByRole('img', { name: /투표 결과: A/ })).not.toBeInTheDocument();
+  });
   it('restores an existing answer and prevents a second submit', () => {
     renderVote({ vote: { ...vote, myAnswer: '카페에서 듣기', voteAnswerId: 43 } });
     expect(screen.getByRole('button', { name: /카페에서 듣기/ })).toHaveAttribute(

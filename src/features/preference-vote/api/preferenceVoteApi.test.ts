@@ -13,13 +13,50 @@ describe('preferenceVoteApi', () => {
         optionB: '카페에서 듣기',
         myAnswer: null,
         voteAnswerId: null,
+        result: null,
       },
     });
     await expect(getTodayPreferenceVote(request)).resolves.toMatchObject({
       voteQuestionId: 12,
       optionA: '산책하면서 듣기',
+      result: null,
     });
     expect(request).toHaveBeenCalledWith('/vote-questions/today');
+  });
+  it('parses existing answer percentages returned by the today endpoint', async () => {
+    const request = vi.fn().mockResolvedValue({
+      data: {
+        voteQuestionId: 12,
+        question: '오늘은 어떤 분위기가 좋아요?',
+        optionA: '산책하면서 듣기',
+        optionB: '카페에서 듣기',
+        myAnswer: '산책하면서 듣기',
+        voteAnswerId: 43,
+        result: { optionAPercent: 67, optionBPercent: 33 },
+      },
+    });
+
+    await expect(getTodayPreferenceVote(request)).resolves.toMatchObject({
+      voteAnswerId: 43,
+      result: { optionAPercent: 67, optionBPercent: 33 },
+    });
+  });
+  it.each([null, undefined])('accepts an unavailable GET result (%s)', async (result) => {
+    const data = {
+      voteQuestionId: 12,
+      question: '오늘은 어떤 분위기가 좋아요?',
+      optionA: '산책하면서 듣기',
+      optionB: '카페에서 듣기',
+      myAnswer: '산책하면서 듣기',
+      voteAnswerId: 43,
+      ...(result === undefined ? {} : { result }),
+    };
+
+    await expect(
+      getTodayPreferenceVote(vi.fn().mockResolvedValue({ data })),
+    ).resolves.toMatchObject({
+      voteAnswerId: 43,
+    });
   });
   it('uses CSRF and sends the selected A/B option once', async () => {
     vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');

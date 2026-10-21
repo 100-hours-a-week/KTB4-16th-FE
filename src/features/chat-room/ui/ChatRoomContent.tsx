@@ -21,7 +21,8 @@ export type ChatMessage = {
 export type ChatRoomLoadState =
   'loading' | 'ready' | 'error' | 'forbidden' | 'not-found' | 'server-error' | 'not-configured';
 export type ChatConnectionState = LiveChatConnectionState | 'not-configured';
-export type ChatRoomStatus = 'active' | 'expired' | 'partner-left' | 'self-left' | 'send-blocked';
+export type ChatRoomStatus =
+  'active' | 'expired' | 'partner-left' | 'peer-waiting' | 'self-left' | 'send-blocked';
 export type ChatSendHandler = (content: string) => void | Promise<void>;
 export type ChatHistoryHandler = () => void | Promise<void>;
 
@@ -62,6 +63,7 @@ const stopLabels: Record<Exclude<ChatConnectionStopReason, null>, string> = {
 const roomStatusLabels: Partial<Record<ChatRoomStatus, string>> = {
   expired: '이 채팅방은 만료되었어요.',
   'partner-left': '상대방이 채팅방을 나갔어요.',
+  'peer-waiting': '상대방을 기다리고 있어요',
   'self-left': '이미 퇴장한 채팅방입니다.',
   'send-blocked': '현재 채팅방에서는 메시지를 보낼 수 없어요.',
 };
@@ -199,12 +201,17 @@ export function ChatRoomContent({
       setDraft('');
       setSendNotice('메시지를 전송했어요.');
     } catch (error: unknown) {
-      setSendError(true);
-      setSendNotice(
-        error instanceof ChatSendFailure
-          ? error.message
-          : '메시지를 보내지 못했어요. 다시 시도해 주세요.',
-      );
+      if (error instanceof ChatSendFailure && !error.showInlineNotice) {
+        setSendError(false);
+        setSendNotice('');
+      } else {
+        setSendError(true);
+        setSendNotice(
+          error instanceof ChatSendFailure
+            ? error.message
+            : '메시지를 보내지 못했어요. 다시 시도해 주세요.',
+        );
+      }
     } finally {
       isSendingRef.current = false;
       setIsSending(false);
@@ -281,9 +288,17 @@ export function ChatRoomContent({
           </div>
         ) : null}
         {roomNotice ? (
-          <p className="chat-room-room-status" role="status">
-            {roomNotice}
-          </p>
+          <div
+            className={`chat-room-room-status${roomStatus === 'peer-waiting' ? ' is-peer-waiting' : ''}`}
+            role="status"
+          >
+            <p>{roomNotice}</p>
+            {roomStatus === 'peer-waiting' ? (
+              <p className="chat-room-room-status-detail">
+                두 사람 모두 입장하면 채팅을 시작할 수 있어요.
+              </p>
+            ) : null}
+          </div>
         ) : null}
         {loadNotice ? (
           <div
