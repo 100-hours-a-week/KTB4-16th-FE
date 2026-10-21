@@ -260,11 +260,17 @@ describe('RecordCreateForm', () => {
     renderForm();
 
     const button = await screen.findByRole('button', { name: '현재 위치로 이동' });
+    // 초기 지도 재배치와 사용자의 버튼 클릭을 분리해 클릭이 만든 호출만 검증한다.
+    await waitFor(() => expect(latestMapControl?.setCenter).toHaveBeenCalledOnce());
+    if (!latestMapControl) throw new Error('지도 테스트 제어 객체가 없습니다.');
+    latestMapControl.setCenter.mockClear();
     fireEvent.click(button);
 
     expect(screen.queryByRole('dialog', { name: '위치 조정' })).not.toBeInTheDocument();
     expect(getCurrentPosition).toHaveBeenCalledOnce();
     expect(latestMapControl?.setCenter).toHaveBeenCalledOnce();
+    expect(latestMapControl.getCurrentCenter().getLat()).toBe(37.5);
+    expect(latestMapControl.getCurrentCenter().getLng()).toBe(127.03);
     expect(customOverlayOptions).toHaveLength(1);
     expect(customOverlayOptions[0]).toMatchObject({ clickable: false, zIndex: 1 });
   });

@@ -107,6 +107,7 @@ describe('AppRouter', () => {
     '/records/1',
     '/friends',
     '/friends/2/dashboard',
+    '/friends/2/dashboard/records/1',
     '/notifications',
   ])('sends an anonymous visitor from %s to login', async (path) => {
     renderRoute(path);
