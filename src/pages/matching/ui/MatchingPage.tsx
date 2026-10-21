@@ -201,7 +201,14 @@ export function MatchingPage() {
         setState((current) => ({
           ...current,
           vote,
-          result: null,
+          result:
+            vote.voteAnswerId !== null && vote.myAnswer !== null && vote.result
+              ? {
+                  voteAnswerId: vote.voteAnswerId,
+                  myAnswer: vote.myAnswer,
+                  ...vote.result,
+                }
+              : null,
           errorMessage: null,
           isLoading: false,
           isSubmitting: false,
