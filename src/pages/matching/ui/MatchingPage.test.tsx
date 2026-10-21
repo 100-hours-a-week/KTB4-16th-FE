@@ -120,6 +120,7 @@ beforeEach(() => {
     optionB: '카페',
     myAnswer: '산책',
     voteAnswerId: 43,
+    result: null,
   });
 });
 
@@ -181,6 +182,43 @@ describe('MatchingPage', () => {
     expect(screen.getByText('오늘은 어떤 분위기가 좋아요?')).toBeInTheDocument();
     expect(screen.getByText('이미 참여한 투표입니다. 선택: 산책')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '투표 완료' })).toBeDisabled();
+  });
+
+  it('restores the server percentages from GET after a reload', async () => {
+    vi.mocked(getTodayPreferenceVote).mockResolvedValue({
+      voteQuestionId: 12,
+      question: '오늘은 어떤 분위기가 좋아요?',
+      optionA: '산책',
+      optionB: '카페',
+      myAnswer: '산책',
+      voteAnswerId: 43,
+      result: { optionAPercent: 67, optionBPercent: 33 },
+    });
+
+    renderPage();
+    await flushEffects();
+
+    expect(screen.getByRole('img', { name: '투표 결과: A 67%, B 33%' })).toBeVisible();
+    expect(screen.getByTestId('preference-vote-result-a')).toHaveStyle({ width: '67%' });
+    expect(screen.getByTestId('preference-vote-result-b')).toHaveStyle({ width: '33%' });
+  });
+
+  it('does not show percentages when GET has no result or the user has not voted', async () => {
+    vi.mocked(getTodayPreferenceVote).mockResolvedValue({
+      voteQuestionId: 12,
+      question: '오늘은 어떤 분위기가 좋아요?',
+      optionA: '산책',
+      optionB: '카페',
+      myAnswer: null,
+      voteAnswerId: null,
+      result: { optionAPercent: 67, optionBPercent: 33 },
+    });
+
+    renderPage();
+    await flushEffects();
+
+    expect(screen.queryByRole('img', { name: /투표 결과: A/ })).not.toBeInTheDocument();
+    expect(screen.getByText('투표하면 현재 결과 비율을 확인할 수 있어요.')).toBeVisible();
   });
 
   it('deduplicates the initial question request when effects are replayed', async () => {
@@ -333,6 +371,15 @@ describe('MatchingPage', () => {
   });
 
   it('restores MATCHED by vote answer and shows the existing room inline without navigating', async () => {
+    vi.mocked(getTodayPreferenceVote).mockResolvedValue({
+      voteQuestionId: 12,
+      question: '오늘은 어떤 분위기가 좋아요?',
+      optionA: '산책',
+      optionB: '카페',
+      myAnswer: '산책',
+      voteAnswerId: 43,
+      result: { optionAPercent: 67, optionBPercent: 33 },
+    });
     vi.mocked(getMatchRequestByVoteAnswer).mockResolvedValue({
       matchRequestId: 90,
       status: 'MATCHED',
@@ -343,6 +390,7 @@ describe('MatchingPage', () => {
 
     expect(screen.getByTestId('current-path')).toHaveTextContent('/matching');
     expect(screen.getByTestId('inline-chat')).toHaveTextContent('41');
+    expect(screen.getByRole('img', { name: '투표 결과: A 67%, B 33%' })).toBeVisible();
     expect(
       screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
     ).not.toBeInTheDocument();

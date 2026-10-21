@@ -11,6 +11,12 @@ export interface TodayPreferenceVote {
   optionB: string;
   myAnswer: string | null;
   voteAnswerId: number | null;
+  result?: PreferenceVotePercentages | null;
+}
+
+export interface PreferenceVotePercentages {
+  optionAPercent: number;
+  optionBPercent: number;
 }
 
 export interface PreferenceVoteResult {
@@ -49,6 +55,7 @@ export async function submitPreferenceVote(
 /** 오늘 투표 응답이 OpenAPI의 data 형식을 지키는지 런타임에서 검증한다. */
 function parseTodayPreferenceVote(value: unknown): TodayPreferenceVote {
   const data = getData(value);
+  const result = parseOptionalPercentages(data.result);
   if (
     !isPositiveInteger(data.voteQuestionId) ||
     !isNonEmptyString(data.question) ||
@@ -65,7 +72,18 @@ function parseTodayPreferenceVote(value: unknown): TodayPreferenceVote {
     optionB: data.optionB,
     myAnswer: data.myAnswer,
     voteAnswerId: data.voteAnswerId,
+    result,
   };
+}
+
+/** GET may omit result for older responses or return null when no result is available. */
+function parseOptionalPercentages(value: unknown): PreferenceVotePercentages | null | undefined {
+  if (value === undefined || value === null) return value;
+  if (!isRecord(value) || !isPercent(value.optionAPercent) || !isPercent(value.optionBPercent)) {
+    throw invalidResponseError();
+  }
+  if (value.optionAPercent + value.optionBPercent !== 100) throw invalidResponseError();
+  return { optionAPercent: value.optionAPercent, optionBPercent: value.optionBPercent };
 }
 
 /** 제출 결과가 OpenAPI의 data.result 형식을 지키는지 런타임에서 검증한다. */

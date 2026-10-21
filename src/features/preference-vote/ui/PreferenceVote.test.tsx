@@ -85,6 +85,7 @@ describe('PreferenceVote', () => {
     expect(screen.getByRole('button', { name: 'B 카페에서 듣기' })).toBeEnabled();
   });
   it.each([
+    [67, 33],
     [60, 40],
     [50, 50],
     [100, 0],
