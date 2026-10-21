@@ -89,7 +89,7 @@ function renderPage({
 function createRestRequest({
   roomType = 'DIRECT',
   activeCounts = [2],
-  expiresAt = '2026-10-22T00:00:00+09:00',
+  expiresAt = '2026-10-23T00:00:00+09:00',
   failEntry,
   failHistory,
   failLeave,

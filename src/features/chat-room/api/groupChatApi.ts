@@ -13,7 +13,7 @@ export interface GroupChatJoinResult {
   expiresAt: string;
 }
 
-/** 서버 feature flag가 허용한 경우에만 투표 답변을 그룹 채팅방에 배정한다. */
+/** 사용자가 제출한 투표 답변을 서버가 정한 그룹 채팅방에 배정한다. */
 export async function joinGroupChat(
   request: GroupChatRequest,
   voteAnswerId: number,
@@ -45,14 +45,6 @@ export async function joinGroupChat(
     activeParticipantCount: data.activeParticipantCount,
     expiresAt: data.expiresAt,
   };
-}
-
-/** 그룹 채팅의 활성 여부 응답을 검증하고 알 수 없는 값은 오류로 남긴다. */
-export async function getGroupChatAvailability(request: GroupChatRequest): Promise<boolean> {
-  const response = await request<unknown>('/group-chat-rooms/availability');
-  const data = getData(response);
-  if (typeof data.available !== 'boolean') throw invalidResponseError();
-  return data.available;
 }
 
 function getData(value: unknown): Record<string, unknown> {
