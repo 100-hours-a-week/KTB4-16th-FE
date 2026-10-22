@@ -5,10 +5,20 @@ export type AuthenticatedRequest = <T>(path: string, init?: RequestInit) => Prom
 export interface ChatRoomParticipant {
   userId: number;
   nickname: string;
+  voteChoice: 'A' | 'B' | null;
+  hasLeft: boolean;
 }
 
 export interface ChatRoomDetail {
   chatRoomId: number;
+  roomType: 'DIRECT' | 'GROUP';
+  groupDate: string | null;
+  voteQuestionId: number | null;
+  roomSequence: number | null;
+  capacity: number;
+  admittedParticipantCount: number;
+  activeParticipantCount: number;
+  expiresAt: string;
   participants: ChatRoomParticipant[];
 }
 
@@ -19,6 +29,7 @@ export interface ChatRoomMessageRecord {
   nickname: string;
   content: string;
   createdAt: string;
+  voteChoice?: 'A' | 'B' | null;
 }
 
 export interface ChatRoomMessageHistory {
@@ -90,23 +101,46 @@ function parseDataResponse<T>(value: unknown, parseData: (data: unknown) => T): 
   return parseData(value.data);
 }
 
-/** 채팅방 ID와 두 참가자의 실제 상세 DTO를 확인한다. */
+/** DIRECT의 2인 계약과 GROUP의 서버 제공 인원·메타데이터를 검증한다. */
 function parseChatRoomDetail(value: unknown): ChatRoomDetail {
   if (
     !isRecord(value) ||
     !isPositiveSafeInteger(value.chatRoomId) ||
-    !Array.isArray(value.participants) ||
-    value.participants.length !== 2
+    (value.roomType !== 'DIRECT' && value.roomType !== 'GROUP') ||
+    !isNullableDate(value.groupDate) ||
+    !isNullablePositiveSafeInteger(value.voteQuestionId) ||
+    !isNullablePositiveSafeInteger(value.roomSequence) ||
+    !isNonNegativeSafeInteger(value.capacity) ||
+    !isNonNegativeSafeInteger(value.admittedParticipantCount) ||
+    !isNonNegativeSafeInteger(value.activeParticipantCount) ||
+    value.activeParticipantCount > value.admittedParticipantCount ||
+    !isDateTime(value.expiresAt) ||
+    !Array.isArray(value.participants)
   ) {
     throw invalidResponseError();
   }
 
   const participants = value.participants.map(parseParticipant);
-  if (new Set(participants.map((participant) => participant.userId)).size !== 2) {
+  if (
+    new Set(participants.map((participant) => participant.userId)).size !== participants.length ||
+    (value.roomType === 'DIRECT' && participants.length !== 2) ||
+    (value.roomType === 'GROUP' && participants.length !== value.admittedParticipantCount)
+  ) {
     throw invalidResponseError();
   }
 
-  return { chatRoomId: value.chatRoomId, participants };
+  return {
+    chatRoomId: value.chatRoomId,
+    roomType: value.roomType,
+    groupDate: value.groupDate,
+    voteQuestionId: value.voteQuestionId,
+    roomSequence: value.roomSequence,
+    capacity: value.capacity,
+    admittedParticipantCount: value.admittedParticipantCount,
+    activeParticipantCount: value.activeParticipantCount,
+    expiresAt: value.expiresAt,
+    participants,
+  };
 }
 
 /** 참가자 DTO의 식별자와 닉네임을 검증한다. */
@@ -114,11 +148,18 @@ function parseParticipant(value: unknown): ChatRoomParticipant {
   if (
     !isRecord(value) ||
     !isPositiveSafeInteger(value.userId) ||
-    !isNonEmptyString(value.nickname)
+    !isNonEmptyString(value.nickname) ||
+    !(value.voteChoice === null || value.voteChoice === 'A' || value.voteChoice === 'B') ||
+    typeof value.hasLeft !== 'boolean'
   ) {
     throw invalidResponseError();
   }
-  return { userId: value.userId, nickname: value.nickname };
+  return {
+    userId: value.userId,
+    nickname: value.nickname,
+    voteChoice: value.voteChoice,
+    hasLeft: value.hasLeft,
+  };
 }
 
 /** 커서 페이지 응답과 각 메시지 DTO를 검증한다. */
@@ -148,7 +189,13 @@ function parseMessage(value: unknown): ChatRoomMessageRecord {
     !isPositiveSafeInteger(value.userId) ||
     !isNonEmptyString(value.nickname) ||
     typeof value.content !== 'string' ||
-    !isDateTime(value.createdAt)
+    !isDateTime(value.createdAt) ||
+    !(
+      value.voteChoice === undefined ||
+      value.voteChoice === null ||
+      value.voteChoice === 'A' ||
+      value.voteChoice === 'B'
+    )
   ) {
     throw invalidResponseError();
   }
@@ -160,6 +207,7 @@ function parseMessage(value: unknown): ChatRoomMessageRecord {
     nickname: value.nickname,
     content: value.content,
     createdAt: value.createdAt,
+    voteChoice: value.voteChoice,
   };
 }
 
@@ -176,6 +224,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** 양의 정수 ID가 JavaScript에서 정확히 표현 가능한지 확인한다. */
 function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function isNullablePositiveSafeInteger(value: unknown): value is number | null {
+  return value === null || isPositiveSafeInteger(value);
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isNullableDate(value: unknown): value is string | null {
+  return value === null || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value));
 }
 
 /** 서버가 화면에 표시할 수 있는 비어 있지 않은 문자열을 반환했는지 확인한다. */

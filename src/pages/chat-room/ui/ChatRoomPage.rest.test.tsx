@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -11,7 +11,12 @@ import {
 import { ApiError } from '../../../shared/api/apiError';
 import { ChatRoomPage } from './ChatRoomPage';
 
-const participant = (userId: number, nickname: string) => ({ userId, nickname });
+const participant = (userId: number, nickname: string) => ({
+  userId,
+  nickname,
+  voteChoice: null,
+  hasLeft: false,
+});
 const message = (chatMessageId: number, userId: number, nickname: string, content: string) => ({
   chatMessageId,
   clientMessageId: `550e8400-e29b-41d4-a716-${String(chatMessageId).padStart(12, '0')}`,
@@ -54,7 +59,18 @@ function createSession(
     if (path === '/chat-rooms/42') {
       return {
         message: 'detail',
-        data: { chatRoomId: 42, participants: [participant(7, 'me'), participant(8, 'partner')] },
+        data: {
+          chatRoomId: 42,
+          roomType: 'DIRECT',
+          groupDate: null,
+          voteQuestionId: null,
+          roomSequence: null,
+          capacity: 2,
+          admittedParticipantCount: 2,
+          activeParticipantCount: 2,
+          expiresAt: '2026-10-22T00:00:00+09:00',
+          participants: [participant(7, 'me'), participant(8, 'partner')],
+        },
       } as T;
     }
     if (path === '/chat-rooms/42/messages') {
@@ -196,12 +212,13 @@ describe('ChatRoomPage REST integration', () => {
   });
 
   it('loads older messages with the returned cursor and suppresses duplicate IDs', async () => {
-    const user = userEvent.setup();
     const { session, requests } = createSession();
     renderPage(session);
     await screen.findByText('상대 메시지');
 
-    await user.click(screen.getByRole('button', { name: '이전 메시지 불러오기' }));
+    const messageRegion = screen.getByRole('region', { name: /채팅 메시지/ });
+    messageRegion.scrollTop = 0;
+    fireEvent.scroll(messageRegion);
 
     expect(await screen.findByText('이전 메시지')).toBeInTheDocument();
     expect(screen.getAllByText('내 메시지')).toHaveLength(1);

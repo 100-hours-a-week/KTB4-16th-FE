@@ -13,6 +13,7 @@ import {
   getTodayPreferenceVote,
   submitPreferenceVote,
 } from '../../../features/preference-vote/api/preferenceVoteApi';
+import { joinGroupChat } from '../../../features/chat-room/api/groupChatApi';
 import { MatchingPage } from './MatchingPage';
 import { ApiError } from '../../../shared/api/apiError';
 
@@ -52,6 +53,9 @@ vi.mock('../../../features/matching/api/matchRequestApi', () => ({
 vi.mock('../../../features/preference-vote/api/preferenceVoteApi', () => ({
   getTodayPreferenceVote: vi.fn(),
   submitPreferenceVote: vi.fn(),
+}));
+vi.mock('../../../features/chat-room/api/groupChatApi', () => ({
+  joinGroupChat: vi.fn(),
 }));
 
 const tokenForUser = (userId: string) =>
@@ -102,6 +106,14 @@ beforeEach(() => {
   vi.mocked(getMatchRequestByVoteAnswer).mockRejectedValue(
     new ApiError(404, '요청 없음', 'MATCH_REQUEST_NOT_FOUND'),
   );
+  vi.mocked(joinGroupChat).mockResolvedValue({
+    chatRoomId: 21,
+    roomSequence: 1,
+    newlyAssigned: true,
+    admittedParticipantCount: 1,
+    activeParticipantCount: 0,
+    expiresAt: '2026-10-22T00:00:00+09:00',
+  });
   vi.mocked(useSession).mockReturnValue({
     accessToken: tokenForUser('35'),
     sessionVersion: 0,
@@ -127,6 +139,45 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('MatchingPage', () => {
+  it('joins the group room directly after the user chooses chat without using one-to-one matching', async () => {
+    const { container } = renderPage();
+    await flushEffects();
+
+    await act(async () => {
+      screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(joinGroupChat).toHaveBeenCalledWith(expect.any(Function), 43);
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="current-path"]')).toHaveTextContent('/chat/21');
+  });
+
+  it('does not fall back to one-to-one matching when group join fails and distinguishes auth and server errors', async () => {
+    vi.mocked(joinGroupChat).mockRejectedValueOnce(
+      new ApiError(401, 'unauthorized', 'UNAUTHORIZED'),
+    );
+    renderPage();
+    await flushEffects();
+
+    fireEvent.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
+    await flushEffects();
+
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(joinGroupChat).toHaveBeenCalledOnce();
+    expect(screen.getByRole('alert')).toHaveTextContent('로그인이 만료되었어요');
+
+    vi.mocked(joinGroupChat).mockRejectedValueOnce(
+      new ApiError(503, 'unavailable', 'SERVICE_UNAVAILABLE'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await flushEffects();
+    expect(joinGroupChat).toHaveBeenCalledTimes(2);
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('그룹 채팅 서버에 연결하지 못했어요');
+  });
+
   it('shows the snapshot preparation error without implying the user already voted', async () => {
     vi.mocked(getTodayPreferenceVote).mockRejectedValue(
       new ApiError(503, '오늘의 취향 투표를 준비 중입니다.', 'VOTE_SNAPSHOT_NOT_READY'),
@@ -228,7 +279,7 @@ describe('MatchingPage', () => {
     expect(getTodayPreferenceVote).toHaveBeenCalledOnce();
   });
 
-  it('checks for an existing request before enabling a new matching POST', async () => {
+  it('checks for an existing request before enabling chat entry', async () => {
     vi.mocked(getMatchRequestByVoteAnswer).mockImplementation(() => new Promise(() => {}));
     renderPage();
     await flushEffects();
@@ -285,21 +336,17 @@ describe('MatchingPage', () => {
     expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeEnabled();
   });
 
-  it('recovers MATCH_REQUEST_ALREADY_EXISTS by vote answer instead of showing a dead-end error', async () => {
-    vi.mocked(createMatchRequest).mockRejectedValue(
-      new ApiError(409, '이미 요청이 있습니다.', 'MATCH_REQUEST_ALREADY_EXISTS'),
-    );
-    vi.mocked(getMatchRequestByVoteAnswer)
-      .mockRejectedValueOnce(new ApiError(404, '요청 없음', 'MATCH_REQUEST_NOT_FOUND'))
-      .mockResolvedValueOnce({ matchRequestId: 90, status: 'MATCHING', chatRoomId: null });
+  it('restores a legacy MATCHING request without creating a new one-to-one request', async () => {
+    vi.mocked(getMatchRequestByVoteAnswer).mockResolvedValue({
+      matchRequestId: 90,
+      status: 'MATCHING',
+      chatRoomId: null,
+    });
     renderPage();
     await flushEffects();
 
-    fireEvent.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
-    await flushEffects();
-
-    expect(createMatchRequest).toHaveBeenCalledOnce();
-    expect(getMatchRequestByVoteAnswer).toHaveBeenCalledTimes(2);
+    expect(getMatchRequestByVoteAnswer).toHaveBeenCalledOnce();
+    expect(createMatchRequest).not.toHaveBeenCalled();
     expect(screen.getByText('상대를 찾았어요. 채팅방을 준비하고 있어요.')).toBeVisible();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -349,8 +396,12 @@ describe('MatchingPage', () => {
     expect(screen.getByTestId('current-path')).toHaveTextContent('/matching');
   });
 
-  it('creates one request and polls its WAITING state', async () => {
-    vi.mocked(createMatchRequest).mockResolvedValue({ matchRequestId: 90, status: 'WAITING' });
+  it('restores an existing WAITING request and polls its state', async () => {
+    vi.mocked(getMatchRequestByVoteAnswer).mockResolvedValue({
+      matchRequestId: 90,
+      status: 'WAITING',
+      chatRoomId: null,
+    });
     vi.mocked(getMatchRequestState).mockResolvedValue({
       matchRequestId: 90,
       status: 'WAITING',
@@ -359,11 +410,8 @@ describe('MatchingPage', () => {
     renderPage();
     await flushEffects();
 
-    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
-    await flushEffects();
-    expect(createMatchRequest).toHaveBeenCalledOnce();
     expect(screen.getByText('의견이 다른 상대를 찾고 있어요.')).toBeVisible();
+    expect(createMatchRequest).not.toHaveBeenCalled();
 
     await act(async () => vi.advanceTimersByTime(3_000));
     expect(getMatchRequestState).toHaveBeenCalledWith(expect.any(Function), 90);
@@ -399,16 +447,19 @@ describe('MatchingPage', () => {
   });
 
   it('keeps the WAITING to MATCHING to MATCHED flow and shows the server room inline', async () => {
-    vi.mocked(createMatchRequest).mockResolvedValue({ matchRequestId: 90, status: 'WAITING' });
+    vi.mocked(getMatchRequestByVoteAnswer).mockResolvedValue({
+      matchRequestId: 90,
+      status: 'WAITING',
+      chatRoomId: null,
+    });
     vi.mocked(getMatchRequestState)
       .mockResolvedValueOnce({ matchRequestId: 90, status: 'MATCHING', chatRoomId: null })
       .mockResolvedValueOnce({ matchRequestId: 90, status: 'MATCHED', chatRoomId: 41 });
 
     renderPage();
     await flushEffects();
-    fireEvent.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
-    await flushEffects();
     expect(screen.getByText('의견이 다른 상대를 찾고 있어요.')).toBeVisible();
+    expect(createMatchRequest).not.toHaveBeenCalled();
 
     await act(async () => {
       vi.advanceTimersByTime(3_000);
@@ -425,7 +476,7 @@ describe('MatchingPage', () => {
     expect(window.sessionStorage.getItem('mulo-match-request-v1')).toBeNull();
   });
 
-  it('keeps the submitted vote result visible after matching creates the inline chat room', async () => {
+  it('keeps the submitted vote result visible while group room assignment is pending', async () => {
     vi.mocked(getTodayPreferenceVote).mockResolvedValue({
       voteQuestionId: 12,
       question: '오늘은 어떤 분위기가 좋아요?',
@@ -440,12 +491,12 @@ describe('MatchingPage', () => {
       optionAPercent: 60,
       optionBPercent: 40,
     });
-    vi.mocked(createMatchRequest).mockResolvedValue({ matchRequestId: 90, status: 'WAITING' });
-    vi.mocked(getMatchRequestState).mockResolvedValue({
-      matchRequestId: 90,
-      status: 'MATCHED',
-      chatRoomId: 41,
-    });
+    let resolveJoin!: (value: Awaited<ReturnType<typeof joinGroupChat>>) => void;
+    vi.mocked(joinGroupChat).mockReturnValue(
+      new Promise((resolve) => {
+        resolveJoin = resolve;
+      }),
+    );
     renderPage();
     await flushEffects();
 
@@ -456,13 +507,22 @@ describe('MatchingPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
     await flushEffects();
+    expect(joinGroupChat).toHaveBeenCalledWith(expect.any(Function), 43);
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(screen.getByRole('img', { name: '투표 결과: A 60%, B 40%' })).toBeVisible();
+
     await act(async () => {
-      vi.advanceTimersByTime(3_000);
+      resolveJoin({
+        chatRoomId: 21,
+        roomSequence: 1,
+        newlyAssigned: true,
+        admittedParticipantCount: 1,
+        activeParticipantCount: 0,
+        expiresAt: '2026-10-23T00:00:00+09:00',
+      });
       await Promise.resolve();
     });
-
-    expect(screen.getByTestId('inline-chat')).toHaveTextContent('41');
-    expect(screen.getByRole('img', { name: '투표 결과: A 60%, B 40%' })).toBeVisible();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/chat/21');
   });
 
   it('keeps EXPIRED terminal and clears its request snapshot without navigating', async () => {

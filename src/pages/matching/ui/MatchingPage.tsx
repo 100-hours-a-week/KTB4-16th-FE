@@ -8,6 +8,7 @@ import {
   getMatchRequestState,
   type MatchRequestStatus,
 } from '../../../features/matching/api/matchRequestApi';
+import { joinGroupChat } from '../../../features/chat-room/api/groupChatApi';
 import {
   clearMatchRequestSnapshot,
   readMatchRequestUserId,
@@ -42,6 +43,7 @@ interface VotePageState {
   matchStatus: MatchRequestStatus | null;
   matchRequestId: number | null;
   matchErrorMessage: string | null;
+  chatEntryFailed: boolean;
 }
 const initialVotePageState: VotePageState = {
   vote: null,
@@ -55,6 +57,7 @@ const initialVotePageState: VotePageState = {
   matchStatus: null,
   matchRequestId: null,
   matchErrorMessage: null,
+  chatEntryFailed: false,
 };
 
 const MATCH_POLL_INTERVAL_MS = 3_000;
@@ -75,6 +78,7 @@ export function MatchingPage() {
     voteRequestId: number;
     promise: Promise<void>;
   } | null>(null);
+  const chatEntryInFlightRef = useRef(false);
 
   /** Keeps the request snapshot synchronized with server-confirmed match state. */
   const applyMatchState = useCallback(
@@ -360,7 +364,12 @@ export function MatchingPage() {
       }));
       return;
     }
-    setState((current) => ({ ...current, isCreatingMatch: true, matchErrorMessage: null }));
+    setState((current) => ({
+      ...current,
+      isCreatingMatch: true,
+      matchErrorMessage: null,
+      chatEntryFailed: false,
+    }));
     const voteAnswerId = state.vote.voteAnswerId;
     const promise = createMatchRequest(fetchAuthenticatedJson, voteAnswerId)
       .then((created) => {
@@ -416,6 +425,52 @@ export function MatchingPage() {
     startMatching,
     state.matchLookupFailed,
     state.matchRequestId,
+    state.vote,
+  ]);
+
+  /** 신규 채팅 참여는 사용자 클릭 시 그룹 채팅방 배정 API로 진행한다. */
+  const startChatEntry = useCallback(async () => {
+    const voteAnswerId = state.vote?.voteAnswerId;
+    if (
+      voteAnswerId == null ||
+      chatEntryInFlightRef.current ||
+      state.isCreatingMatch ||
+      state.isRestoringMatch ||
+      state.matchStatus !== null
+    ) {
+      return;
+    }
+
+    chatEntryInFlightRef.current = true;
+    setState((current) => ({ ...current, isCreatingMatch: true, matchErrorMessage: null }));
+    try {
+      const room = await joinGroupChat(fetchAuthenticatedJson, voteAnswerId);
+      navigate(`/chat/${room.chatRoomId}`, {
+        state: {
+          roomInfo: {
+            roomType: 'GROUP',
+            roomSequence: room.roomSequence,
+            admittedParticipantCount: room.admittedParticipantCount,
+            expiresAt: room.expiresAt,
+          },
+        },
+      });
+    } catch (error: unknown) {
+      setState((current) => ({
+        ...current,
+        isCreatingMatch: false,
+        matchErrorMessage: getGroupChatErrorMessage(error),
+        chatEntryFailed: true,
+      }));
+    } finally {
+      chatEntryInFlightRef.current = false;
+    }
+  }, [
+    fetchAuthenticatedJson,
+    navigate,
+    state.isCreatingMatch,
+    state.isRestoringMatch,
+    state.matchStatus,
     state.vote,
   ]);
 
@@ -489,8 +544,14 @@ export function MatchingPage() {
           onRefreshMatchStatus={refreshCurrentMatchStatus}
           result={state.result}
           vote={state.vote}
-          onRetry={state.matchErrorMessage ? retryMatching : () => void loadVote()}
-          onStartMatching={startMatching}
+          onRetry={
+            state.chatEntryFailed
+              ? startChatEntry
+              : state.matchErrorMessage
+                ? retryMatching
+                : () => void loadVote()
+          }
+          onStartMatching={startChatEntry}
           onSubmit={(selectedOption) => void submitVote(selectedOption)}
         />
         {matchedChatRoomId !== null ? (
@@ -545,4 +606,21 @@ function getVoteErrorMessage(error: unknown): string {
   if (error.code === 'CSRF_TOKEN_INVALID' || error.code === 'CSRF_TOKEN_MISSING')
     return '보안 정보를 확인하지 못했어요. 다시 시도해 주세요.';
   return error.message || '취향 투표를 처리하지 못했어요. 다시 시도해 주세요.';
+}
+
+/** 그룹 입장 API에서 확인된 서버 오류를 임의의 1:1 fallback 없이 안내한다. */
+function getGroupChatErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) return '그룹 채팅에 참여하지 못했어요. 다시 시도해 주세요.';
+  if (error.status === 401) return '로그인이 만료되었어요. 다시 로그인해 주세요.';
+  if (error.code === 'GROUP_CHAT_VOTE_REQUIRED')
+    return '오늘의 투표를 완료한 뒤 채팅에 참여할 수 있어요.';
+  if (error.code === 'GROUP_CHAT_FEATURE_DISABLED')
+    return '그룹 채팅을 사용할 수 없어요. 잠시 후 다시 시도해 주세요.';
+  if (error.code === 'GROUP_CHAT_REENTRY_FORBIDDEN')
+    return '이미 퇴장한 그룹 채팅방에는 다시 입장할 수 없어요.';
+  if (error.code === 'ONE_TO_ONE_MATCHING_REPLACED')
+    return '채팅 방식을 확인하지 못했어요. 다시 조회해 주세요.';
+  if (error.status === 403) return '그룹 채팅에 참여할 권한이 없어요.';
+  if (error.status >= 500) return '그룹 채팅 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.';
+  return '그룹 채팅에 참여하지 못했어요. 다시 시도해 주세요.';
 }
