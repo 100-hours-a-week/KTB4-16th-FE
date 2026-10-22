@@ -105,7 +105,13 @@ describe('ChatRoomContent', () => {
       roomStatus: 'self-left',
       activeParticipantCount: 1,
       messages: [messages[1]],
-      systemNotices: [{ id: 'old-notice', text: '이전 참가자가 입장했습니다.' }],
+      systemNotices: [
+        {
+          id: 'old-notice',
+          text: '이전 참가자가 입장했습니다.',
+          createdAt: '2026-10-14T06:21:00Z',
+        },
+      ],
     });
 
     expect(screen.getByText('이미 퇴장한 채팅방입니다.')).toBeInTheDocument();
@@ -127,15 +133,25 @@ describe('ChatRoomContent', () => {
       roomType: 'GROUP',
       activeParticipantCount: 2,
       systemNotices: [
-        { id: 'joined-1', text: 'peer님이 입장했습니다.', voteChoice: 'B' },
-        { id: 'left-2', text: 'other님이 퇴장했습니다.', voteChoice: 'A' },
+        {
+          id: 'joined-1',
+          text: 'peer님이 입장했습니다.',
+          voteChoice: 'B',
+          createdAt: '2026-10-14T06:21:00Z',
+        },
+        {
+          id: 'left-2',
+          text: 'other님이 퇴장했습니다.',
+          voteChoice: 'A',
+          createdAt: '2026-10-14T06:24:00Z',
+        },
       ],
       onSendMessage,
     });
 
     expect(screen.getByRole('textbox', { name: '메시지' })).toBeEnabled();
-    expect(screen.getByText('peer님이 입장했습니다.')).toBeInTheDocument();
-    expect(screen.getByText('other님이 퇴장했습니다.')).toBeInTheDocument();
+    expect(screen.getByText(/peer님이 입장했습니다/)).toBeInTheDocument();
+    expect(screen.getByText(/other님이 퇴장했습니다/)).toBeInTheDocument();
   });
 
   it('keeps A/B markers beside GROUP message authors without rendering a participant roster', () => {
@@ -198,6 +214,50 @@ describe('ChatRoomContent', () => {
     expect(renderedMessages[0]).toHaveClass('is-partner');
     expect(renderedMessages[1]).toHaveClass('is-me');
     expect(screen.getAllByText('2026년 10월 14일')).toHaveLength(1);
+  });
+
+  it('places participant notices in the message timeline using server event timestamps', () => {
+    renderContent({
+      roomType: 'GROUP',
+      messages: [
+        { ...messages[1], createdAt: '2026-10-14T06:20:00Z' },
+        { ...messages[0], createdAt: '2026-10-14T06:22:00Z' },
+      ],
+      systemNotices: [
+        {
+          id: 'joined',
+          text: 'peer님이 입장했습니다.',
+          createdAt: '2026-10-14T06:21:00Z',
+        },
+      ],
+    });
+
+    const timeline = screen.getByRole('list').querySelectorAll(':scope > li');
+    expect([...timeline].map((item) => item.textContent?.trim())).toEqual([
+      '2026년 10월 14일상대방닉네임첫 메시지오후 3:20',
+      'peer님이 입장했습니다.오후 3:21',
+      '나중 메시지오후 3:22',
+    ]);
+  });
+
+  it('shows the sender vote marker with a compact name-sized label and no name background', () => {
+    renderContent({
+      roomType: 'GROUP',
+      messages: [
+        {
+          ...messages[0],
+          nickname: '참가자',
+          voteChoice: 'A',
+        },
+      ],
+    });
+
+    const senderName = screen.getByText('참가자').closest('.chat-room-sender-name');
+    expect(senderName).toHaveClass('chat-room-sender-name');
+    expect(
+      senderName?.querySelector('.chat-room-vote-dot + .chat-room-sender-label'),
+    ).toHaveTextContent('참가자');
+    expect(screen.getByLabelText('A 선택')).toBeInTheDocument();
   });
 
   it('shows the empty state and does not enable sending without a handler', async () => {
@@ -379,9 +439,8 @@ describe('ChatRoomContent', () => {
     expect(region.scrollTop).toBe(0);
   });
 
-  it('preserves the visible scroll position when older messages are prepended', async () => {
+  it('loads older messages automatically near the top and preserves the visible scroll position', async () => {
     const onLoadOlderMessages = vi.fn();
-    const user = userEvent.setup();
     const view = renderContent({
       hasOlderMessages: true,
       messages: [messages[1], messages[0]],
@@ -391,7 +450,8 @@ describe('ChatRoomContent', () => {
     setScrollMetrics(region, { scrollHeight: 500, clientHeight: 200 });
     region.scrollTop = 100;
 
-    await user.click(screen.getByRole('button', { name: '이전 메시지 불러오기' }));
+    region.scrollTop = 20;
+    fireEvent.scroll(region);
     expect(onLoadOlderMessages).toHaveBeenCalledOnce();
     setScrollMetrics(region, { scrollHeight: 600, clientHeight: 200 });
 
@@ -406,6 +466,87 @@ describe('ChatRoomContent', () => {
         roomStatus="active"
       />,
     );
-    expect(region.scrollTop).toBe(200);
+    expect(region.scrollTop).toBe(120);
+  });
+
+  it('prevents duplicate history requests while a page is loading', async () => {
+    let resolveHistory: (() => void) | undefined;
+    const onLoadOlderMessages = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveHistory = resolve;
+        }),
+    );
+    renderContent({ hasOlderMessages: true, messages: [messages[1]], onLoadOlderMessages });
+    const region = screen.getByRole('region', { name: /채팅 메시지/ });
+    region.scrollTop = 0;
+    fireEvent.scroll(region);
+    fireEvent.scroll(region);
+
+    expect(onLoadOlderMessages).toHaveBeenCalledOnce();
+    resolveHistory?.();
+  });
+
+  it('resets an in-flight history request when the chat room changes', () => {
+    let resolveFirstPage: (() => void) | undefined;
+    const firstRoomLoader = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFirstPage = resolve;
+        }),
+    );
+    const secondRoomLoader = vi.fn();
+    const view = renderContent({
+      chatRoomId: '12',
+      hasOlderMessages: true,
+      messages: [messages[1]],
+      onLoadOlderMessages: firstRoomLoader,
+    });
+    const region = screen.getByRole('region', { name: /채팅 메시지/ });
+    region.scrollTop = 0;
+    fireEvent.scroll(region);
+    expect(firstRoomLoader).toHaveBeenCalledOnce();
+
+    view.rerender(
+      <ChatRoomContent
+        chatRoomId="13"
+        connectionState="connected"
+        hasOlderMessages
+        loadState="ready"
+        messages={[messages[2]]}
+        onLoadOlderMessages={secondRoomLoader}
+        roomStatus="active"
+      />,
+    );
+    fireEvent.scroll(region);
+
+    expect(secondRoomLoader).toHaveBeenCalledOnce();
+    resolveFirstPage?.();
+  });
+
+  it('stops loading history when the server says there is no next page', () => {
+    const onLoadOlderMessages = vi.fn();
+    const view = renderContent({
+      hasOlderMessages: true,
+      messages: [messages[1]],
+      onLoadOlderMessages,
+    });
+    const region = screen.getByRole('region', { name: /채팅 메시지/ });
+
+    view.rerender(
+      <ChatRoomContent
+        chatRoomId="12"
+        connectionState="connected"
+        hasOlderMessages={false}
+        loadState="ready"
+        messages={[messages[1]]}
+        onLoadOlderMessages={onLoadOlderMessages}
+        roomStatus="active"
+      />,
+    );
+    region.scrollTop = 0;
+    fireEvent.scroll(region);
+
+    expect(onLoadOlderMessages).not.toHaveBeenCalled();
   });
 });
