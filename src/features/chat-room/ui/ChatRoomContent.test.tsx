@@ -297,7 +297,57 @@ describe('ChatRoomContent', () => {
 
     await user.keyboard('{Enter}');
     await waitFor(() => expect(onSendMessage).toHaveBeenCalledWith('안녕\n하세요'));
+    await waitFor(() => expect(input).toHaveFocus());
     expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    await user.type(input, '다음 메시지');
+    expect(input).toHaveValue('다음 메시지');
+  });
+
+  it.each(['DIRECT', 'GROUP'] as const)(
+    'returns focus to the input after clicking send in a %s room',
+    async (roomType) => {
+      const onSendMessage = vi.fn().mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      renderContent({
+        connectionState: 'connected',
+        onSendMessage,
+        roomType,
+        activeParticipantCount: roomType === 'GROUP' ? 2 : undefined,
+      });
+
+      const input = screen.getByRole('textbox', { name: '메시지' });
+      await user.type(input, '버튼으로 보냅니다');
+      await user.click(screen.getByRole('button', { name: '전송' }));
+
+      await waitFor(() => expect(input).toHaveFocus());
+      await user.type(input, '다음 메시지');
+      expect(input).toHaveValue('다음 메시지');
+      expect(onSendMessage).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('does not steal focus from another control selected while a send is pending', async () => {
+    let resolveSend: (() => void) | undefined;
+    const onSendMessage = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSend = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    const view = renderContent({ connectionState: 'connected', onSendMessage });
+    const otherButton = document.createElement('button');
+    otherButton.textContent = '다른 기능';
+    view.container.append(otherButton);
+
+    const input = screen.getByRole('textbox', { name: '메시지' });
+    await user.type(input, '전송 중 다른 기능 선택');
+    await user.keyboard('{Enter}');
+    await user.click(otherButton);
+    resolveSend?.();
+
+    await waitFor(() => expect(screen.getByText('메시지를 전송했어요.')).toBeInTheDocument());
+    expect(otherButton).toHaveFocus();
   });
 
   it('does not submit while an IME composition is active', async () => {
@@ -371,9 +421,12 @@ describe('ChatRoomContent', () => {
     const user = userEvent.setup();
     renderContent({ connectionState: 'connected', onSendMessage });
 
-    await user.type(screen.getByRole('textbox', { name: '메시지' }), '재시도할 내용');
+    const input = screen.getByRole('textbox', { name: '메시지' });
+    await user.type(input, '재시도할 내용');
     await user.click(screen.getByRole('button', { name: '전송' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('메시지를 보내지 못했어요.');
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input).toHaveValue('재시도할 내용');
     expect(screen.queryByRole('article')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '다시 보내기' }));

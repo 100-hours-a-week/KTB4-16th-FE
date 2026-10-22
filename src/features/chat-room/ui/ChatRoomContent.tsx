@@ -157,6 +157,9 @@ export function ChatRoomContent({
   const [sendNotice, setSendNotice] = useState('');
   const isComposing = useRef(false);
   const isSendingRef = useRef(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const sendButtonRef = useRef<HTMLButtonElement>(null);
+  const shouldRestoreInputFocus = useRef(false);
   const messagesRegionRef = useRef<HTMLElement>(null);
   const historySentinelRef = useRef<HTMLLIElement>(null);
   const shouldStayAtBottom = useRef(true);
@@ -209,6 +212,20 @@ export function ChatRoomContent({
   const canSend =
     canCompose && trimmedDraft.length > 0 && draft.length <= MAX_MESSAGE_LENGTH && !isSending;
 
+  useEffect(() => {
+    if (isSending || !shouldRestoreInputFocus.current) return;
+
+    shouldRestoreInputFocus.current = false;
+    const activeElement = document.activeElement;
+    if (
+      activeElement === document.body ||
+      activeElement === inputRef.current ||
+      activeElement === sendButtonRef.current
+    ) {
+      inputRef.current?.focus();
+    }
+  }, [isSending]);
+
   /** 메시지 목록이 추가/앞쪽 삽입될 때 읽던 위치를 보존하고 하단 근처에서만 따라간다. */
   useLayoutEffect(() => {
     const region = messagesRegionRef.current;
@@ -250,11 +267,12 @@ export function ChatRoomContent({
   }, [chatRoomId, sortedMessages]);
 
   /** 핸들러가 연결된 경우에만 전송을 시도하며 성공 메시지를 낙관적으로 목록에 추가하지 않는다. */
-  async function sendDraft() {
+  async function sendDraft(restoreInputFocus = false) {
     if (!canSend || !onSendMessage || isSendingRef.current) {
       return;
     }
 
+    shouldRestoreInputFocus.current = restoreInputFocus;
     const content = trimmedDraft;
     isSendingRef.current = true;
     setIsSending(true);
@@ -534,7 +552,7 @@ export function ChatRoomContent({
         className="chat-room-compose"
         onSubmit={(event) => {
           event.preventDefault();
-          void sendDraft();
+          void sendDraft(true);
         }}
       >
         <label className="chat-room-visually-hidden" htmlFor="chat-message">
@@ -545,6 +563,7 @@ export function ChatRoomContent({
           disabled={inputDisabled}
           id="chat-message"
           maxLength={MAX_MESSAGE_LENGTH}
+          ref={inputRef}
           onChange={(event) => {
             setDraft(event.target.value);
             setSendError(false);
@@ -564,7 +583,7 @@ export function ChatRoomContent({
               return;
             }
             event.preventDefault();
-            void sendDraft();
+            void sendDraft(true);
           }}
           placeholder={
             roomType === 'GROUP'
@@ -584,7 +603,7 @@ export function ChatRoomContent({
           rows={1}
           value={draft}
         />
-        <button disabled={!canSend} type="submit">
+        <button disabled={!canSend} ref={sendButtonRef} type="submit">
           {isSending ? '전송 중' : '전송'}
         </button>
         <span className="chat-room-character-count" aria-live="polite">
