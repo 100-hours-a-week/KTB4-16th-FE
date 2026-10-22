@@ -41,7 +41,6 @@ export function PreferenceVoteResultPreviewPage() {
           onSubmit={() => undefined}
           onRetry={() => undefined}
           isJoiningGroupChat={false}
-          matchStatus="MATCHED"
           onJoinGroupChat={() => undefined}
         />
       </div>
