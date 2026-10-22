@@ -89,7 +89,9 @@ function renderPage({
 function createRestRequest({
   roomType = 'DIRECT',
   activeCounts = [2],
-  expiresAt = '2026-10-23T00:00:00+09:00',
+  participantNicknames = ['partner'],
+  historyMessages = [],
+  expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   failEntry,
   failHistory,
   failLeave,
@@ -97,6 +99,15 @@ function createRestRequest({
 }: {
   roomType?: 'DIRECT' | 'GROUP';
   activeCounts?: number[];
+  participantNicknames?: string[];
+  historyMessages?: Array<{
+    chatMessageId: number;
+    clientMessageId: string;
+    userId: number;
+    nickname: string;
+    content: string;
+    createdAt: string;
+  }>;
   expiresAt?: string;
   failEntry?: ApiError;
   failHistory?: ApiError;
@@ -132,8 +143,10 @@ function createRestRequest({
     }
     if (path === '/chat-rooms/123') {
       if (detailRequestCount > 0 && detailRefreshError) throw detailRefreshError;
-      const activeParticipantCount =
-        activeCounts[Math.min(detailRequestCount++, activeCounts.length - 1)];
+      const detailIndex = detailRequestCount++;
+      const activeParticipantCount = activeCounts[Math.min(detailIndex, activeCounts.length - 1)];
+      const partnerNickname =
+        participantNicknames[Math.min(detailIndex, participantNicknames.length - 1)];
       return {
         message: 'ok',
         data: {
@@ -155,7 +168,7 @@ function createRestRequest({
             },
             {
               userId: 8,
-              nickname: 'partner',
+              nickname: partnerNickname,
               voteChoice: roomType === 'GROUP' ? 'B' : null,
               hasLeft: false,
             },
@@ -173,7 +186,10 @@ function createRestRequest({
     }
     if (path === '/chat-rooms/123/messages') {
       if (failHistory) throw failHistory;
-      return { message: 'ok', data: { messages: [], nextCursor: null, hasNext: false } } as T;
+      return {
+        message: 'ok',
+        data: { messages: historyMessages, nextCursor: null, hasNext: false },
+      } as T;
     }
     throw new Error(`Unexpected request: ${path}`);
   };
@@ -409,6 +425,167 @@ describe('ChatRoomPage live connection', () => {
 
     act(() => receiveUserFrame(socket, '/user/queue/chat-messages', response));
     expect(screen.getAllByText('실시간 메시지')).toHaveLength(1);
+  });
+
+  it('updates GROUP participant and historical/live message nicknames from a room-scoped event', async () => {
+    const api = createRestRequest({
+      roomType: 'GROUP',
+      participantNicknames: ['이전 이름'],
+      expiresAt: '2026-10-24T00:00:00+09:00',
+      historyMessages: [
+        {
+          chatMessageId: 401,
+          clientMessageId: '550e8400-e29b-41d4-a716-446655440011',
+          userId: 8,
+          nickname: '이전 이름',
+          content: '과거 메시지 1',
+          createdAt: '2026-10-21T11:00:00+09:00',
+        },
+        {
+          chatMessageId: 402,
+          clientMessageId: '550e8400-e29b-41d4-a716-446655440012',
+          userId: 8,
+          nickname: '이전 이름',
+          content: '과거 메시지 2',
+          createdAt: '2026-10-21T11:01:00+09:00',
+        },
+        {
+          chatMessageId: 403,
+          clientMessageId: '550e8400-e29b-41d4-a716-446655440013',
+          userId: 9,
+          nickname: '다른 참여자',
+          content: '다른 사람의 메시지',
+          createdAt: '2026-10-21T11:02:00+09:00',
+        },
+      ],
+    });
+    renderPage({ useRestApi: true, fetchAuthenticatedJson: api.fetchAuthenticatedJson });
+    const socket = await connectPage();
+    expect(await screen.findAllByText('이전 이름')).toHaveLength(2);
+
+    act(() =>
+      receiveUserFrame(socket, '/user/queue/chat-events', {
+        type: 'PARTICIPANT_NICKNAME_CHANGED',
+        chatRoomId: 999,
+        userId: 8,
+        nickname: '새 닉네임',
+      }),
+    );
+    expect(screen.getAllByText('이전 이름')).toHaveLength(2);
+    act(() =>
+      receiveUserFrame(socket, '/user/queue/chat-events', {
+        type: 'PARTICIPANT_NICKNAME_CHANGED',
+        chatRoomId: 123,
+        userId: 999,
+        nickname: '알 수 없는 참여자',
+      }),
+    );
+    act(() =>
+      receiveUserFrame(socket, '/user/queue/chat-events', {
+        type: 'PARTICIPANT_NICKNAME_CHANGED',
+        chatRoomId: 123,
+        userId: 8,
+        nickname: '   ',
+      }),
+    );
+    expect(screen.getAllByText('이전 이름')).toHaveLength(2);
+
+    const event = {
+      type: 'PARTICIPANT_NICKNAME_CHANGED',
+      chatRoomId: 123,
+      userId: 8,
+      nickname: '새 닉네임',
+    };
+    act(() => receiveUserFrame(socket, '/user/queue/chat-events', event));
+    await waitFor(() => expect(screen.getAllByText('새 닉네임')).toHaveLength(2));
+    expect(screen.getByText('participant-1')).toBeInTheDocument();
+    expect(screen.queryByText('이전 이름')).not.toBeInTheDocument();
+
+    act(() => receiveUserFrame(socket, '/user/queue/chat-events', event));
+    expect(screen.getAllByText('새 닉네임')).toHaveLength(2);
+
+    act(() =>
+      receiveUserFrame(socket, '/user/queue/chat-messages', {
+        type: 'MESSAGE',
+        chatRoomId: 123,
+        chatMessageId: 404,
+        clientMessageId: '550e8400-e29b-41d4-a716-446655440014',
+        userId: 8,
+        content: '닉네임 변경 후 메시지',
+        createdAt: '2026-10-21T11:03:00+09:00',
+      }),
+    );
+    expect(await screen.findByText('닉네임 변경 후 메시지')).toBeInTheDocument();
+    expect(screen.getAllByText('새 닉네임')).toHaveLength(3);
+  });
+
+  it('updates DIRECT partner header and historical messages from the same event contract', async () => {
+    const api = createRestRequest({
+      participantNicknames: ['이전 이름'],
+      expiresAt: '2026-10-24T00:00:00+09:00',
+      historyMessages: [
+        {
+          chatMessageId: 405,
+          clientMessageId: '550e8400-e29b-41d4-a716-446655440015',
+          userId: 8,
+          nickname: '이전 이름',
+          content: 'DIRECT 과거 메시지',
+          createdAt: '2026-10-21T11:00:00+09:00',
+        },
+      ],
+    });
+    renderPage({ useRestApi: true, fetchAuthenticatedJson: api.fetchAuthenticatedJson });
+    const socket = await connectPage();
+    expect(await screen.findAllByText('이전 이름')).toHaveLength(2);
+
+    act(() =>
+      receiveUserFrame(socket, '/user/queue/chat-events', {
+        type: 'PARTICIPANT_NICKNAME_CHANGED',
+        chatRoomId: 123,
+        userId: 8,
+        nickname: '새 닉네임',
+      }),
+    );
+    await waitFor(() => expect(screen.getAllByText('새 닉네임')).toHaveLength(2));
+    expect(screen.getByText('DIRECT 과거 메시지')).toBeInTheDocument();
+    expect(screen.queryByText('이전 이름')).not.toBeInTheDocument();
+  });
+
+  it('refreshes current participant names and latest history after STOMP reconnect', async () => {
+    const api = createRestRequest({
+      participantNicknames: ['이전 이름', '최신 닉네임'],
+      expiresAt: '2026-10-24T00:00:00+09:00',
+      historyMessages: [
+        {
+          chatMessageId: 406,
+          clientMessageId: '550e8400-e29b-41d4-a716-446655440016',
+          userId: 8,
+          nickname: '오래된 이력 이름',
+          content: '재접속 후에도 보이는 메시지',
+          createdAt: '2026-10-21T11:00:00+09:00',
+        },
+      ],
+    });
+    renderPage({ useRestApi: true, fetchAuthenticatedJson: api.fetchAuthenticatedJson });
+    const firstSocket = await connectPage();
+    expect(await screen.findAllByText('이전 이름')).toHaveLength(2);
+
+    act(() => firstSocket.close(1006));
+    await waitFor(() => expect(FakeStompSocket.connections).toHaveLength(2), { timeout: 8_000 });
+    const reconnectedSocket = FakeStompSocket.connections[1];
+    act(() => reconnectedSocket.open());
+    act(() => reconnectedSocket.connected());
+
+    await waitFor(() => expect(screen.getAllByText('최신 닉네임')).toHaveLength(2), {
+      timeout: 8_000,
+    });
+    expect(screen.getByText('재접속 후에도 보이는 메시지')).toBeInTheDocument();
+    expect(screen.queryByText('오래된 이력 이름')).not.toBeInTheDocument();
+    expect(api.requests.filter((path) => path === '/chat-rooms/123')).toHaveLength(2);
+    expect(api.requests.filter((path) => path === '/chat-rooms/123/messages')).toHaveLength(2);
+    expect(
+      reconnectedSocket.sentFrames.filter((frame) => frame.startsWith('SUBSCRIBE')),
+    ).toHaveLength(3);
   });
 
   it.each([
