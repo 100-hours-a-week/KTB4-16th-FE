@@ -17,13 +17,13 @@ function renderVote(overrides: Partial<React.ComponentProps<typeof PreferenceVot
     <PreferenceVote
       errorMessage={null}
       isLoading={false}
-      isMatching={false}
+      isJoiningGroupChat={false}
       isSubmitting={false}
       matchStatus={null}
       result={null}
       vote={vote}
       onRetry={vi.fn()}
-      onStartMatching={vi.fn()}
+      onJoinGroupChat={vi.fn()}
       onSubmit={vi.fn()}
       {...overrides}
     />,
@@ -57,13 +57,13 @@ describe('PreferenceVote', () => {
       <PreferenceVote
         errorMessage={null}
         isLoading={false}
-        isMatching={false}
+        isJoiningGroupChat={false}
         isSubmitting={false}
         matchStatus={null}
         result={null}
         vote={{ ...vote, voteAnswerId: 43, myAnswer: '산책하면서 듣기' }}
         onRetry={vi.fn()}
-        onStartMatching={vi.fn()}
+        onJoinGroupChat={vi.fn()}
         onSubmit={vi.fn()}
       />,
     );
@@ -126,28 +126,26 @@ describe('PreferenceVote', () => {
     );
     expect(screen.getByRole('button', { name: '투표 완료' })).toBeDisabled();
   });
-  it('allows a matching request after a saved vote answer', async () => {
+  it('allows GROUP chat entry after a saved vote answer', async () => {
     const user = userEvent.setup();
-    const onStartMatching = vi.fn();
+    const onJoinGroupChat = vi.fn();
     renderVote({
       vote: { ...vote, myAnswer: '산책하면서 듣기', voteAnswerId: 43 },
-      onStartMatching,
+      onJoinGroupChat,
     });
     await user.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
-    expect(onStartMatching).toHaveBeenCalledExactlyOnceWith();
+    expect(onJoinGroupChat).toHaveBeenCalledExactlyOnceWith();
   });
-  it('shows the server matching status and prevents a second request', () => {
+  it('keeps GROUP entry available while showing a restored DIRECT matching status', () => {
     renderVote({
       vote: { ...vote, myAnswer: '산책하면서 듣기', voteAnswerId: 43 },
       matchStatus: 'MATCHING',
     });
     expect(screen.getByText('상대를 찾았어요. 채팅방을 준비하고 있어요.')).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeEnabled();
   });
 
-  it('shows a distinct failed state with GET-only status refresh and no matching POST action', async () => {
+  it('keeps GROUP entry available in a restored DIRECT failed state', async () => {
     const user = userEvent.setup();
     const onRefreshMatchStatus = vi.fn();
     renderVote({
@@ -159,9 +157,7 @@ describe('PreferenceVote', () => {
     expect(
       screen.getByText('채팅방을 만드는 중 문제가 발생했어요. 매칭 상태를 다시 확인해 주세요.'),
     ).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: '상태 다시 확인' }));
     expect(onRefreshMatchStatus).toHaveBeenCalledOnce();
   });
