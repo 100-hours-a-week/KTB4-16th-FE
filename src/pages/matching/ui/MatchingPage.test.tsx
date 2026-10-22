@@ -178,6 +178,72 @@ describe('MatchingPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('그룹 채팅 서버에 연결하지 못했어요');
   });
 
+  it('does not call the group API without a vote answer', async () => {
+    vi.mocked(getTodayPreferenceVote).mockResolvedValue({
+      voteQuestionId: 12,
+      question: '오늘은 어떤 분위기가 좋아요?',
+      optionA: '산책',
+      optionB: '카페',
+      myAnswer: null,
+      voteAnswerId: null,
+    });
+    renderPage();
+    await flushEffects();
+
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
+    expect(joinGroupChat).not.toHaveBeenCalled();
+  });
+
+  it('prevents duplicate group join requests while the first request is pending', async () => {
+    let resolveJoin!: (value: Awaited<ReturnType<typeof joinGroupChat>>) => void;
+    vi.mocked(joinGroupChat).mockReturnValue(
+      new Promise((resolve) => {
+        resolveJoin = resolve;
+      }),
+    );
+    renderPage();
+    await flushEffects();
+
+    const groupEntryButton = screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' });
+    fireEvent.click(groupEntryButton);
+    fireEvent.click(groupEntryButton);
+
+    expect(joinGroupChat).toHaveBeenCalledOnce();
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '그룹 채팅 입장 중...' })).toBeDisabled();
+
+    await act(async () => {
+      resolveJoin({
+        chatRoomId: 21,
+        roomSequence: 1,
+        newlyAssigned: true,
+        admittedParticipantCount: 1,
+        activeParticipantCount: 0,
+        expiresAt: '2026-10-23T00:00:00+09:00',
+      });
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/chat/21');
+  });
+
+  it('keeps the server-side re-entry restriction after a previous GROUP leave', async () => {
+    vi.mocked(joinGroupChat).mockRejectedValueOnce(
+      new ApiError(403, '오늘은 다시 입장할 수 없습니다.', 'GROUP_CHAT_REENTRY_FORBIDDEN'),
+    );
+    renderPage();
+    await flushEffects();
+
+    fireEvent.click(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' }));
+    await flushEffects();
+
+    expect(joinGroupChat).toHaveBeenCalledOnce();
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '이미 퇴장한 그룹 채팅방에는 다시 입장할 수 없어요.',
+    );
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/matching');
+  });
+
   it('shows the snapshot preparation error without implying the user already voted', async () => {
     vi.mocked(getTodayPreferenceVote).mockRejectedValue(
       new ApiError(503, '오늘의 취향 투표를 준비 중입니다.', 'VOTE_SNAPSHOT_NOT_READY'),
@@ -279,15 +345,23 @@ describe('MatchingPage', () => {
     expect(getTodayPreferenceVote).toHaveBeenCalledOnce();
   });
 
-  it('checks for an existing request before enabling chat entry', async () => {
+  it('keeps GROUP entry independent while restoring a legacy DIRECT request', async () => {
     vi.mocked(getMatchRequestByVoteAnswer).mockImplementation(() => new Promise(() => {}));
     renderPage();
     await flushEffects();
 
     expect(getMatchRequestByVoteAnswer).toHaveBeenCalledOnce();
     expect(getMatchRequestByVoteAnswer).toHaveBeenCalledWith(expect.any(Function), 43);
-    expect(screen.getByRole('button', { name: '매칭 상태 확인 중...' })).toBeDisabled();
+    const groupEntryButton = screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' });
+    expect(groupEntryButton).toBeEnabled();
     expect(createMatchRequest).not.toHaveBeenCalled();
+
+    fireEvent.click(groupEntryButton);
+    await flushEffects();
+
+    expect(joinGroupChat).toHaveBeenCalledWith(expect.any(Function), 43);
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/chat/21');
   });
 
   it('restores an existing WAITING request and resumes polling without creating another request', async () => {
@@ -305,9 +379,7 @@ describe('MatchingPage', () => {
     renderPage();
     await flushEffects();
     expect(screen.getByText('의견이 다른 상대를 찾고 있어요.')).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeEnabled();
     expect(window.sessionStorage.getItem('mulo-match-request-v1')).toContain('"matchRequestId":90');
     expect(createMatchRequest).not.toHaveBeenCalled();
 
@@ -326,7 +398,7 @@ describe('MatchingPage', () => {
     renderPage();
     await flushEffects();
 
-    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeEnabled();
     expect(screen.getByRole('alert')).toHaveTextContent('잠시 후 다시 시도해 주세요.');
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     await flushEffects();
@@ -365,9 +437,7 @@ describe('MatchingPage', () => {
     renderPage();
     await flushEffects();
 
-    expect(
-      screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeEnabled();
     expect(
       screen.getByText('채팅방을 만드는 중 문제가 발생했어요. 매칭 상태를 다시 확인해 주세요.'),
     ).toBeVisible();
@@ -418,7 +488,7 @@ describe('MatchingPage', () => {
     expect(window.sessionStorage.getItem('mulo-match-request-v1')).toContain('"userId":"35"');
   });
 
-  it('restores MATCHED by vote answer and shows the existing room inline without navigating', async () => {
+  it('keeps a restored DIRECT room and allows GROUP entry for the current vote', async () => {
     vi.mocked(getTodayPreferenceVote).mockResolvedValue({
       voteQuestionId: 12,
       question: '오늘은 어떤 분위기가 좋아요?',
@@ -439,10 +509,17 @@ describe('MatchingPage', () => {
     expect(screen.getByTestId('current-path')).toHaveTextContent('/matching');
     expect(screen.getByTestId('inline-chat')).toHaveTextContent('41');
     expect(screen.getByRole('img', { name: '투표 결과: A 67%, B 33%' })).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
-    ).not.toBeInTheDocument();
+    const groupEntryButton = screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' });
+    expect(groupEntryButton).toBeEnabled();
     expect(window.sessionStorage.getItem('mulo-match-request-v1')).toBeNull();
+    expect(window.sessionStorage.getItem('mulo-matched-chat-room-v1')).toContain('"chatRoomId":41');
+
+    fireEvent.click(groupEntryButton);
+    await flushEffects();
+
+    expect(joinGroupChat).toHaveBeenCalledWith(expect.any(Function), 43);
+    expect(createMatchRequest).not.toHaveBeenCalled();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/chat/21');
     expect(window.sessionStorage.getItem('mulo-matched-chat-room-v1')).toContain('"chatRoomId":41');
   });
 
@@ -576,9 +653,7 @@ describe('MatchingPage', () => {
 
     expect(getMatchRequestState).toHaveBeenCalledTimes(1);
     expect(screen.getByText(failedMessage)).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: '의견 다른 사람과 채팅하기' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '의견 다른 사람과 채팅하기' })).toBeEnabled();
   });
 
   it('does not let an older in-flight response replace FAILED', async () => {

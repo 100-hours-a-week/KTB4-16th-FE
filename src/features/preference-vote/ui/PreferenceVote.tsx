@@ -14,11 +14,9 @@ interface PreferenceVoteProps {
   errorMessage: string | null;
   onSubmit: (selectedOption: PreferenceVoteOption) => void;
   onRetry: () => void;
-  isMatching: boolean;
-  isRestoringMatch?: boolean;
-  isMatchLookupFailed?: boolean;
+  isJoiningGroupChat: boolean;
   matchStatus: MatchStatus | null;
-  onStartMatching: () => void;
+  onJoinGroupChat: () => void;
   onRefreshMatchStatus?: () => void;
 }
 
@@ -31,11 +29,9 @@ export function PreferenceVote({
   errorMessage,
   onSubmit,
   onRetry,
-  isMatching,
-  isRestoringMatch = false,
-  isMatchLookupFailed = false,
+  isJoiningGroupChat,
   matchStatus,
-  onStartMatching,
+  onJoinGroupChat,
   onRefreshMatchStatus,
 }: PreferenceVoteProps) {
   const [selection, setSelection] = useState<{
@@ -155,22 +151,14 @@ export function PreferenceVote({
         >
           {isSubmitting ? '투표 중...' : isAnswered ? '투표 완료' : '투표하기'}
         </button>
-        {matchStatus === null ? (
-          <button
-            className="preference-vote-match-button"
-            disabled={
-              vote?.voteAnswerId == null || isMatching || isRestoringMatch || isMatchLookupFailed
-            }
-            type="button"
-            onClick={() => onStartMatching()}
-          >
-            {isRestoringMatch
-              ? '매칭 상태 확인 중...'
-              : isMatching
-                ? '매칭 요청 중...'
-                : '의견 다른 사람과 채팅하기'}
-          </button>
-        ) : null}
+        <button
+          className="preference-vote-match-button"
+          disabled={vote?.voteAnswerId == null || isJoiningGroupChat}
+          type="button"
+          onClick={() => onJoinGroupChat()}
+        >
+          {isJoiningGroupChat ? '그룹 채팅 입장 중...' : '의견 다른 사람과 채팅하기'}
+        </button>
       </div>
       {matchStatus ? (
         <MatchStatusNotice status={matchStatus} onRefresh={onRefreshMatchStatus} />

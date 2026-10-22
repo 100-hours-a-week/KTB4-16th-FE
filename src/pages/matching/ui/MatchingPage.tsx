@@ -38,6 +38,7 @@ interface VotePageState {
   isLoading: boolean;
   isSubmitting: boolean;
   isCreatingMatch: boolean;
+  isJoiningGroupChat: boolean;
   isRestoringMatch: boolean;
   matchLookupFailed: boolean;
   matchStatus: MatchRequestStatus | null;
@@ -52,6 +53,7 @@ const initialVotePageState: VotePageState = {
   isLoading: true,
   isSubmitting: false,
   isCreatingMatch: false,
+  isJoiningGroupChat: false,
   isRestoringMatch: false,
   matchLookupFailed: false,
   matchStatus: null,
@@ -431,18 +433,12 @@ export function MatchingPage() {
   /** 신규 채팅 참여는 사용자 클릭 시 그룹 채팅방 배정 API로 진행한다. */
   const startChatEntry = useCallback(async () => {
     const voteAnswerId = state.vote?.voteAnswerId;
-    if (
-      voteAnswerId == null ||
-      chatEntryInFlightRef.current ||
-      state.isCreatingMatch ||
-      state.isRestoringMatch ||
-      state.matchStatus !== null
-    ) {
+    if (voteAnswerId == null || chatEntryInFlightRef.current || state.isJoiningGroupChat) {
       return;
     }
 
     chatEntryInFlightRef.current = true;
-    setState((current) => ({ ...current, isCreatingMatch: true, matchErrorMessage: null }));
+    setState((current) => ({ ...current, isJoiningGroupChat: true, matchErrorMessage: null }));
     try {
       const room = await joinGroupChat(fetchAuthenticatedJson, voteAnswerId);
       navigate(`/chat/${room.chatRoomId}`, {
@@ -458,21 +454,14 @@ export function MatchingPage() {
     } catch (error: unknown) {
       setState((current) => ({
         ...current,
-        isCreatingMatch: false,
+        isJoiningGroupChat: false,
         matchErrorMessage: getGroupChatErrorMessage(error),
         chatEntryFailed: true,
       }));
     } finally {
       chatEntryInFlightRef.current = false;
     }
-  }, [
-    fetchAuthenticatedJson,
-    navigate,
-    state.isCreatingMatch,
-    state.isRestoringMatch,
-    state.matchStatus,
-    state.vote,
-  ]);
+  }, [fetchAuthenticatedJson, navigate, state.isJoiningGroupChat, state.vote]);
 
   const isChatExpanded = isRecord(location.state) && location.state.inlineChatExpanded === true;
   const setChatExpanded = useCallback(
@@ -536,11 +525,9 @@ export function MatchingPage() {
         <PreferenceVote
           errorMessage={state.errorMessage ?? state.matchErrorMessage}
           isLoading={state.isLoading}
-          isMatching={state.isCreatingMatch}
+          isJoiningGroupChat={state.isJoiningGroupChat}
           isSubmitting={state.isSubmitting}
           matchStatus={state.matchStatus}
-          isRestoringMatch={state.isRestoringMatch}
-          isMatchLookupFailed={state.matchLookupFailed}
           onRefreshMatchStatus={refreshCurrentMatchStatus}
           result={state.result}
           vote={state.vote}
@@ -551,7 +538,7 @@ export function MatchingPage() {
                 ? retryMatching
                 : () => void loadVote()
           }
-          onStartMatching={startChatEntry}
+          onJoinGroupChat={startChatEntry}
           onSubmit={(selectedOption) => void submitVote(selectedOption)}
         />
         {matchedChatRoomId !== null ? (
