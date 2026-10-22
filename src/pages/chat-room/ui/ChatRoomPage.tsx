@@ -508,6 +508,7 @@ export function ChatRoomPage({
           text: joined
             ? `${joined.nickname}님이 입장했습니다.`
             : `${left?.nickname ?? ''}님이 퇴장했습니다.`,
+          createdAt: occurredAt,
           voteChoice: joined?.voteChoice ?? eventParticipant?.voteChoice,
         };
         setLoadedRoom((current) =>
@@ -670,10 +671,18 @@ export function ChatRoomPage({
   ]);
 
   const loadOlderMessages = useCallback(async () => {
-    if (!loadedRoom?.history.hasNext || !loadedRoom.history.nextCursor || !chatRoomId) return;
+    const requestedRoomId = chatRoomId;
+    if (
+      !loadedRoom ||
+      loadedRoom.chatRoomId !== requestedRoomId ||
+      !loadedRoom.history.hasNext ||
+      !loadedRoom.history.nextCursor ||
+      !requestedRoomId
+    )
+      return;
     const history = await getChatRoomMessageHistory(
       fetchAuthenticatedJson,
-      chatRoomId,
+      requestedRoomId,
       loadedRoom.history.nextCursor,
     );
     const existingIds = new Set(loadedRoom.messages.map((message) => message.id));
@@ -690,7 +699,7 @@ export function ChatRoomPage({
           (!message.clientMessageId || !existingClientMessageIds.has(message.clientMessageId)),
       );
     setLoadedRoom((current) =>
-      current
+      current?.chatRoomId === requestedRoomId
         ? {
             ...current,
             history,

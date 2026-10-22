@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -212,12 +212,13 @@ describe('ChatRoomPage REST integration', () => {
   });
 
   it('loads older messages with the returned cursor and suppresses duplicate IDs', async () => {
-    const user = userEvent.setup();
     const { session, requests } = createSession();
     renderPage(session);
     await screen.findByText('상대 메시지');
 
-    await user.click(screen.getByRole('button', { name: '이전 메시지 불러오기' }));
+    const messageRegion = screen.getByRole('region', { name: /채팅 메시지/ });
+    messageRegion.scrollTop = 0;
+    fireEvent.scroll(messageRegion);
 
     expect(await screen.findByText('이전 메시지')).toBeInTheDocument();
     expect(screen.getAllByText('내 메시지')).toHaveLength(1);

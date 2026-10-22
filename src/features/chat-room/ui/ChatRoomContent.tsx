@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type {
   ChatConnectionSnapshot,
@@ -22,6 +22,7 @@ export type ChatMessage = {
 export type ChatSystemNotice = {
   id: string;
   text: string;
+  createdAt: string;
   voteChoice?: 'A' | 'B' | null;
 };
 
@@ -53,6 +54,7 @@ type ChatRoomContentProps = {
 
 const MAX_MESSAGE_LENGTH = 500;
 const NEAR_BOTTOM_THRESHOLD = 72;
+const HISTORY_TOP_THRESHOLD = 48;
 
 const connectionLabels: Record<ChatConnectionState, string> = {
   idle: '연결 준비 중',
@@ -91,6 +93,10 @@ type ScrollSnapshot = {
   scrollHeight: number;
   scrollTop: number;
 };
+
+type ChatTimelineItem =
+  | { type: 'message'; key: string; createdAt: string; message: ChatMessage }
+  | { type: 'notice'; key: string; createdAt: string; notice: ChatSystemNotice };
 
 /** ISO 시각을 KST 기준 날짜/시간 라벨로 바꾸며 잘못된 값은 안전한 안내로 대체한다. */
 function formatMessageDateTime(value: string): { dateLabel: string; timeLabel: string } {
@@ -152,10 +158,32 @@ export function ChatRoomContent({
   const isComposing = useRef(false);
   const isSendingRef = useRef(false);
   const messagesRegionRef = useRef<HTMLElement>(null);
+  const historySentinelRef = useRef<HTMLLIElement>(null);
   const shouldStayAtBottom = useRef(true);
   const previousMessages = useRef<ChatMessage[] | null>(null);
+  const previousChatRoomId = useRef(chatRoomId);
+  const roomGeneration = useRef(0);
   const prependSnapshot = useRef<ScrollSnapshot | null>(null);
+  const isRequestingOlderRef = useRef(false);
   const sortedMessages = useMemo(() => sortMessages(messages), [messages]);
+  const timelineItems = useMemo<ChatTimelineItem[]>(
+    () =>
+      [
+        ...sortedMessages.map((message) => ({
+          type: 'message' as const,
+          key: `message:${message.id}`,
+          createdAt: message.createdAt,
+          message,
+        })),
+        ...systemNotices.map((notice) => ({
+          type: 'notice' as const,
+          key: `notice:${notice.id}`,
+          createdAt: notice.createdAt,
+          notice,
+        })),
+      ].sort((first, second) => Date.parse(first.createdAt) - Date.parse(second.createdAt)),
+    [sortedMessages, systemNotices],
+  );
 
   const hasTerminalLoadState =
     loadState === 'forbidden' || loadState === 'not-found' || loadState === 'server-error';
@@ -184,6 +212,18 @@ export function ChatRoomContent({
   /** 메시지 목록이 추가/앞쪽 삽입될 때 읽던 위치를 보존하고 하단 근처에서만 따라간다. */
   useLayoutEffect(() => {
     const region = messagesRegionRef.current;
+    if (previousChatRoomId.current !== chatRoomId) {
+      previousChatRoomId.current = chatRoomId;
+      roomGeneration.current += 1;
+      previousMessages.current = sortedMessages;
+      prependSnapshot.current = null;
+      shouldStayAtBottom.current = true;
+      isRequestingOlderRef.current = false;
+      setIsRequestingOlderMessages(false);
+      setHistoryLoadError(false);
+      if (region) region.scrollTop = region.scrollHeight;
+      return;
+    }
     if (!region) {
       previousMessages.current = sortedMessages;
       return;
@@ -207,7 +247,7 @@ export function ChatRoomContent({
     }
 
     previousMessages.current = sortedMessages;
-  }, [sortedMessages]);
+  }, [chatRoomId, sortedMessages]);
 
   /** 핸들러가 연결된 경우에만 전송을 시도하며 성공 메시지를 낙관적으로 목록에 추가하지 않는다. */
   async function sendDraft() {
@@ -244,18 +284,20 @@ export function ChatRoomContent({
   }
 
   /** 과거 메시지 요청 직전의 스크롤 좌표를 기억해 prepend 뒤 화면 위치를 유지한다. */
-  async function loadOlderMessages() {
+  const loadOlderMessages = useCallback(async () => {
     const region = messagesRegionRef.current;
     if (
       !region ||
       !hasOlderMessages ||
       isLoadingOlderMessages ||
-      isRequestingOlderMessages ||
+      isRequestingOlderRef.current ||
       !onLoadOlderMessages
     ) {
       return;
     }
 
+    isRequestingOlderRef.current = true;
+    const requestGeneration = roomGeneration.current;
     prependSnapshot.current = {
       scrollHeight: region.scrollHeight,
       scrollTop: region.scrollTop,
@@ -266,10 +308,40 @@ export function ChatRoomContent({
     try {
       await onLoadOlderMessages();
     } catch {
-      prependSnapshot.current = null;
-      setHistoryLoadError(true);
+      if (requestGeneration === roomGeneration.current) {
+        prependSnapshot.current = null;
+        setHistoryLoadError(true);
+      }
     } finally {
-      setIsRequestingOlderMessages(false);
+      if (requestGeneration === roomGeneration.current) {
+        isRequestingOlderRef.current = false;
+        setIsRequestingOlderMessages(false);
+      }
+    }
+  }, [hasOlderMessages, isLoadingOlderMessages, onLoadOlderMessages]);
+
+  useEffect(() => {
+    if (!hasOlderMessages || !onLoadOlderMessages || historyLoadError) return;
+
+    const sentinel = historySentinelRef.current;
+    const region = messagesRegionRef.current;
+    if (!sentinel || !region || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadOlderMessages();
+      },
+      { root: region, rootMargin: '48px 0px 0px', threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [chatRoomId, hasOlderMessages, historyLoadError, loadOlderMessages, onLoadOlderMessages]);
+
+  function handleMessagesScroll(region: HTMLElement) {
+    shouldStayAtBottom.current =
+      region.scrollHeight - region.scrollTop - region.clientHeight <= NEAR_BOTTOM_THRESHOLD;
+    if (typeof IntersectionObserver === 'undefined' && region.scrollTop <= HISTORY_TOP_THRESHOLD) {
+      void loadOlderMessages();
     }
   }
 
@@ -292,11 +364,7 @@ export function ChatRoomContent({
       <section
         aria-label={`채팅 메시지, 채팅방 ${chatRoomId}`}
         className="chat-room-messages"
-        onScroll={(event) => {
-          const region = event.currentTarget;
-          shouldStayAtBottom.current =
-            region.scrollHeight - region.scrollTop - region.clientHeight <= NEAR_BOTTOM_THRESHOLD;
-        }}
+        onScroll={(event) => handleMessagesScroll(event.currentTarget)}
         ref={messagesRegionRef}
       >
         <p className={`chat-room-connection is-${connectionState}`} role="status">
@@ -352,18 +420,6 @@ export function ChatRoomContent({
             </p>
           </div>
         ) : null}
-        {!(roomType === 'GROUP' && visibleRoomStatus === 'self-left') &&
-          systemNotices.map((notice) => (
-            <p className="chat-room-system-notice" key={notice.id} role="status">
-              {roomType === 'GROUP' && notice.voteChoice ? (
-                <span
-                  aria-label={`${notice.voteChoice} 선택`}
-                  className={`chat-room-vote-dot is-${notice.voteChoice.toLowerCase()}`}
-                />
-              ) : null}
-              {notice.text}
-            </p>
-          ))}
         {loadNotice ? (
           <div
             className={`chat-room-state${loadState === 'error' || loadState === 'server-error' ? ' is-error' : ''}`}
@@ -381,70 +437,90 @@ export function ChatRoomContent({
             ) : null}
           </div>
         ) : null}
-        {historyLoadError ? (
-          <p className="chat-room-state is-error" role="alert">
-            이전 메시지를 불러오지 못했어요.
-          </p>
+        {historyLoadError && showMessages && sortedMessages.length > 0 ? (
+          <div className="chat-room-state is-error" role="alert">
+            <p>이전 메시지를 불러오지 못했어요.</p>
+            <button
+              className="chat-room-secondary-button"
+              onClick={() => void loadOlderMessages()}
+              type="button"
+            >
+              다시 시도
+            </button>
+          </div>
         ) : null}
         {showMessages && visibleRoomStatus === 'active' && sortedMessages.length === 0 ? (
           <p className="chat-room-state" role="status">
             아직 주고받은 메시지가 없어요.
           </p>
         ) : null}
-        {showMessages && sortedMessages.length > 0 && visibleRoomStatus !== 'self-left' ? (
+        {showMessages && timelineItems.length > 0 && visibleRoomStatus !== 'self-left' ? (
           <>
-            {hasOlderMessages && onLoadOlderMessages ? (
-              <button
-                className="chat-room-secondary-button chat-room-history-button"
-                disabled={isLoadingOlderMessages || isRequestingOlderMessages}
-                onClick={() => void loadOlderMessages()}
-                type="button"
-              >
-                {isLoadingOlderMessages || isRequestingOlderMessages
-                  ? '이전 메시지를 불러오는 중…'
-                  : historyLoadError
-                    ? '이전 메시지 다시 불러오기'
-                    : '이전 메시지 불러오기'}
-              </button>
-            ) : null}
             <ol className="chat-room-message-list">
-              {sortedMessages.map((message, index) => {
-                const formattedTime = formatMessageDateTime(message.createdAt);
-                const previousMessage = sortedMessages[index - 1];
-                const previousDate = previousMessage
-                  ? formatMessageDateTime(previousMessage.createdAt).dateLabel
+              {hasOlderMessages && onLoadOlderMessages ? (
+                <li
+                  aria-hidden="true"
+                  className="chat-room-history-sentinel"
+                  ref={historySentinelRef}
+                >
+                  {isLoadingOlderMessages || isRequestingOlderMessages ? (
+                    <span className="chat-room-history-loading" role="status">
+                      이전 메시지를 불러오는 중…
+                    </span>
+                  ) : null}
+                </li>
+              ) : null}
+              {timelineItems.map((item, index) => {
+                const formattedTime = formatMessageDateTime(item.createdAt);
+                const previousItem = timelineItems[index - 1];
+                const previousDate = previousItem
+                  ? formatMessageDateTime(previousItem.createdAt).dateLabel
                   : undefined;
                 const shouldShowDate = previousDate !== formattedTime.dateLabel;
-
                 return (
-                  <li key={message.id}>
+                  <li key={item.key}>
                     {shouldShowDate ? (
                       <p className="chat-room-date">{formattedTime.dateLabel}</p>
                     ) : null}
-                    <article className={`chat-room-message is-${message.sender}`}>
-                      <div className="chat-room-message-body">
-                        {(roomType === 'GROUP' || message.sender === 'partner') &&
-                        message.nickname ? (
-                          <p className="chat-room-sender-name" title={message.nickname}>
-                            {roomType === 'GROUP' && message.voteChoice ? (
-                              <span
-                                aria-label={`${message.voteChoice} 선택`}
-                                className={`chat-room-vote-dot is-${message.voteChoice.toLowerCase()}`}
-                              />
-                            ) : null}
-                            {message.nickname}
-                          </p>
+                    {item.type === 'notice' ? (
+                      <p className="chat-room-system-notice" role="status">
+                        {roomType === 'GROUP' && item.notice.voteChoice ? (
+                          <span
+                            aria-label={`${item.notice.voteChoice} 선택`}
+                            className={`chat-room-vote-dot is-${item.notice.voteChoice.toLowerCase()}`}
+                          />
                         ) : null}
-                        <p className="chat-room-message-content">{message.content}</p>
-                        {message.deliveryState === 'pending' ? (
-                          <span className="chat-room-message-delivery is-pending">전송 중</span>
-                        ) : null}
-                        {message.deliveryState === 'failed' ? (
-                          <span className="chat-room-message-delivery is-failed">전송 실패</span>
-                        ) : null}
-                      </div>
-                      <time dateTime={message.createdAt}>{formattedTime.timeLabel}</time>
-                    </article>
+                        {item.notice.text}
+                        <time dateTime={item.notice.createdAt}>{formattedTime.timeLabel}</time>
+                      </p>
+                    ) : (
+                      <article className={`chat-room-message is-${item.message.sender}`}>
+                        <div className="chat-room-message-body">
+                          {(roomType === 'GROUP' || item.message.sender === 'partner') &&
+                          item.message.nickname ? (
+                            <p className="chat-room-sender-name" title={item.message.nickname}>
+                              {roomType === 'GROUP' && item.message.voteChoice ? (
+                                <span
+                                  aria-label={`${item.message.voteChoice} 선택`}
+                                  className={`chat-room-vote-dot is-${item.message.voteChoice.toLowerCase()}`}
+                                />
+                              ) : null}
+                              <span className="chat-room-sender-label">
+                                {item.message.nickname}
+                              </span>
+                            </p>
+                          ) : null}
+                          <p className="chat-room-message-content">{item.message.content}</p>
+                          {item.message.deliveryState === 'pending' ? (
+                            <span className="chat-room-message-delivery is-pending">전송 중</span>
+                          ) : null}
+                          {item.message.deliveryState === 'failed' ? (
+                            <span className="chat-room-message-delivery is-failed">전송 실패</span>
+                          ) : null}
+                        </div>
+                        <time dateTime={item.message.createdAt}>{formattedTime.timeLabel}</time>
+                      </article>
+                    )}
                   </li>
                 );
               })}

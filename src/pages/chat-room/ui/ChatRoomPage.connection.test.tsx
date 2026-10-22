@@ -521,7 +521,7 @@ describe('ChatRoomPage live connection', () => {
     );
     await waitFor(() => expect(input).toBeEnabled());
     expect(screen.getByText('오늘의 취향 투표 · 참여 인원 9/30명')).toBeInTheDocument();
-    expect(screen.getByText('partner님이 입장했습니다.')).toBeInTheDocument();
+    expect(screen.getByText(/partner님이 입장했습니다/)).toBeInTheDocument();
     expect(api.requests.filter((path) => path === '/chat-rooms/123')).toHaveLength(2);
 
     act(() =>
@@ -536,7 +536,7 @@ describe('ChatRoomPage live connection', () => {
     await waitFor(() => expect(input).toBeDisabled());
     expect(screen.getByText('오늘의 취향 투표 · 참여 인원 9/30명')).toBeInTheDocument();
     expect(screen.getByText('현재 채팅방에 1명만 참여 중이에요.')).toBeInTheDocument();
-    expect(screen.getByText('partner님이 퇴장했습니다.')).toBeInTheDocument();
+    expect(screen.getByText(/partner님이 퇴장했습니다/)).toBeInTheDocument();
     expect(api.requests.filter((path) => path === '/chat-rooms/123')).toHaveLength(3);
   });
 
