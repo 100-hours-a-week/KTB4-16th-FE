@@ -27,9 +27,8 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  /* 첫 진입부터 화면의 70%를 확보해 추천 전후의 시트 높이를 일정하게 유지한다. */
-  height: 70vh;
-  height: 70dvh;
+  /* 내용 높이로 시작하고, 좁은 viewport에서는 시트 안에서 스크롤한다. */
+  height: fit-content;
   max-height: min(70vh, calc(100% - max(24px, env(safe-area-inset-top))));
   max-height: min(70dvh, calc(100% - max(24px, env(safe-area-inset-top))));
   display: flex;
@@ -90,7 +89,8 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
+  /* 상단 닫기 버튼 아래에 횟수 표시가 겹쳐 보이지 않도록 여백을 둔다. */
+  margin: 18px 0 12px;
 }
 .home-playlist-title-row h2 {
   min-width: 0;
@@ -115,8 +115,9 @@
   border-bottom: 1px solid #ece3f7;
 }
 .home-playlist-track-list {
-  /* 추천 다섯 곡이 와도 하단의 새 추천 버튼을 가리지 않도록 목록 영역만 스크롤한다. */
-  max-height: min(360px, 48dvh);
+  /* 최대 다섯 곡은 모두 보이고, 작은 화면에서는 목록만 먼저 스크롤한다. */
+  max-height: min(260px, 45vh);
+  max-height: min(260px, 45dvh);
   min-height: 0;
   flex: 0 1 auto;
   margin: 0;
@@ -155,8 +156,7 @@
 }
 .home-playlist-save-button {
   width: 100%;
-  /* 추천 목록이 비어 있어도 주요 버튼은 시트 하단에 배치한다. */
-  margin-top: auto;
+  margin-top: 8px;
   flex-shrink: 0;
   padding: 12px;
   border-radius: 12px;

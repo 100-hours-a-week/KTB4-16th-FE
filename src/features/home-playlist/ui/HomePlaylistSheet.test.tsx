@@ -17,10 +17,10 @@ vi.mock('../api/recommendationPlaylistApi', () => ({
 }));
 
 /** 각 회차마다 서로 다른 외부 곡 ID를 가진 다섯 곡을 준비한다. */
-function playlist(round: number) {
+function playlist(round: number, trackCount = 5) {
   return {
     recommendationPlaylistId: round,
-    tracks: Array.from({ length: 5 }, (_, index) => ({
+    tracks: Array.from({ length: trackCount }, (_, index) => ({
       musicTrackId: round * 10 + index,
       externalTrackId: `track-${round}-${index}`,
       title: `${round}회차 추천곡 ${index + 1}`,
@@ -103,6 +103,17 @@ describe('HomePlaylistSheet session', () => {
         ],
       },
     ]);
+  });
+
+  it.each([1, 3, 5])('%i곡 추천에서도 횟수 표시와 하단 버튼을 유지한다', async (trackCount) => {
+    vi.mocked(createRecommendationPlaylist).mockResolvedValue(playlist(1, trackCount));
+    renderSheet();
+
+    fireEvent.click(screen.getByRole('button', { name: '추천 받기' }));
+
+    expect(await screen.findAllByRole('listitem')).toHaveLength(trackCount);
+    expect(screen.getByText('1 / 3회')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다시 추천받기 · 2회 남음' })).toBeInTheDocument();
   });
 
   it('실패 후 이전 목록과 남은 횟수를 유지하고 같은 제외 목록으로 재시도한다', async () => {
