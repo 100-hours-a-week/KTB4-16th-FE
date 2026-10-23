@@ -104,6 +104,13 @@ type ParticipantJoinedEvent = {
   occurredAt: string;
 };
 
+type ParticipantNicknameChangedEvent = {
+  type: 'PARTICIPANT_NICKNAME_CHANGED';
+  chatRoomId: number;
+  userId: number;
+  nickname: string;
+};
+
 /** API의 양의 64-bit 정수 식별자 형식에 맞는 경로 파라미터인지 확인한다. */
 function isValidChatRoomId(value: string | undefined): value is string {
   if (!value || !/^\d+$/.test(value)) {
@@ -261,9 +268,9 @@ export function ChatRoomPage({
     onFrame,
   });
 
-  /** GROUP 입퇴장 이벤트 후 상세 응답을 다시 읽어 서버 기준 참가자 상태를 반영한다. */
-  const refreshGroupRoomDetail = useCallback(
-    async (requestedRoomId: string) => {
+  /** 재연결 또는 GROUP 입퇴장 후 상세 응답으로 최신 참가자 상태와 닉네임을 반영한다. */
+  const refreshRoomDetail = useCallback(
+    async (requestedRoomId: string): Promise<ChatRoomDetail | null> => {
       try {
         const detail = await getChatRoomDetail(fetchAuthenticatedJson, requestedRoomId);
         setLoadedRoom((current) => {
@@ -279,14 +286,12 @@ export function ChatRoomPage({
               const participant = detail.participants.find(
                 (item) => item.userId === message.userId,
               );
-              return participant
-                ? { ...message, nickname: participant.nickname, voteChoice: participant.voteChoice }
-                : message;
+              return participant ? withCurrentParticipant(message, participant) : message;
             }),
           };
         });
         const activeRoom = currentRoom.current.loadedRoom;
-        if (!activeRoom || activeRoom.chatRoomId !== requestedRoomId) return;
+        if (!activeRoom || activeRoom.chatRoomId !== requestedRoomId) return null;
         const currentUserId = activeRoom.currentUserId;
         const hasLeftPartner =
           detail.roomType === 'DIRECT' &&
@@ -303,6 +308,7 @@ export function ChatRoomPage({
                 : 'active',
         });
         setTransportError('');
+        return detail;
       } catch (error: unknown) {
         if (error instanceof ApiError && error.code === 'CHAT_ROOM_EXPIRED') {
           setRoomResult((current) =>
@@ -311,7 +317,7 @@ export function ChatRoomPage({
               : { chatRoomId: requestedRoomId, status: 'expired' },
           );
           setTransportError('');
-          return;
+          return null;
         }
         if (
           error instanceof ApiError &&
@@ -321,9 +327,10 @@ export function ChatRoomPage({
         ) {
           setRoomResult({ chatRoomId: requestedRoomId, status: 'self-left' });
           setTransportError('');
-          return;
+          return null;
         }
         setTransportError('참가자 정보를 새로고침하지 못했어요. 잠시 후 다시 확인해 주세요.');
+        return null;
       }
     },
     [fetchAuthenticatedJson],
@@ -481,6 +488,40 @@ export function ChatRoomPage({
       }
 
       if (destination === '/user/queue/chat-events') {
+        const nicknameChanged = parseParticipantNicknameChangedEvent(frame);
+        if (nicknameChanged) {
+          if (
+            String(nicknameChanged.chatRoomId) !== activeRoomId ||
+            activeRoom?.chatRoomId !== activeRoomId
+          )
+            return;
+          setLoadedRoom((current) => {
+            if (!current || current.chatRoomId !== activeRoomId) return current;
+            const participant = current.detail.participants.find(
+              (item) => item.userId === nicknameChanged.userId,
+            );
+            if (!participant || participant.nickname === nicknameChanged.nickname) return current;
+            const participants = current.detail.participants.map((item) =>
+              item.userId === nicknameChanged.userId
+                ? { ...item, nickname: nicknameChanged.nickname }
+                : item,
+            );
+            const detail = { ...current.detail, participants };
+            const partner = participants.find((item) => item.userId !== current.currentUserId);
+            return {
+              ...current,
+              detail,
+              roomInfo: roomInfoFromDetail(detail, partner?.nickname),
+              messages: current.messages.map((message) =>
+                message.userId === nicknameChanged.userId
+                  ? { ...message, nickname: nicknameChanged.nickname }
+                  : message,
+              ),
+            };
+          });
+          return;
+        }
+
         const joined = parseParticipantJoinedEvent(frame);
         const left = parseParticipantLeftEvent(frame);
         const event = joined ?? left;
@@ -516,36 +557,56 @@ export function ChatRoomPage({
             ? { ...current, systemNotices: [...current.systemNotices, notice] }
             : current,
         );
-        void refreshGroupRoomDetail(activeRoomId);
+        void refreshRoomDetail(activeRoomId);
       }
     };
-  }, [refreshGroupRoomDetail, settlePendingMessage]);
+  }, [refreshRoomDetail, settlePendingMessage]);
 
-  const wasConnected = useRef(false);
+  const previousConnectionState = useRef(connection.state);
   useEffect(() => {
-    if (connection.state === 'connected') {
-      if (wasConnected.current && loadedRoom?.chatRoomId === chatRoomId && chatRoomId) {
-        void getChatRoomMessageHistory(fetchAuthenticatedJson, chatRoomId)
-          .then((history) => {
-            setLoadedRoom((current) => {
-              if (!current || current.chatRoomId !== chatRoomId) return current;
-              const merged = new Map(current.messages.map((message) => [message.id, message]));
-              for (const record of history.messages) {
-                const message = mapMessage(record, current.currentUserId, current.detail);
-                const duplicate = [...merged.entries()].find(
-                  ([, existing]) => existing.clientMessageId === message.clientMessageId,
-                );
-                if (duplicate) merged.delete(duplicate[0]);
-                merged.set(message.id, message);
-              }
-              return { ...current, messages: [...merged.values()] };
-            });
-          })
-          .catch(() => setTransportError('연결이 복구되었지만 최신 메시지를 불러오지 못했어요.'));
-      }
-      wasConnected.current = true;
+    const previousState = previousConnectionState.current;
+    previousConnectionState.current = connection.state;
+    if (
+      connection.state !== 'connected' ||
+      (previousState !== 'reconnecting' && previousState !== 'disconnected') ||
+      loadedRoom?.chatRoomId !== chatRoomId ||
+      !chatRoomId
+    ) {
+      return;
     }
-  }, [chatRoomId, connection.state, fetchAuthenticatedJson, loadedRoom?.chatRoomId]);
+
+    void refreshRoomDetail(chatRoomId)
+      .then((detail) => {
+        if (!detail) return;
+        return getChatRoomMessageHistory(fetchAuthenticatedJson, chatRoomId).then((history) => {
+          setLoadedRoom((current) => {
+            if (!current || current.chatRoomId !== chatRoomId) return current;
+            const merged = new Map(
+              current.messages.map((message) => [
+                message.id,
+                withCurrentParticipants(message, detail),
+              ]),
+            );
+            for (const record of history.messages) {
+              const message = mapMessage(record, current.currentUserId, detail);
+              const duplicate = [...merged.entries()].find(
+                ([, existing]) => existing.clientMessageId === message.clientMessageId,
+              );
+              if (duplicate) merged.delete(duplicate[0]);
+              merged.set(message.id, message);
+            }
+            return { ...current, detail, messages: [...merged.values()] };
+          });
+        });
+      })
+      .catch(() => setTransportError('연결이 복구되었지만 최신 정보를 불러오지 못했어요.'));
+  }, [
+    chatRoomId,
+    connection.state,
+    fetchAuthenticatedJson,
+    loadedRoom?.chatRoomId,
+    refreshRoomDetail,
+  ]);
 
   useEffect(
     () => () => {
@@ -1078,12 +1139,26 @@ function mapMessage(
     clientMessageId: message.clientMessageId,
     userId: message.userId,
     sender: message.userId === currentUserId ? 'me' : 'partner',
-    nickname: message.nickname || participant?.nickname,
+    nickname: participant?.nickname ?? message.nickname,
     voteChoice: message.voteChoice ?? participant?.voteChoice,
     content: message.content,
     createdAt: message.createdAt,
     deliveryState: 'success',
   };
+}
+
+/** 보유 중인 메시지의 표시 이름을 최신 참가자 DTO에 맞춰 갱신한다. */
+function withCurrentParticipant(
+  message: ChatMessage,
+  participant: ChatRoomDetail['participants'][number],
+): ChatMessage {
+  return { ...message, nickname: participant.nickname, voteChoice: participant.voteChoice };
+}
+
+/** REST 상세 재조회 결과로 이 메시지의 닉네임과 그룹 선택 표시를 최신화한다. */
+function withCurrentParticipants(message: ChatMessage, detail: ChatRoomDetail): ChatMessage {
+  const participant = detail.participants.find((item) => item.userId === message.userId);
+  return participant ? withCurrentParticipant(message, participant) : message;
 }
 
 /** Chat Server의 메시지 성공 프레임을 신뢰 가능한 화면 DTO로 좁힌다. */
@@ -1177,6 +1252,27 @@ function parseParticipantJoinedEvent(
     voteChoice: value.voteChoice,
     activeParticipantCount: value.activeParticipantCount,
     occurredAt: value.occurredAt,
+  };
+}
+
+/** 현재 chat-events 계약의 닉네임 변경 이벤트만 검증해 표시 상태 갱신에 사용한다. */
+function parseParticipantNicknameChangedEvent(
+  value: Record<string, unknown>,
+): ParticipantNicknameChangedEvent | null {
+  if (
+    value.type !== 'PARTICIPANT_NICKNAME_CHANGED' ||
+    !isPositiveSafeInteger(value.chatRoomId) ||
+    !isPositiveSafeInteger(value.userId) ||
+    typeof value.nickname !== 'string' ||
+    value.nickname.trim().length === 0
+  ) {
+    return null;
+  }
+  return {
+    type: 'PARTICIPANT_NICKNAME_CHANGED',
+    chatRoomId: value.chatRoomId,
+    userId: value.userId,
+    nickname: value.nickname,
   };
 }
 
