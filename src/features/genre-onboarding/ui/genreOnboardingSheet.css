@@ -35,7 +35,7 @@
 .genre-onboarding-sheet h2 {
   margin: 0;
   color: var(--mulo-ink-900);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 18px;
   line-height: 1.35;
   text-align: center;

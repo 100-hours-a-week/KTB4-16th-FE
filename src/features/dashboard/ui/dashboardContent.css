@@ -11,7 +11,7 @@
 
 .friend-dashboard-summary strong {
   overflow-wrap: anywhere;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 22px;
 }
 
@@ -53,7 +53,7 @@
 .dashboard-region strong,
 .dashboard-detail h2,
 .dashboard-record strong {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
 }
 
 .dashboard-region small,

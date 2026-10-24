@@ -105,7 +105,7 @@ a:hover {
 
 .auth-brand h1 {
   color: #a78bde;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 2.35rem;
   font-weight: 700;
   letter-spacing: -0.025em;

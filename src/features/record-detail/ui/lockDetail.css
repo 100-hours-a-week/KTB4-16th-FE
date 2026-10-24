@@ -195,7 +195,7 @@
 .lock-detail-comment p {
   margin: 10px 0 0;
   color: #332b4a;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 14px;
   font-style: italic;
   line-height: 1.65;
