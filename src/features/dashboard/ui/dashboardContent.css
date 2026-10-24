@@ -195,3 +195,54 @@
 .dashboard-more:disabled {
   opacity: 0.6;
 }
+
+/* 카드 수는 모바일 목록을 유지하며 넓은 본문에서만 늘린다. */
+.dashboard-region,
+.dashboard-record,
+.dashboard-detail-heading > div {
+  min-width: 0;
+}
+.dashboard-region strong,
+.dashboard-region small,
+.dashboard-record small,
+.dashboard-detail h2 {
+  overflow-wrap: anywhere;
+}
+@media (min-width: 768px) {
+  .dashboard-regions,
+  .dashboard-record-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .dashboard-region {
+    min-height: 100px;
+    padding: 20px;
+  }
+  .dashboard-region strong {
+    font-size: 17px;
+  }
+  .dashboard-region small,
+  .dashboard-record small,
+  .dashboard-detail-heading span {
+    font-size: 12px;
+  }
+  .dashboard-record {
+    min-height: 80px;
+    padding: 16px;
+  }
+  .dashboard-record strong {
+    font-size: 15px;
+  }
+  .dashboard-regions > .dashboard-status,
+  .dashboard-regions > .dashboard-status-group,
+  .dashboard-record-list > .dashboard-more,
+  .dashboard-record-list > .dashboard-more-error {
+    grid-column: 1 / -1;
+  }
+}
+@media (min-width: 1280px) {
+  .dashboard-regions,
+  .dashboard-record-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

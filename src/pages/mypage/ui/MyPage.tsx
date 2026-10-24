@@ -95,7 +95,7 @@ export function MyPage() {
   };
 
   return (
-    <main className="static-page">
+    <main className="static-page account-page">
       <div className="static-page-content">
         <header className="static-page-header">
           <h1 className="static-page-title">마이페이지</h1>

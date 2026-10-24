@@ -52,7 +52,7 @@ export function ReportPage() {
   }
 
   return (
-    <main className="static-page">
+    <main className="static-page report-page">
       <div className="static-page-content">
         <header className="static-page-header">
           <h1 className="static-page-title">리포트</h1>

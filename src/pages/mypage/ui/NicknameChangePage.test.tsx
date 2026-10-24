@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,7 +16,7 @@ vi.mock('../../../features/user-profile/api/userProfileApi', () => ({
 /** 실제 세션과 라우터 안에서 닉네임 변경 페이지의 비동기 계약을 검증한다. */
 function renderNicknameChangePage() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/mypage/nickname']}>
       <SessionProvider>
         <NicknameChangePage />
       </SessionProvider>
@@ -37,6 +37,20 @@ beforeEach(() => {
 });
 
 describe('NicknameChangePage', () => {
+  it('넓은 화면 메뉴에서 마이페이지를 활성 목적지로 유지한다', () => {
+    renderNicknameChangePage();
+
+    const menu = screen.getByRole('navigation', { name: '주요 메뉴' });
+    expect(within(menu).getByRole('link', { name: '마이페이지' })).toHaveAttribute(
+      'href',
+      '/mypage',
+    );
+    expect(within(menu).getByRole('link', { name: '마이페이지' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it('검증된 현재 프로필을 받은 뒤에 변경 폼을 표시한다', async () => {
     renderNicknameChangePage();
 

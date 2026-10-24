@@ -1,5 +1,6 @@
 import { MusicPreviewButton } from '../../../entities/music/ui/MusicPreviewButton';
 import { useEffect, useRef } from 'react';
+import { useMapSheetExit } from '../model/useMapSheetExit';
 import type { PopularTracksResult } from '../api/getPopularTracks';
 
 import './popularTracksSheet.css';
@@ -26,6 +27,7 @@ export function PopularTracksSheet({
 }: Props) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
+  const handleTransitionEnd = useMapSheetExit(isOpen, onExited);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -63,11 +65,7 @@ export function PopularTracksSheet({
       inert={!isOpen}
       role="region"
       onClick={(event) => event.stopPropagation()}
-      onTransitionEnd={(event) => {
-        if (!isOpen && event.target === event.currentTarget && event.propertyName === 'transform') {
-          onExited();
-        }
-      }}
+      onTransitionEnd={handleTransitionEnd}
     >
       <span className="popular-tracks-sheet-handle" aria-hidden="true" />
       <div className="popular-tracks-sheet-title-row">

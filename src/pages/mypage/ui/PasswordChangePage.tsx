@@ -5,6 +5,7 @@ import type { UserProfile } from '../../../entities/user/model/user.types';
 import { useSession } from '../../../entities/session/model/useSession';
 import { getMyProfile } from '../../../features/user-profile/api/userProfileApi';
 import { PasswordChangeForm } from '../../../features/user-profile/ui/PasswordChangeForm';
+import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
 import '../../pageShell.css';
 import './myPage.css';
 
@@ -68,7 +69,7 @@ export function PasswordChangePage() {
   };
 
   return (
-    <main className="static-page">
+    <main className="static-page account-page">
       <div className="static-page-content">
         <header className="static-page-header">
           <Link className="settings-back-link" to="/mypage">
@@ -94,6 +95,7 @@ export function PasswordChangePage() {
           ) : null}
         </section>
       </div>
+      <MainNavigation activeItem="profile" wideOnly />
     </main>
   );
 }

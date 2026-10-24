@@ -145,3 +145,48 @@
 .popular-tracks-sheet-plays {
   font-weight: 700;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .popular-tracks-sheet {
+    transition: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .popular-tracks-sheet {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: var(--mulo-detail-width, 288px);
+    max-height: none;
+    padding: 16px;
+    border: 1px solid var(--mulo-line-strong);
+    border-radius: 20px;
+    box-shadow: none;
+    transform: none;
+    transition: none;
+    visibility: hidden;
+    scrollbar-gutter: stable;
+  }
+
+  .popular-tracks-sheet.is-open {
+    visibility: visible;
+  }
+
+  .popular-tracks-sheet-handle {
+    display: none;
+  }
+
+  .popular-tracks-sheet-title-row p,
+  .popular-tracks-sheet-row > span small,
+  .popular-tracks-sheet-plays,
+  .popular-tracks-sheet-count,
+  .popular-tracks-sheet-status {
+    font-size: 12px;
+  }
+
+  .popular-tracks-sheet-row > span strong {
+    font-size: 14px;
+  }
+}
