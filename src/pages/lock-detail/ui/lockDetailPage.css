@@ -51,16 +51,74 @@
 }
 @media (min-width: 1024px) {
   .lock-detail-page-content > .lock-detail {
+    /* 남는 높이는 위아래로 나누되 긴 내용은 상단에서부터 스크롤한다. */
+    margin-block: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: start;
+    grid-template-areas:
+      'photo music'
+      'info info';
+    grid-template-rows: minmax(320px, auto) auto;
   }
   .lock-detail-page .lock-detail-photo {
-    height: clamp(320px, 45dvh, 480px);
+    grid-area: photo;
+    height: 100%;
+    min-height: 320px;
     max-height: none;
+  }
+  .lock-detail-page .lock-detail-photo > img {
+    /* 세로 사진의 원본 높이가 grid 행을 늘리지 않도록 정해진 사진 영역 안에 맞춘다. */
+    position: absolute;
+    inset: 0;
   }
   .lock-detail-page .lock-detail-body {
     min-width: 0;
     padding: 24px;
+  }
+
+  .lock-detail-page .lock-detail-summary {
+    grid-area: music;
+    display: grid;
+    align-content: center;
+    gap: 16px;
+    background: var(--mulo-lilac-100);
+  }
+
+  .lock-detail-page .lock-detail-music {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .lock-detail-page .lock-detail-album {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: clamp(160px, 16vw, 200px);
+    height: auto;
+    aspect-ratio: 1;
+    border-radius: 20px;
+  }
+
+  .lock-detail-page .lock-detail-music strong,
+  .lock-detail-page .lock-detail-music small {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .lock-detail-page .lock-detail-music strong {
+    font-size: 18px;
+  }
+
+  .lock-detail-page .lock-detail-music small {
+    font-size: 14px;
+  }
+
+  .lock-detail-page .lock-detail-info {
+    /* 날씨·기분·코멘트는 아래 두 칸 전체를 차지한다. */
+    grid-area: info;
+    border-top: 1px solid var(--mulo-line);
   }
 }

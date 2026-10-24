@@ -62,6 +62,16 @@
   padding: 18px;
 }
 
+.lock-detail-summary {
+  /* 모바일에서 분리된 음악·추가 정보 영역 사이의 기존 간격을 유지한다. */
+  display: flow-root;
+  padding-bottom: 0;
+}
+
+.lock-detail-info {
+  padding-top: 0;
+}
+
 .lock-detail-date {
   color: #9a90b3;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
