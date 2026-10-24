@@ -37,3 +37,30 @@
   font-size: 11.5px;
   font-weight: 700;
 }
+
+@media (min-width: 768px) {
+  .lock-detail-page-content > .lock-detail,
+  .lock-detail-page-content > .lock-detail-page-status {
+    width: 100%;
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+  .lock-detail-page-content {
+    padding-inline: 24px;
+  }
+}
+@media (min-width: 1024px) {
+  .lock-detail-page-content > .lock-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .lock-detail-page .lock-detail-photo {
+    height: clamp(320px, 45dvh, 480px);
+    max-height: none;
+  }
+  .lock-detail-page .lock-detail-body {
+    min-width: 0;
+    padding: 24px;
+  }
+}

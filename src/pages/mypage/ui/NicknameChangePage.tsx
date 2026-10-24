@@ -5,6 +5,7 @@ import type { UserProfile } from '../../../entities/user/model/user.types';
 import { useSession } from '../../../entities/session/model/useSession';
 import { getMyProfile } from '../../../features/user-profile/api/userProfileApi';
 import { NicknameChangeForm } from '../../../features/user-profile/ui/NicknameChangeForm';
+import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
 import '../../pageShell.css';
 import './myPage.css';
 
@@ -68,7 +69,7 @@ export function NicknameChangePage() {
   };
 
   return (
-    <main className="static-page">
+    <main className="static-page account-page">
       <div className="static-page-content">
         <header className="static-page-header">
           <Link className="settings-back-link" to="/mypage">
@@ -98,6 +99,7 @@ export function NicknameChangePage() {
           ) : null}
         </section>
       </div>
+      <MainNavigation activeItem="profile" wideOnly />
     </main>
   );
 }

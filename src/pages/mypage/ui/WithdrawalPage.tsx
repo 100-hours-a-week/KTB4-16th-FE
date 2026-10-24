@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import { WithdrawalForm } from '../../../features/user-profile/ui/WithdrawalForm';
+import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
 import '../../pageShell.css';
 import './myPage.css';
 
@@ -17,7 +18,7 @@ export function WithdrawalPage() {
   };
 
   return (
-    <main className="static-page">
+    <main className="static-page account-page">
       <div className="static-page-content">
         <header className="static-page-header">
           <Link className="settings-back-link" to="/mypage">
@@ -34,6 +35,7 @@ export function WithdrawalPage() {
           <WithdrawalForm onSuccess={handleSuccess} request={fetchAuthenticatedJson} />
         </section>
       </div>
+      <MainNavigation activeItem="profile" wideOnly />
     </main>
   );
 }

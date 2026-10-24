@@ -10,7 +10,7 @@ import './notificationsPage.css';
 export function NotificationsPage() {
   const { fetchAuthenticatedJson } = useSession();
   return (
-    <main className="static-page">
+    <main className="static-page notifications-page">
       <div className="static-page-content">
         <header className="static-page-header notification-page-header">
           <Link aria-label="홈으로 돌아가기" className="notification-back-link" to="/">

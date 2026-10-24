@@ -31,3 +31,11 @@
   outline: 2px solid #7655ae;
   outline-offset: 3px;
 }
+
+@media (min-width: 768px) {
+  .notifications-page > .static-page-content {
+    width: 100%;
+    max-width: 840px;
+    margin-inline: auto;
+  }
+}

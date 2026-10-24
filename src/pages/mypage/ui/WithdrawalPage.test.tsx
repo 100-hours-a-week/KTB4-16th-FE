@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -45,6 +45,20 @@ function renderWithdrawalPage() {
 beforeEach(() => vi.clearAllMocks());
 
 describe('WithdrawalPage', () => {
+  it('넓은 화면 메뉴에서 마이페이지를 활성 목적지로 유지한다', () => {
+    renderWithdrawalPage();
+
+    const menu = screen.getByRole('navigation', { name: '주요 메뉴' });
+    expect(within(menu).getByRole('link', { name: '마이페이지' })).toHaveAttribute(
+      'href',
+      '/mypage',
+    );
+    expect(within(menu).getByRole('link', { name: '마이페이지' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it('탈퇴로 이용할 수 없게 되는 계정과 기록을 안내하고 비밀번호를 받는다', () => {
     renderWithdrawalPage();
 
@@ -53,7 +67,7 @@ describe('WithdrawalPage', () => {
       screen.getByText(/계정과 내가 만든 기록을 더 이상 이용할 수 없어요/),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('현재 비밀번호')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /마이페이지/ })).toHaveAttribute('href', '/mypage');
+    expect(screen.getByRole('link', { name: '‹ 마이페이지' })).toHaveAttribute('href', '/mypage');
   });
 
   it('탈퇴 성공 후 메모리 세션을 지우고 로그인 화면으로 이동한다', async () => {

@@ -1,47 +1,17 @@
-:root {
-  --mulo-bg-lav: #faf6ff;
-  --mulo-panel: #fff;
-  --mulo-line: #ece3f7;
-  --mulo-line-strong: #dccbf0;
-  --mulo-lilac-500: #a78bde;
-  --mulo-lilac-700: #7a5cbe;
-  --mulo-lilac-100: #efe7fa;
-  --mulo-peach-500: #ff9e6d;
-  --mulo-peach-300: #ffc9a6;
-  --mulo-peach-100: #ffeee1;
-  --mulo-mint-500: #5fc4a6;
-  --mulo-mint-100: #e4f7f0;
-  --mulo-gold-500: #e8b54b;
-  --mulo-ink-900: #332b4a;
-  --mulo-ink-600: #6c6285;
-  --mulo-ink-400: #9a90b3;
-}
-
 .home-page {
   /* 추천 모달이 하단 메뉴까지 덮도록 홈 전체를 배치 기준으로 삼는다. */
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 100vh;
-  max-width: 480px;
+  max-width: var(--mulo-mobile-max-width);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   margin: 0 auto;
   flex-direction: column;
   overflow: hidden;
   background: var(--mulo-bg-lav);
   box-shadow: 0 0 34px rgb(122 92 190 / 8%);
-}
-
-@media (max-width: 480px) {
-  .home-page {
-    height: 100vh;
-    min-height: 0;
-  }
-
-  @supports (height: 100dvh) {
-    .home-page {
-      height: 100dvh;
-    }
-  }
 }
 
 /* 하단 메뉴를 제외한 본문 높이를 유지한다. */
@@ -63,6 +33,8 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  /* 낮은 화면에서도 지도 최소 영역을 유지하고 메뉴를 제외한 본문만 스크롤한다. */
+  overflow: hidden auto;
   padding-top: max(18px, env(safe-area-inset-top));
 }
 
@@ -72,6 +44,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 8px 18px 10px;
+  flex-shrink: 0;
 }
 
 .home-topbar h1 {
@@ -80,7 +53,7 @@
   margin: 0;
   color: var(--mulo-lilac-500);
   font-family: inherit;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .home-topbar-actions {
@@ -92,8 +65,8 @@
 .home-notification-button {
   position: relative;
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 0;
   border-radius: 50%;
@@ -141,7 +114,7 @@
   border-radius: 999px;
   background: #ffeee1;
   color: var(--mulo-ink-600);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .home-weather-chip strong {
@@ -161,8 +134,10 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 0 18px 10px;
-  padding: 11px 15px;
+  min-height: 48px;
+  margin: 0 18px 12px;
+  padding: 12px 16px;
+  flex-shrink: 0;
   border: 0;
   border-radius: 999px;
   background: var(--mulo-ink-900);
@@ -173,13 +148,15 @@
 
 .home-memory-search span {
   flex: 1;
-  font-size: 11px;
+  min-width: 0;
+  font-size: 14px;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .home-shortcuts {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   margin: 0 18px;
 }
 
@@ -189,7 +166,8 @@
   gap: 11px;
   padding: 13px 15px;
   border: 1px solid var(--mulo-line-strong);
-  border-radius: 16px;
+  min-width: 0;
+  border-radius: 20px;
   background: linear-gradient(120deg, #fff, var(--mulo-lilac-100));
   box-shadow: 0 4px 14px rgb(122 92 190 / 10%);
   color: var(--mulo-ink-900);
@@ -217,40 +195,114 @@
 
 .home-shortcut-card > span:last-child {
   display: grid;
-  gap: 2px;
+  min-width: 0;
+  gap: 4px;
+  overflow-wrap: anywhere;
 }
 
 .home-shortcut-card strong {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .home-shortcut-card small {
   color: var(--mulo-ink-600);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .home-create-action {
-  margin: 10px 18px 10px;
+  margin: 12px 18px 16px;
 }
 
 .home-create-action button {
   width: 100%;
-  padding: 13px;
+  min-height: 48px;
+  padding: 12px 16px;
   border: 0;
-  border-radius: 13px;
+  border-radius: 12px;
   background: linear-gradient(120deg, var(--mulo-lilac-500), var(--mulo-lilac-700));
   box-shadow: 0 10px 18px -8px rgb(122 92 190 / 42%);
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
-@media (min-width: 481px) {
+@media (min-width: 768px) {
   .home-page {
-    min-height: min(800px, 100vh);
-    margin-top: 24px;
-    margin-bottom: 24px;
+    width: calc(100% - 32px);
+    max-width: var(--mulo-tablet-max-width);
+    height: calc(100vh - 32px);
+    height: calc(100dvh - 32px);
+    margin-block: 16px;
     border: 1px solid var(--mulo-line-strong);
+    border-radius: 24px;
+  }
+
+  .home-page-navigation {
+    order: -1;
+  }
+
+  .home-page-content {
+    padding-top: 16px;
+  }
+}
+
+@media (min-width: 768px) and (width < 1024px) {
+  .home-shortcuts {
+    /* 태블릿에서는 추천 진입을 한 줄로 배치해 지도 위의 세로 공간을 줄인다. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-page {
+    width: calc(100% - 48px);
+    max-width: 1440px;
+    height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
+    margin-block: 24px;
+    padding-left: var(--mulo-sidebar-width);
     border-radius: 28px;
+  }
+
+  /* inert wrapper를 유지해 모달 뒤의 PC 메뉴도 함께 조작을 막는다. */
+  .home-page-navigation {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--mulo-sidebar-width);
+    min-height: 0;
+  }
+
+  .home-page-navigation > .main-bottom-nav {
+    height: 100%;
+  }
+
+  .home-page-content {
+    gap: 16px;
+    padding: var(--mulo-page-gap);
+  }
+
+  .home-topbar {
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .home-topbar h1 {
+    color: var(--mulo-ink-900);
+    font-size: 24px;
+  }
+
+  .home-memory-search,
+  .home-shortcuts,
+  .home-create-action {
+    margin: 0;
+  }
+
+  .home-memory-search {
+    border-radius: 12px;
+  }
+
+  .home-shortcut-card {
+    padding: 16px;
+    align-items: flex-start;
   }
 }

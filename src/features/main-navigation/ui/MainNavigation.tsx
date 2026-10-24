@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router';
+import { Link, matchPath, useLocation } from 'react-router';
 
 import './mainNavigation.css';
 
@@ -6,6 +6,7 @@ type NavigationIconName = 'home' | 'dashboard' | 'friends' | 'report' | 'profile
 
 type MainNavigationProps = {
   activeItem?: NavigationIconName;
+  wideOnly?: boolean;
 };
 
 const navigationItems: ReadonlyArray<{
@@ -20,23 +21,29 @@ const navigationItems: ReadonlyArray<{
   { icon: 'profile', label: '마이페이지', to: '/mypage' },
 ];
 
-/** 주요 화면으로 이동하고 현재 URL에 맞는 활성 탭을 표시한다. */
-export function MainNavigation({ activeItem }: MainNavigationProps) {
+/** 주요 화면의 활성 탭을 표시하며 뒤로 가기 중심 화면은 넓은 구간에만 메뉴를 제공한다. */
+export function MainNavigation({ activeItem, wideOnly = false }: MainNavigationProps) {
+  const { pathname } = useLocation();
+  // 작성·상세 화면의 명시적 목적지를 우선해 시각 표시와 접근성 현재 페이지를 하나로 맞춘다.
+  const currentItem =
+    activeItem ??
+    navigationItems.find(({ to }) => matchPath({ path: to, end: to === '/' }, pathname))?.icon;
+
   return (
-    <nav className="main-bottom-nav" aria-label="주요 메뉴">
+    <nav
+      className={`main-bottom-nav${wideOnly ? ' main-bottom-nav--wide-only' : ''}`}
+      aria-label="주요 메뉴"
+    >
       {navigationItems.map(({ icon, label, to }) => (
-        <NavLink
-          aria-current={activeItem === icon ? 'page' : undefined}
-          className={({ isActive }) =>
-            `main-bottom-nav-link${isActive || activeItem === icon ? ' is-active' : ''}`
-          }
-          end={to === '/'}
+        <Link
+          aria-current={currentItem === icon ? 'page' : undefined}
+          className={`main-bottom-nav-link${currentItem === icon ? ' is-active' : ''}`}
           key={to}
           to={to}
         >
           <NavigationIcon name={icon} />
           <span>{label}</span>
-        </NavLink>
+        </Link>
       ))}
     </nav>
   );

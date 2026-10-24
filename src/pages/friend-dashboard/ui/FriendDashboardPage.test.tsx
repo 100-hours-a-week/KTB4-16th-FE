@@ -155,6 +155,10 @@ describe('친구 상세에서 목록 복귀', () => {
       fireEvent.scroll(scrollArea);
       await user.click(card);
       await screen.findByRole('button', { name: '자물쇠 상세 닫기' });
+      expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument();
+      expect(screen.getAllByRole('navigation', { name: '주요 메뉴', hidden: true })).toHaveLength(
+        1,
+      );
       expect(screen.queryByRole('link', { name: /밤편지/ })).not.toBeInTheDocument();
       scrollArea.scrollTop = 0;
       await user.click(screen.getByRole('button', { name: action }));

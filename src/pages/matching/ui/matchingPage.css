@@ -31,3 +31,14 @@
   width: 30px;
   height: 30px;
 }
+
+@media (min-width: 768px) {
+  .matching-page-content {
+    width: 100%;
+    max-width: 840px;
+    margin-inline: auto;
+  }
+  .matching-page-header {
+    margin-bottom: 24px;
+  }
+}
