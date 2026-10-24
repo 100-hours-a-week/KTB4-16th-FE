@@ -35,7 +35,7 @@
 }
 .my-locks-sheet-title-row h2 {
   margin: 0;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 16px;
 }
 .my-locks-sheet-title-row p {

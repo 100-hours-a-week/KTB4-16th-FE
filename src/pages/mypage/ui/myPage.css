@@ -17,7 +17,7 @@
   font-weight: 800;
 }
 .my-profile strong {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 17px;
 }
 .my-profile small {

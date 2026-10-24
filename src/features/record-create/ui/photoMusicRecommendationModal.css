@@ -33,7 +33,7 @@
 .photo-music-recommendation-heading h2 {
   margin: 0;
   color: #332b4a;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 16px;
 }
 

@@ -88,7 +88,7 @@
   border-color: #a78bde;
 }
 .report-month strong {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 15px;
 }
 .report-month small {
@@ -162,7 +162,7 @@
 }
 .report-recap h2 {
   margin: 8px 0 0;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 17px;
   font-weight: 600;
   line-height: 1.5;
@@ -195,7 +195,7 @@
 .report-mood h2,
 .report-photo h2 {
   margin: 0 0 9px;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 13px;
 }
 .report-mood div {
