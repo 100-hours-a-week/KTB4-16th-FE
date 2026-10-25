@@ -1,0 +1,2667 @@
+[
+  {
+    "path": "/",
+    "viewport": {
+      "width": 320,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 573,
+        "width": 320,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 18,
+        "y": 394,
+        "width": 269,
+        "height": 220,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 18,
+        "y": 158,
+        "width": 269,
+        "height": 172,
+        "display": "grid",
+        "columns": "269px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 0,
+        "y": 158,
+        "width": 305,
+        "height": 546,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 18,
+        "y": 640,
+        "width": 269,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 777,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 18,
+        "y": 376,
+        "width": 354,
+        "height": 311,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 18,
+        "y": 158,
+        "width": 354,
+        "height": 154,
+        "display": "grid",
+        "columns": "354px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 0,
+        "y": 158,
+        "width": 390,
+        "height": 619,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 18,
+        "y": 713,
+        "width": 354,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "viewport": {
+      "width": 480,
+      "height": 800
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 800,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 733,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 18,
+        "y": 358,
+        "width": 444,
+        "height": 285,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 18,
+        "y": 140,
+        "width": 444,
+        "height": 154,
+        "display": "grid",
+        "columns": "444px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 0,
+        "y": 140,
+        "width": 480,
+        "height": 593,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 18,
+        "y": 669,
+        "width": 444,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "viewport": {
+      "width": 600,
+      "height": 800
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 60,
+        "y": 0,
+        "width": 480,
+        "height": 800,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 60,
+        "y": 733,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 78,
+        "y": 358,
+        "width": 444,
+        "height": 285,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 78,
+        "y": 140,
+        "width": 444,
+        "height": 154,
+        "display": "grid",
+        "columns": "444px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 60,
+        "y": 140,
+        "width": 480,
+        "height": 593,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 78,
+        "y": 669,
+        "width": 444,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "viewport": {
+      "width": 767,
+      "height": 768
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 143.5,
+        "y": 0,
+        "width": 480,
+        "height": 768,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 143.5,
+        "y": 701,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 161.5,
+        "y": 358,
+        "width": 429,
+        "height": 268.125,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 161.5,
+        "y": 140,
+        "width": 429,
+        "height": 154,
+        "display": "grid",
+        "columns": "429px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 143.5,
+        "y": 140,
+        "width": 465,
+        "height": 576.125,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 161.5,
+        "y": 652.125,
+        "width": 429,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "viewport": {
+      "width": 768,
+      "height": 768
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 144,
+        "y": 0,
+        "width": 480,
+        "height": 768,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 144,
+        "y": 701,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 162,
+        "y": 358,
+        "width": 429,
+        "height": 268.125,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 162,
+        "y": 140,
+        "width": 429,
+        "height": 154,
+        "display": "grid",
+        "columns": "429px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 144,
+        "y": 140,
+        "width": 465,
+        "height": 576.125,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 162,
+        "y": 652.125,
+        "width": 429,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "viewport": {
+      "width": 1023,
+      "height": 768
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 271.5,
+        "y": 0,
+        "width": 480,
+        "height": 768,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 271.5,
+        "y": 701,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 289.5,
+        "y": 358,
+        "width": 429,
+        "height": 268.125,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 289.5,
+        "y": 140,
+        "width": 429,
+        "height": 154,
+        "display": "grid",
+        "columns": "429px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 271.5,
+        "y": 140,
+        "width": 465,
+        "height": 576.125,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 289.5,
+        "y": 652.125,
+        "width": 429,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "viewport": {
+      "width": 1024,
+      "height": 768
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 272,
+        "y": 0,
+        "width": 480,
+        "height": 768,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 272,
+        "y": 701,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 290,
+        "y": 358,
+        "width": 429,
+        "height": 268.125,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 290,
+        "y": 140,
+        "width": 429,
+        "height": 154,
+        "display": "grid",
+        "columns": "429px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 272,
+        "y": 140,
+        "width": 465,
+        "height": 576.125,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 290,
+        "y": 652.125,
+        "width": 429,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 498,
+        "y": 358,
+        "width": 444,
+        "height": 385,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 498,
+        "y": 140,
+        "width": 444,
+        "height": 154,
+        "display": "grid",
+        "columns": "444px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 480,
+        "y": 140,
+        "width": 480,
+        "height": 693,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 498,
+        "y": 769,
+        "width": 444,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/dashboard",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "내 대시보드",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 833,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/report",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "리포트",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 833,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/report/2026/9",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "2026년 9월 리포트",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 833,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/friends",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "친구",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 833,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/locks/create",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "자물쇠 만들기",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 833,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/mypage",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "마이페이지",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 833,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/mypage/nickname",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "닉네임 변경",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/mypage/password",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "비밀번호 변경",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/mypage/withdrawal",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "회원 탈퇴",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/memory-search",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "AI 기억 검색",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/matching",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "취향 투표",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 833,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/notifications",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "알림",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 833,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/capture-chat",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "채팅방",
+    "nodes": {
+      ".chat-room-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 14,
+        "y": 26,
+        "width": 362,
+        "height": 677.984375,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 15,
+        "y": 27,
+        "width": 360,
+        "height": 280.796875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 15,
+        "y": 307.796875,
+        "width": 360,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 15,
+        "y": 436.796875,
+        "width": 360,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/login",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "mulo",
+    "nodes": {
+      ".auth-card": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/signup",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "회원가입",
+    "nodes": {
+      ".auth-card": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 900,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/dashboard",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "내 대시보드",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/report",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "리포트",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/report/2026/9",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "2026년 9월 리포트",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/friends",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "친구",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/locks/create",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "자물쇠 만들기",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/mypage",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "마이페이지",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/mypage/nickname",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "닉네임 변경",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/mypage/password",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "비밀번호 변경",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/mypage/withdrawal",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "회원 탈퇴",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/memory-search",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "AI 기억 검색",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/matching",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "취향 투표",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/notifications",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "알림",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/capture-chat",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "채팅방",
+    "nodes": {
+      ".chat-room-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 494,
+        "y": 26,
+        "width": 452,
+        "height": 817.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 495,
+        "y": 27,
+        "width": 450,
+        "height": 420,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 495,
+        "y": 447,
+        "width": 450,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 495,
+        "y": 576,
+        "width": 450,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/login",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "mulo",
+    "nodes": {
+      ".auth-card": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/signup",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "회원가입",
+    "nodes": {
+      ".auth-card": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "portrait",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 14,
+        "y": 26,
+        "width": 347,
+        "height": 677.984375,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 15,
+        "y": 27,
+        "width": 345,
+        "height": 280.796875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 15,
+        "y": 307.796875,
+        "width": 345,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 15,
+        "y": 436.796875,
+        "width": 345,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "landscape",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 14,
+        "y": 26,
+        "width": 347,
+        "height": 677.984375,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 15,
+        "y": 27,
+        "width": 345,
+        "height": 280.796875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 15,
+        "y": 307.796875,
+        "width": 345,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 15,
+        "y": 436.796875,
+        "width": 345,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "long-title",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 14,
+        "y": 26,
+        "width": 347,
+        "height": 677.984375,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 15,
+        "y": 27,
+        "width": 345,
+        "height": 280.796875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 15,
+        "y": 307.796875,
+        "width": 345,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 15,
+        "y": 436.796875,
+        "width": 345,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "long-comment",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 14,
+        "y": 26,
+        "width": 347,
+        "height": 1255.328125,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 15,
+        "y": 27,
+        "width": 345,
+        "height": 280.796875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 15,
+        "y": 307.796875,
+        "width": 345,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 15,
+        "y": 436.796875,
+        "width": 345,
+        "height": 843.53125,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "friend",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 14,
+        "y": 26,
+        "width": 347,
+        "height": 609.484375,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 15,
+        "y": 27,
+        "width": 345,
+        "height": 280.796875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 15,
+        "y": 307.796875,
+        "width": 345,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 15,
+        "y": 436.796875,
+        "width": 345,
+        "height": 197.6875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "empty",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 14,
+        "y": 26,
+        "width": 347,
+        "height": 650.765625,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 15,
+        "y": 27,
+        "width": 345,
+        "height": 280.796875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 15,
+        "y": 307.796875,
+        "width": 345,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 15,
+        "y": 436.796875,
+        "width": 345,
+        "height": 238.96875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "portrait",
+    "viewport": {
+      "width": 1440,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 494,
+        "y": 26,
+        "width": 437,
+        "height": 817.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 495,
+        "y": 27,
+        "width": 435,
+        "height": 420,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 495,
+        "y": 447,
+        "width": 435,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 495,
+        "y": 576,
+        "width": 435,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "landscape",
+    "viewport": {
+      "width": 1440,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 494,
+        "y": 26,
+        "width": 437,
+        "height": 817.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 495,
+        "y": 27,
+        "width": 435,
+        "height": 420,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 495,
+        "y": 447,
+        "width": 435,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 495,
+        "y": 576,
+        "width": 435,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "long-title",
+    "viewport": {
+      "width": 1440,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 494,
+        "y": 26,
+        "width": 437,
+        "height": 817.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 495,
+        "y": 27,
+        "width": 435,
+        "height": 420,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 495,
+        "y": 447,
+        "width": 435,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 495,
+        "y": 576,
+        "width": 435,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "long-comment",
+    "viewport": {
+      "width": 1440,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 494,
+        "y": 26,
+        "width": 437,
+        "height": 1394.53125,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 495,
+        "y": 27,
+        "width": 435,
+        "height": 420,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 495,
+        "y": 447,
+        "width": 435,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 495,
+        "y": 576,
+        "width": 435,
+        "height": 843.53125,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "friend",
+    "viewport": {
+      "width": 1440,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 494,
+        "y": 26,
+        "width": 437,
+        "height": 748.6875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 495,
+        "y": 27,
+        "width": 435,
+        "height": 420,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 495,
+        "y": 447,
+        "width": 435,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 495,
+        "y": 576,
+        "width": 435,
+        "height": 197.6875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/records/585",
+    "detail": "empty",
+    "viewport": {
+      "width": 1440,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 494,
+        "y": 26,
+        "width": 437,
+        "height": 789.96875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 495,
+        "y": 27,
+        "width": 435,
+        "height": 420,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 495,
+        "y": 447,
+        "width": 435,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 495,
+        "y": 576,
+        "width": 435,
+        "height": 238.96875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "state": "scrolled-short-window",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 573,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 18,
+        "y": 263,
+        "width": 339,
+        "height": 220,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 18,
+        "y": 45,
+        "width": 339,
+        "height": 154,
+        "display": "grid",
+        "columns": "339px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 0,
+        "y": 45,
+        "width": 375,
+        "height": 528,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 18,
+        "y": 509,
+        "width": 339,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "state": "recommendation-open",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 573,
+        "width": 390,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 18,
+        "y": 376,
+        "width": 339,
+        "height": 220,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 18,
+        "y": 158,
+        "width": 339,
+        "height": 154,
+        "display": "grid",
+        "columns": "339px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 0,
+        "y": 158,
+        "width": 375,
+        "height": 528,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 18,
+        "y": 622,
+        "width": 339,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/capture-chat",
+    "state": "inline-expanded",
+    "viewport": {
+      "width": 390,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "heading": "채팅방",
+    "nodes": {
+      ".chat-room-page": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/capture-chat",
+    "state": "inline-expanded",
+    "viewport": {
+      "width": 1440,
+      "height": 640
+    },
+    "horizontalOverflow": false,
+    "heading": "채팅방",
+    "nodes": {
+      ".chat-room-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 640,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/",
+    "state": "recommendation-open-wide",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "MULO",
+    "nodes": {
+      ".home-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-canvas": {
+        "x": 498,
+        "y": 358,
+        "width": 444,
+        "height": 385,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-shortcuts": {
+        "x": 498,
+        "y": 140,
+        "width": 444,
+        "height": 154,
+        "display": "grid",
+        "columns": "444px",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-map-section": {
+        "x": 480,
+        "y": 140,
+        "width": 480,
+        "height": 693,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-create-action": {
+        "x": 498,
+        "y": 769,
+        "width": 444,
+        "height": 48,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".home-playlist-sheet": {
+        "x": 480,
+        "y": 639,
+        "width": 480,
+        "height": 261,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/friends",
+    "state": "add-dialog",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "친구",
+    "nodes": {
+      ".static-page": {
+        "x": 480,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 480,
+        "y": 833,
+        "width": 480,
+        "height": 67,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".friends-dialog": {
+        "x": 540,
+        "y": 302.703125,
+        "width": 360,
+        "height": 294.59375,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  },
+  {
+    "path": "/friends/100/dashboard/records/585",
+    "state": "nested-detail",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "heading": "친구의 자물쇠",
+    "nodes": {
+      ".static-page": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".main-bottom-nav": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "flex",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail": {
+        "x": 494,
+        "y": 26,
+        "width": 452,
+        "height": 817.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-photo": {
+        "x": 495,
+        "y": 27,
+        "width": 450,
+        "height": 420,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-summary": {
+        "x": 495,
+        "y": 447,
+        "width": 450,
+        "height": 129,
+        "display": "flow-root",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      },
+      ".lock-detail-info": {
+        "x": 495,
+        "y": 576,
+        "width": 450,
+        "height": 266.1875,
+        "display": "block",
+        "columns": "none",
+        "font": "14px",
+        "overflowX": false
+      }
+    }
+  }
+]

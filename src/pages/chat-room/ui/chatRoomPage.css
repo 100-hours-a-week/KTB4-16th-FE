@@ -25,10 +25,12 @@
 }
 
 .chat-room-page.is-inline.is-expanded {
-  width: min(100%, 960px);
-  height: min(900px, calc(100dvh - 24px));
-  min-height: min(420px, calc(100dvh - 24px));
-  border-radius: 24px;
+  /* 확장 채팅도 부모 모바일 영역을 채우며 창 너비로 별도 PC 크기를 만들지 않는다. */
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 16px;
 }
 
 .chat-room-header {
@@ -290,47 +292,4 @@
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
-}
-
-/* 독립 채팅도 앱의 구간별 폭을 따르고, PC에서는 960px 읽기 폭을 사용한다. */
-@media (min-width: 768px) {
-  .chat-room-page:not(.is-inline) {
-    width: calc(100% - 32px);
-    max-width: var(--mulo-tablet-max-width);
-    height: calc(100vh - 32px);
-    height: calc(100dvh - 32px);
-    margin-block: 16px;
-    border: 1px solid #dccbf0;
-    border-radius: 28px;
-  }
-  .chat-room-page:not(.is-inline) .chat-room-header {
-    padding: 24px;
-  }
-  .chat-room-page:not(.is-inline) .chat-room-title h1 {
-    font-size: 20px;
-  }
-  .chat-room-page:not(.is-inline) .chat-room-title p {
-    font-size: 12px;
-  }
-}
-@media (min-width: 1024px) {
-  .chat-room-page:not(.is-inline) .chat-room-title h1 {
-    font-size: 24px;
-  }
-  .chat-room-page:not(.is-inline) {
-    width: calc(100% - 48px);
-    max-width: 960px;
-    height: calc(100vh - 48px);
-    height: calc(100dvh - 48px);
-    margin-block: 24px;
-  }
-}
-@media (max-width: 767px) {
-  .chat-room-page.is-inline.is-expanded {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    border: 0;
-    border-radius: 16px;
-  }
 }

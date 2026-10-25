@@ -221,18 +221,6 @@ export function HomeMap({
   onInitialCenterResolved,
   onCurrentLocationResolved,
 }: HomeMapProps) {
-  const [isDesktopPanel, setIsDesktopPanel] = useState(
-    () =>
-      typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches,
-  );
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    const query = window.matchMedia('(min-width: 1024px)');
-    // CSS와 같은 경계에서만 숨겨진 기본 패널의 키보드 접근을 차단한다.
-    const updatePanelMode = () => setIsDesktopPanel(query.matches);
-    query.addEventListener('change', updatePanelMode);
-    return () => query.removeEventListener('change', updatePanelMode);
-  }, []);
   // 부모의 슬롯/콜백 재조립은 지도를 재생성하거나 GPS를 다시 요청할 이유가 아니다.
   const locationCallbacksRef = useRef({ onInitialCenterResolved, onCurrentLocationResolved });
   useEffect(() => {
@@ -904,15 +892,10 @@ export function HomeMap({
     }
   }
 
-  const hideDefaultPanel = isDesktopPanel && (isMyLocksSheetVisible || isPopularTracksSheetVisible);
-
   return (
     <section className="home-map-section" aria-label="자물쇠 지도">
-      {overview ? (
-        <div className="home-map-overview" inert={hideDefaultPanel} aria-hidden={hideDefaultPanel}>
-          {overview}
-        </div>
-      ) : null}
+      {/* 목록은 하단 시트이므로 추천·생성 영역을 창 너비에 따라 숨기지 않는다. */}
+      {overview ? <div className="home-map-overview">{overview}</div> : null}
       <div className="home-map-toggle" role="group" aria-label="지도 보기 모드">
         <button
           ref={popularModeButtonRef}
@@ -1052,15 +1035,7 @@ export function HomeMap({
           />
         ) : null}
       </div>
-      {primaryAction ? (
-        <div
-          className="home-map-primary-action"
-          inert={hideDefaultPanel}
-          aria-hidden={hideDefaultPanel}
-        >
-          {primaryAction}
-        </div>
-      ) : null}
+      {primaryAction ? <div className="home-map-primary-action">{primaryAction}</div> : null}
     </section>
   );
 }

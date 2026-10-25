@@ -472,9 +472,6 @@
   outline-offset: 3px;
 }
 
-.memory-navigation-area {
-  flex: 0 0 auto;
-}
 .memory-result-card > span:last-child {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -482,36 +479,4 @@
 .memory-query,
 .memory-answer {
   overflow-wrap: anywhere;
-}
-@media (min-width: 768px) {
-  .memory-search-page > .memory-search-content {
-    width: 100%;
-    max-width: 840px;
-    margin-inline: auto;
-  }
-  .memory-search-header {
-    margin-bottom: 24px;
-  }
-  .memory-query,
-  .memory-answer,
-  .memory-search-form input,
-  .memory-welcome-bubble p {
-    font-size: 14px;
-    line-height: 1.7;
-  }
-  .memory-search-form button {
-    width: 44px;
-    height: 44px;
-  }
-  .memory-sheet-backdrop {
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-  .memory-results-sheet {
-    max-width: 840px;
-    max-height: 90%;
-    padding: 24px;
-    border-radius: 24px;
-  }
 }
