@@ -37,7 +37,7 @@ function HomeNotificationIndicator({ request }: { request: AuthenticatedApiClien
   ) : null;
 }
 
-/** 목업의 홈 진입 화면을 기능 UI로 조립한다. */
+/** 검색·지도·추천 진입을 조립하고 추천 모달의 화면 세션과 배경 차단을 소유한다. */
 export function HomePage() {
   const { fetchAuthenticatedJson, isAuthenticated, isSessionRestoring } = useSession();
   const [currentLocation, setCurrentLocation] = useState<MapCenter | null>(null);
@@ -142,51 +142,57 @@ export function HomePage() {
             <span>“비 오던 날 홍대에서 들었던 노래” 같은 기억, 물어보세요</span>
           </button>
 
-          <section className="home-shortcuts" aria-label="추천 기능">
-            <button
-              className="home-shortcut-card"
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                openPlaylist(event.currentTarget);
-              }}
-            >
-              <span className="home-shortcut-icon" aria-hidden="true">
-                🎧
-              </span>
-              <span>
-                <strong>지금 나를 위한 플레이리스트</strong>
-                <small>위치·날씨·시간·히스토리 기반 추천</small>
-              </span>
-            </button>
-            <button
-              className="home-shortcut-card home-shortcut-card--matching"
-              type="button"
-              onClick={() => navigate('/matching')}
-            >
-              <span className="home-shortcut-icon home-shortcut-icon--matching" aria-hidden="true">
-                💬
-              </span>
-              <span>
-                <strong>취향 투표로 랜덤 채팅</strong>
-                <small>회원님이 좋아할 만한 취향 투표 질문을 준비했어요</small>
-              </span>
-            </button>
-          </section>
-
+          {/* 하나의 UI를 지도에 전달해 PC 패널과 모바일 흐름에서 상태·초점을 공유한다. */}
           <HomeMap
             isPlaylistRequested={isPlaylistRequested}
             isPlaylistVisible={isPlaylistVisible}
             onPlaylistReady={showPlaylistAfterMapSheetExit}
             onClosePlaylist={closePlaylist}
             onCurrentLocationResolved={setCurrentLocation}
+            overview={
+              <section className="home-shortcuts" aria-label="추천 기능">
+                <button
+                  className="home-shortcut-card"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openPlaylist(event.currentTarget);
+                  }}
+                >
+                  <span className="home-shortcut-icon" aria-hidden="true">
+                    🎧
+                  </span>
+                  <span>
+                    <strong>지금 나를 위한 플레이리스트</strong>
+                    <small>위치·날씨·시간·히스토리 기반 추천</small>
+                  </span>
+                </button>
+                <button
+                  className="home-shortcut-card home-shortcut-card--matching"
+                  type="button"
+                  onClick={() => navigate('/matching')}
+                >
+                  <span
+                    className="home-shortcut-icon home-shortcut-icon--matching"
+                    aria-hidden="true"
+                  >
+                    💬
+                  </span>
+                  <span>
+                    <strong>취향 투표로 랜덤 채팅</strong>
+                    <small>회원님이 좋아할 만한 취향 투표 질문을 준비했어요</small>
+                  </span>
+                </button>
+              </section>
+            }
+            primaryAction={
+              <div className="home-create-action">
+                <button type="button" onClick={() => navigate('/locks/create')}>
+                  🔒 자물쇠 만들기
+                </button>
+              </div>
+            }
           />
-
-          <div className="home-create-action">
-            <button type="button" onClick={() => navigate('/locks/create')}>
-              🔒 자물쇠 만들기
-            </button>
-          </div>
         </div>
       </div>
       <div className="home-page-navigation" inert={isPlaylistVisible}>

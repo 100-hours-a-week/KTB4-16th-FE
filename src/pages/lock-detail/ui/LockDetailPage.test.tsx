@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,6 +63,21 @@ beforeEach(() => {
 });
 
 describe('LockDetailPage', () => {
+  it('독립 상세의 넓은 화면 메뉴로 대시보드에 이동한다', async () => {
+    const user = userEvent.setup();
+    renderPage('/records/585');
+    await screen.findByText('📍 매산로1가');
+
+    const menu = screen.getByRole('navigation', { name: '주요 메뉴' });
+    expect(within(menu).getByRole('link', { name: '대시보드' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await user.click(within(menu).getByRole('link', { name: '대시보드' }));
+
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/dashboard');
+  });
+
   it('loads the URL record ID and renders the detail response', async () => {
     renderPage('/records/585');
 
@@ -170,6 +185,7 @@ function renderPage(path: string) {
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/records/:recordId" element={<LockDetailPage />} />
+        <Route path="/dashboard" element={<h1>대시보드 화면</h1>} />
       </Routes>
       <LocationProbe />
     </MemoryRouter>,

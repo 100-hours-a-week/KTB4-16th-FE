@@ -29,11 +29,13 @@ export function LockCreatePage() {
         <span aria-hidden="true" className="lock-create-header-spacer" />
       </header>
       <div className="static-page-content lock-create-content">
-        <RecordCreateForm
-          onCoordinatesChange={setCoordinates}
-          onCreated={() => navigate('/', { replace: true })}
-          weather={<HomeWeather coordinates={coordinates} />}
-        />
+        <div className="lock-create-form">
+          <RecordCreateForm
+            onCoordinatesChange={setCoordinates}
+            onCreated={() => navigate('/', { replace: true })}
+            weather={<HomeWeather coordinates={coordinates} />}
+          />
+        </div>
       </div>
       <MainNavigation activeItem="dashboard" />
     </main>

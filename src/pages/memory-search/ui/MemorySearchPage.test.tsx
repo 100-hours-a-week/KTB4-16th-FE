@@ -99,6 +99,20 @@ function card(id: number) {
 }
 
 describe('MemorySearchPage', () => {
+  it('넓은 화면 메뉴의 홈 링크로 기억 검색을 나갈 수 있다', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: '기억 검색 질문' })).toBeEnabled(),
+    );
+
+    const menu = screen.getByRole('navigation', { name: '주요 메뉴' });
+    await user.click(within(menu).getByRole('link', { name: '홈' }));
+
+    expect(screen.getByText('홈')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: '기억 검색 질문' })).not.toBeInTheDocument();
+  });
+
   it.each([
     { readingHistory: false, expectedTop: 900 },
     { readingHistory: true, expectedTop: 0 },
@@ -162,7 +176,7 @@ describe('MemorySearchPage', () => {
 
     expect(screen.getByRole('status', { name: '자물쇠 확인 중' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '기억 검색 질문' })).toBeDisabled();
-    expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '채팅 나가기' })).toBeInTheDocument();
     expect(createMemorySearchConversation).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -326,6 +340,9 @@ describe('MemorySearchPage', () => {
     const opener = screen.getByRole('button', { name: '전체보기 (6건)' });
     await user.click(opener);
     const sheet = screen.getByRole('dialog', { name: '전체보기' });
+    expect(screen.getByRole('navigation', { name: '주요 메뉴' }).parentElement).toHaveAttribute(
+      'inert',
+    );
     expect(within(sheet).getAllByRole('button', { name: /상세보기/ })).toHaveLength(6);
     const close = within(sheet).getByRole('button', { name: '전체보기 닫기' });
     expect(close).toHaveFocus();

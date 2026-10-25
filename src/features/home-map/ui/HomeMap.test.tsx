@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import {
   MemoryRouter,
@@ -28,6 +28,13 @@ const mocks = vi.hoisted(() => {
   const customOverlayOptions: Array<Record<string, unknown>> = [];
   const customOverlayContainers: HTMLElement[] = [];
   const mapOptions: Array<Record<string, unknown>> = [];
+  const maps: object[] = [];
+  const resizeCallbacks: Array<() => void> = [];
+  const observe = vi.fn();
+  const disconnect = vi.fn();
+  const relayout = vi.fn();
+  let bounds = { swLat: 37, swLng: 127, neLat: 38, neLng: 128 };
+  let currentCenter = { getLat: () => 37.2, getLng: () => 127.1 };
   const setCenter = vi.fn();
   const setOverlayPosition = vi.fn();
 
@@ -38,6 +45,26 @@ const mocks = vi.hoisted(() => {
   };
 
   return {
+    maps,
+    resizeCallbacks,
+    observe,
+    disconnect,
+    relayout,
+    get bounds() {
+      return bounds;
+    },
+    changeBounds(nextBounds: typeof bounds) {
+      bounds = nextBounds;
+    },
+    get currentCenter() {
+      return currentCenter;
+    },
+    moveCenter(latitude: number, longitude: number) {
+      currentCenter = { getLat: () => latitude, getLng: () => longitude };
+    },
+    triggerIdle() {
+      listeners.get(maps[0])?.get('idle')?.();
+    },
     getMyMarkers: vi.fn(),
     getMyPlaceRecords: vi.fn(),
     getPopularMarkers: vi.fn(),
@@ -56,6 +83,11 @@ const mocks = vi.hoisted(() => {
     setOverlayPosition,
     reset() {
       listeners = new Map<object, Map<string, Listener>>();
+      maps.splice(0);
+      resizeCallbacks.splice(0);
+      bounds = { swLat: 37, swLng: 127, neLat: 38, neLng: 128 };
+      relayout.mockReset();
+      currentCenter = { getLat: () => 37.2, getLng: () => 127.1 };
       markers.splice(0);
       markerOptions.splice(0);
       markerImageSources.splice(0);
@@ -147,15 +179,26 @@ vi.mock('../lib/kakaoMap', () => {
         Map: class {
           constructor(_container: HTMLElement, options: Record<string, unknown>) {
             mocks.mapOptions.push(options);
+            mocks.maps.push(this);
           }
 
           getBounds() {
             return {
-              getSouthWest: () => ({ getLat: () => 37, getLng: () => 127 }),
-              getNorthEast: () => ({ getLat: () => 38, getLng: () => 128 }),
+              getSouthWest: () => ({
+                getLat: () => mocks.bounds.swLat,
+                getLng: () => mocks.bounds.swLng,
+              }),
+              getNorthEast: () => ({
+                getLat: () => mocks.bounds.neLat,
+                getLng: () => mocks.bounds.neLng,
+              }),
             };
           }
 
+          getCenter() {
+            return mocks.currentCenter;
+          }
+          relayout = mocks.relayout;
           setCenter = mocks.setCenter;
         },
         Marker,
@@ -202,6 +245,17 @@ const popularMarkers = [
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.reset();
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        mocks.resizeCallbacks.push(callback);
+      }
+      observe = mocks.observe;
+      disconnect = mocks.disconnect;
+    },
+  );
+  vi.stubGlobal('matchMedia', undefined);
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     callback(0);
     return 1;
@@ -223,6 +277,328 @@ beforeEach(() => {
     },
   ]);
   mocks.getMyPlaceRecords.mockResolvedValue({ records: [], nextCursor: null });
+});
+
+describe('HomeMap responsive panel', () => {
+  it('relayouts after a container resize without losing selection or requesting GPS again', async () => {
+    const getCurrentPosition = useSuccessfulGeolocation(37.2, 127.1);
+    const { container, unmount } = renderHomeMap();
+    await waitFor(() => expect(mocks.markers).toHaveLength(2));
+    act(() => mocks.triggerMarker(0));
+    expect(await screen.findByText('밤편지')).toBeInTheDocument();
+    const selectedRegion = screen.getByRole('region', { name: '선택 영역 인기 음악' });
+    const mapElement = container.querySelector('.home-map-instance');
+    if (!(mapElement instanceof HTMLElement)) throw new Error('Expected map container');
+    let width = 700;
+    vi.spyOn(mapElement, 'getBoundingClientRect').mockImplementation(() => ({
+      width,
+      height: 480,
+      x: 0,
+      y: 0,
+      top: 0,
+      right: width,
+      bottom: 480,
+      left: 0,
+      toJSON: () => ({}),
+    }));
+    mocks.relayout.mockImplementation(() => mocks.triggerIdle());
+    mocks.moveCenter(37.55, 127.05);
+    const centerBeforeResize = mocks.currentCenter;
+
+    await act(async () => mocks.resizeCallbacks.forEach((callback) => callback()));
+    act(() => mocks.triggerIdle());
+    expect(mocks.relayout).toHaveBeenCalledOnce();
+    expect(mocks.setCenter).toHaveBeenLastCalledWith(centerBeforeResize);
+    expect(selectedRegion).toHaveAttribute('aria-hidden', 'false');
+    expect(screen.getByText('밤편지')).toBeInTheDocument();
+    expect(mocks.getPopularTracks).toHaveBeenCalledOnce();
+    expect(mocks.getPopularMarkers).toHaveBeenCalledTimes(2);
+    expect(mocks.mapOptions).toHaveLength(1);
+    expect(getCurrentPosition).toHaveBeenCalledOnce();
+    expect(mocks.observe).toHaveBeenCalledWith(mapElement);
+
+    await act(async () => mocks.resizeCallbacks.forEach((callback) => callback()));
+    expect(mocks.relayout).toHaveBeenCalledOnce();
+    width = 600;
+    await act(async () => mocks.resizeCallbacks.forEach((callback) => callback()));
+    expect(mocks.relayout).toHaveBeenCalledTimes(2);
+    unmount();
+    expect(mocks.disconnect).toHaveBeenCalledOnce();
+    await act(async () => mocks.resizeCallbacks.forEach((callback) => callback()));
+    expect(mocks.relayout).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['popular', 'mine'] as const)(
+    'fetches newly exposed %s markers after resize while preserving the selected sheet and focus',
+    async (mapMode) => {
+      const getCurrentPosition = useSuccessfulGeolocation(37.2, 127.1);
+      const markersApi = mapMode === 'popular' ? mocks.getPopularMarkers : mocks.getMyMarkers;
+      const initialMarkers =
+        mapMode === 'popular'
+          ? popularMarkers
+          : [
+              {
+                placeId: 22,
+                legalDongName: '테스트동',
+                myRecordsCount: 1,
+                latitude: 37.2,
+                longitude: 127.1,
+              },
+            ];
+      mocks.getMyPlaceRecords.mockResolvedValue({
+        records: [
+          {
+            recordId: 100,
+            placeId: 22,
+            musicTrackId: 7,
+            title: '밤편지',
+            artistName: '아이유',
+            albumImageUrl: null,
+            createdAt: '2026-10-24T00:00:00',
+          },
+        ],
+        nextCursor: 'next-cursor',
+      });
+      const { container } = renderHomeMap({ initialState: { mapMode } });
+      await waitFor(() => expect(mocks.markers).toHaveLength(initialMarkers.length));
+      act(() => mocks.triggerMarker(0));
+      await screen.findByText('밤편지');
+      const sheetName = mapMode === 'popular' ? '선택 영역 인기 음악' : '내 자물쇠 목록';
+      const closeName = mapMode === 'popular' ? '인기 음악 목록 닫기' : '내 자물쇠 목록 닫기';
+      const selectedRegion = screen.getByRole('region', { name: sheetName });
+      const selectedFocus = screen.getByRole('button', { name: closeName });
+      expect(selectedFocus).toHaveFocus();
+      const previousMarkers = [...mocks.markers];
+      const nextBounds = { swLat: 36.5, swLng: 126.5, neLat: 38.5, neLng: 128.5 };
+      const newMarker = { ...initialMarkers[0], placeId: 99, latitude: 38.25, longitude: 128.25 };
+      let resolveMarkers: ((response: Array<(typeof initialMarkers)[number]>) => void) | undefined;
+      markersApi.mockImplementationOnce(
+        () =>
+          new Promise<Array<(typeof initialMarkers)[number]>>((resolve) => {
+            resolveMarkers = resolve;
+          }),
+      );
+      const mapElement = container.querySelector('.home-map-instance');
+      if (!(mapElement instanceof HTMLElement)) throw new Error('Expected map container');
+      vi.spyOn(mapElement, 'getBoundingClientRect').mockReturnValue({
+        width: 900,
+        height: 600,
+      } as DOMRect);
+      mocks.relayout.mockImplementation(() => {
+        mocks.changeBounds(nextBounds);
+        mocks.triggerIdle();
+      });
+
+      act(() => mocks.resizeCallbacks.forEach((callback) => callback()));
+      act(() => {
+        mocks.triggerIdle();
+        mocks.triggerIdle();
+      });
+      expect(markersApi).toHaveBeenCalledTimes(2);
+      expect(markersApi.mock.calls[1][0]).toEqual(nextBounds);
+      expect(selectedRegion).toHaveAttribute('aria-hidden', 'false');
+      expect(selectedFocus).toHaveFocus();
+      expect(previousMarkers.every((marker) => marker.setMap.mock.calls.length === 0)).toBe(true);
+      await act(async () => resolveMarkers?.([...initialMarkers, newMarker]));
+
+      expect(mocks.clusterers[0].addMarkers).toHaveBeenLastCalledWith(
+        mocks.markers.slice(initialMarkers.length),
+      );
+      expect(mocks.markerOptions.at(-1)).toMatchObject({
+        position: { latitude: 38.25, longitude: 128.25 },
+      });
+      expect(screen.getByText('밤편지')).toBeInTheDocument();
+      expect(selectedRegion).toHaveAttribute('aria-hidden', 'false');
+      expect(selectedRegion).toHaveTextContent('선택한 장소 1곳');
+      expect(selectedFocus).toHaveFocus();
+      expect(getCurrentPosition).toHaveBeenCalledOnce();
+      expect(mocks.mapOptions).toHaveLength(1);
+      if (mapMode === 'popular') {
+        expect(mocks.getPopularTracks).toHaveBeenCalledOnce();
+        expect(mocks.getPopularTracks.mock.calls[0][0]).toEqual([10]);
+      } else {
+        expect(mocks.getMyPlaceRecords).toHaveBeenCalledOnce();
+        mocks.getMyPlaceRecords.mockResolvedValueOnce({ records: [], nextCursor: null });
+        fireEvent.click(screen.getByRole('button', { name: '더 보기' }));
+        await waitFor(() => expect(mocks.getMyPlaceRecords).toHaveBeenCalledTimes(2));
+        expect(mocks.getMyPlaceRecords.mock.calls[1].slice(0, 2)).toEqual([[22], 'next-cursor']);
+      }
+    },
+  );
+
+  it('keeps existing markers and the selected result when a resize bounds request fails', async () => {
+    renderHomeMap();
+    await waitFor(() => expect(mocks.markers).toHaveLength(2));
+    act(() => mocks.triggerMarker(0));
+    await screen.findByText('밤편지');
+    const closeButton = screen.getByRole('button', { name: '인기 음악 목록 닫기' });
+    const mapElement = document.querySelector('.home-map-instance');
+    if (!(mapElement instanceof HTMLElement)) throw new Error('Expected map container');
+    vi.spyOn(mapElement, 'getBoundingClientRect').mockReturnValue({
+      width: 900,
+      height: 600,
+    } as DOMRect);
+    mocks.getPopularMarkers.mockRejectedValueOnce(new Error('Resize marker fetch failed'));
+
+    await act(async () => mocks.resizeCallbacks.forEach((callback) => callback()));
+
+    expect(mocks.getPopularMarkers).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('alert')).toHaveTextContent('인기 자물쇠를 불러오지 못했어요');
+    expect(mocks.markers).toHaveLength(2);
+    expect(mocks.markers.every((marker) => marker.setMap.mock.calls.length === 0)).toBe(true);
+    expect(screen.getByRole('region', { name: '선택 영역 인기 음악' })).toHaveAttribute(
+      'aria-hidden',
+      'false',
+    );
+    expect(screen.getByText('밤편지')).toBeInTheDocument();
+    expect(closeButton).toHaveFocus();
+    expect(mocks.getPopularTracks).toHaveBeenCalledOnce();
+  });
+
+  it('aborts superseded resize requests and ignores their late marker responses', async () => {
+    renderHomeMap();
+    await waitFor(() => expect(mocks.markers).toHaveLength(2));
+    act(() => mocks.triggerMarker(0));
+    await screen.findByText('밤편지');
+    const closeButton = screen.getByRole('button', { name: '인기 음악 목록 닫기' });
+    let resolveFirst: ((markers: typeof popularMarkers) => void) | undefined;
+    let resolveLatest: ((markers: typeof popularMarkers) => void) | undefined;
+    mocks.getPopularMarkers
+      .mockImplementationOnce(
+        () =>
+          new Promise<typeof popularMarkers>((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<typeof popularMarkers>((resolve) => {
+            resolveLatest = resolve;
+          }),
+      );
+    const mapElement = document.querySelector('.home-map-instance');
+    if (!(mapElement instanceof HTMLElement)) throw new Error('Expected map container');
+    let width = 900;
+    vi.spyOn(mapElement, 'getBoundingClientRect').mockImplementation(
+      () => ({ width, height: 600 }) as DOMRect,
+    );
+    mocks.relayout.mockImplementation(() => {
+      mocks.changeBounds({
+        swLat: 36.5,
+        swLng: 126.5,
+        neLat: 38.5,
+        neLng: width === 900 ? 128.5 : 129,
+      });
+      mocks.triggerIdle();
+    });
+    act(() => mocks.resizeCallbacks.forEach((callback) => callback()));
+    const firstSignal = mocks.getPopularMarkers.mock.calls[1][1] as AbortSignal;
+    width = 1000;
+    act(() => mocks.resizeCallbacks.forEach((callback) => callback()));
+    act(() => mocks.triggerIdle());
+    expect(mocks.getPopularMarkers).toHaveBeenCalledTimes(3);
+    expect(firstSignal.aborted).toBe(true);
+    const latestSignal = mocks.getPopularMarkers.mock.calls[2][1] as AbortSignal;
+    expect(latestSignal.aborted).toBe(false);
+
+    const newestMarker = { ...popularMarkers[0], placeId: 100, latitude: 38.4, longitude: 128.8 };
+    await act(async () => resolveLatest?.([...popularMarkers, newestMarker]));
+    expect(mocks.markerOptions.at(-1)).toMatchObject({
+      position: { latitude: 38.4, longitude: 128.8 },
+    });
+    const markersAfterLatestResponse = [...mocks.markers];
+    await act(async () =>
+      resolveFirst?.([{ ...popularMarkers[0], placeId: 99, latitude: 38.25, longitude: 128.25 }]),
+    );
+    expect(mocks.markers).toEqual(markersAfterLatestResponse);
+    expect(mocks.clusterers[0].addMarkers).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('밤편지')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '선택 영역 인기 음악' })).toHaveAttribute(
+      'aria-hidden',
+      'false',
+    );
+    expect(closeButton).toHaveFocus();
+    expect(mocks.getPopularTracks).toHaveBeenCalledOnce();
+  });
+
+  it('continues refreshing markers for an actual map movement after a resize', async () => {
+    renderHomeMap();
+    await waitFor(() => expect(mocks.markers).toHaveLength(2));
+    const mapElement = document.querySelector('.home-map-instance');
+    if (!(mapElement instanceof HTMLElement)) throw new Error('Expected map container');
+    vi.spyOn(mapElement, 'getBoundingClientRect').mockReturnValue({
+      width: 700,
+      height: 480,
+    } as DOMRect);
+    act(() => mocks.resizeCallbacks.forEach((callback) => callback()));
+    act(() => mocks.triggerIdle());
+    mocks.moveCenter(37.6, 127.2);
+    act(() => mocks.triggerIdle());
+    await waitFor(() => expect(mocks.getPopularMarkers).toHaveBeenCalledTimes(3));
+  });
+
+  it('keeps the existing map when location callback props change identity', async () => {
+    const getCurrentPosition = useSuccessfulGeolocation(37.2, 127.1);
+    const initial = vi.fn();
+    const next = vi.fn();
+    const view = render(
+      <MemoryRouter>
+        <HomeMap onCurrentLocationResolved={initial} onInitialCenterResolved={initial} />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(mocks.markers).toHaveLength(2));
+    act(() => mocks.triggerMarker(0));
+    await screen.findByText('밤편지');
+    view.rerender(
+      <MemoryRouter>
+        <HomeMap onCurrentLocationResolved={next} onInitialCenterResolved={next} />
+      </MemoryRouter>,
+    );
+    await act(async () => undefined);
+
+    expect(mocks.mapOptions).toHaveLength(1);
+    expect(getCurrentPosition).toHaveBeenCalledOnce();
+    expect(screen.getByRole('region', { name: '선택 영역 인기 음악' })).toHaveAttribute(
+      'aria-hidden',
+      'false',
+    );
+    fireEvent.click(screen.getByRole('button', { name: '내 위치로 이동' }));
+    await waitFor(() => expect(next).toHaveBeenCalledOnce());
+  });
+
+  it('renders slots once and releases hidden desktop actions when switching back to mobile', async () => {
+    let desktop = true;
+    let change: (() => void) | undefined;
+    vi.stubGlobal('matchMedia', () => ({
+      get matches() {
+        return desktop;
+      },
+      addEventListener: (_event: string, callback: () => void) => {
+        change = callback;
+      },
+      removeEventListener: vi.fn(),
+    }));
+    renderHomeMap({
+      overview: <button>추천 시작</button>,
+      primaryAction: <button>자물쇠 생성</button>,
+    });
+    await waitFor(() => expect(mocks.markers).toHaveLength(2));
+    expect(screen.getAllByText('추천 시작')).toHaveLength(1);
+    act(() => mocks.triggerMarker(0));
+    await screen.findByText('밤편지');
+    const overview = screen.getByText('추천 시작').parentElement;
+    expect(overview).toHaveAttribute('inert');
+    expect(overview).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('자물쇠 생성').parentElement).toHaveAttribute('inert');
+
+    desktop = false;
+    act(() => change?.());
+    expect(overview).not.toHaveAttribute('inert');
+    expect(overview).not.toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getAllByText('추천 시작')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: '인기 음악 목록 닫기' }));
+    expect(screen.getByRole('button', { name: '추천 시작' })).toBeEnabled();
+  });
 });
 
 describe('HomeMap current location overlay', () => {
@@ -797,6 +1173,8 @@ function currentLocationOverlay() {
 }
 
 function renderHomeMap(props?: {
+  overview?: ReactNode;
+  primaryAction?: ReactNode;
   onInitialCenterResolved?: (center: { latitude: number; longitude: number }) => void;
   initialState?: unknown;
   onCurrentLocationResolved?: (location: { latitude: number; longitude: number } | null) => void;

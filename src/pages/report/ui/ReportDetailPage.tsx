@@ -75,7 +75,7 @@ export function ReportDetailPage() {
 
   if (monthlyReportId === null) {
     return (
-      <main className="static-page">
+      <main className="static-page report-detail-page">
         <div className="static-page-content">
           <section className="report-empty-state">
             <p>리포트 목록에서 보고 싶은 달을 선택해 주세요.</p>
@@ -88,7 +88,7 @@ export function ReportDetailPage() {
   }
 
   return (
-    <main className="static-page">
+    <main className="static-page report-detail-page">
       <div className="static-page-content">
         <header className="report-detail-header">
           <Link aria-label="리포트 목록으로" className="report-back-button" to="/report">

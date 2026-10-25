@@ -35,7 +35,7 @@
 }
 .my-locks-sheet-title-row h2 {
   margin: 0;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 16px;
 }
 .my-locks-sheet-title-row p {
@@ -129,4 +129,47 @@
   min-width: 0;
   color: inherit;
   text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .my-locks-sheet {
+    transition: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .my-locks-sheet {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: var(--mulo-detail-width, 288px);
+    max-height: none;
+    padding: 16px;
+    border: 1px solid var(--mulo-line-strong);
+    border-radius: 20px;
+    box-shadow: none;
+    transform: none;
+    transition: none;
+    visibility: hidden;
+    scrollbar-gutter: stable;
+  }
+
+  .my-locks-sheet.is-open {
+    visibility: visible;
+  }
+
+  .my-locks-sheet-handle {
+    display: none;
+  }
+
+  .my-locks-sheet-title-row p,
+  .my-locks-sheet-row small,
+  .my-locks-sheet-status {
+    font-size: 12px;
+  }
+
+  .my-locks-sheet-row strong {
+    font-size: 14px;
+  }
 }

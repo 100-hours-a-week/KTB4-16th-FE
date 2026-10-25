@@ -1,5 +1,6 @@
 import { MusicPreviewButton } from '../../../entities/music/ui/MusicPreviewButton';
 import { useEffect, useRef } from 'react';
+import { useMapSheetExit } from '../model/useMapSheetExit';
 import type { MyPlaceRecord } from '../api/getMyPlaceRecords';
 import { Link } from 'react-router';
 
@@ -31,6 +32,7 @@ export function MyLocksSheet({
 }: MyLocksSheetProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
+  const handleTransitionEnd = useMapSheetExit(isOpen, onExited);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -68,11 +70,7 @@ export function MyLocksSheet({
       inert={!isOpen}
       role="region"
       onClick={(event) => event.stopPropagation()}
-      onTransitionEnd={(event) => {
-        if (!isOpen && event.target === event.currentTarget && event.propertyName === 'transform') {
-          onExited();
-        }
-      }}
+      onTransitionEnd={handleTransitionEnd}
     >
       <span className="my-locks-sheet-handle" aria-hidden="true" />
       <div className="my-locks-sheet-title-row">

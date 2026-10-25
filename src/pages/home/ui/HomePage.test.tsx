@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigate = vi.fn();
@@ -18,16 +18,25 @@ vi.mock('../../../features/home-map/ui/HomeMap', () => ({
   HomeMap: ({
     onCurrentLocationResolved,
     onInitialCenterResolved,
+    overview,
+    primaryAction,
   }: {
     onCurrentLocationResolved?: (location: { latitude: number; longitude: number } | null) => void;
     onInitialCenterResolved?: (center: { latitude: number; longitude: number }) => void;
+    overview?: ReactNode;
+    primaryAction?: ReactNode;
   }) => {
     useEffect(() => {
       onInitialCenterResolved?.({ latitude: 37.2002, longitude: 127.098 });
       onCurrentLocationResolved?.(null);
     }, [onCurrentLocationResolved, onInitialCenterResolved]);
 
-    return null;
+    return (
+      <>
+        {overview}
+        {primaryAction}
+      </>
+    );
   },
 }));
 vi.mock('../../../features/home-playlist/ui/HomePlaylistSheet', () => ({

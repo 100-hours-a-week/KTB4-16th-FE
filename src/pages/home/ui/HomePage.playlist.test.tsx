@@ -22,11 +22,15 @@ vi.mock('../../../features/home-map/ui/HomeMap', () => ({
   /** 지도 SDK만 대체하고 실제 페이지와 추천 시트의 열기·닫기 연결을 검증한다. */
   HomeMap: ({
     children,
+    overview,
+    primaryAction,
     isPlaylistRequested,
     onPlaylistReady,
     onCurrentLocationResolved,
   }: {
     children?: ReactNode;
+    overview?: ReactNode;
+    primaryAction?: ReactNode;
     isPlaylistRequested: boolean;
     onPlaylistReady: () => void;
     onCurrentLocationResolved: (location: { latitude: number; longitude: number }) => void;
@@ -37,7 +41,13 @@ vi.mock('../../../features/home-map/ui/HomeMap', () => ({
     useEffect(() => {
       if (isPlaylistRequested) onPlaylistReady();
     }, [isPlaylistRequested, onPlaylistReady]);
-    return <section aria-label="홈 지도">{children}</section>;
+    return (
+      <section aria-label="홈 지도">
+        {overview}
+        {children}
+        {primaryAction}
+      </section>
+    );
   },
 }));
 

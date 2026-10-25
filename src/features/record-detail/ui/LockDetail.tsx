@@ -143,7 +143,8 @@ export function LockDetail({
           </span>
         </header>
 
-        <div className="lock-detail-body">
+        {/* 사진·음악·추가 정보를 각각 한 번 렌더링해 화면 크기에 따라 같은 순서로 재배치한다. */}
+        <div className="lock-detail-body lock-detail-summary">
           <time className="lock-detail-date" dateTime={detail.createdAt}>
             {formatRecordDateTime(detail.createdAt)}
           </time>
@@ -168,7 +169,9 @@ export function LockDetail({
               externalUrl={detail.music.externalUrl}
             />
           </section>
+        </div>
 
+        <section className="lock-detail-body lock-detail-info" aria-label="자물쇠 추가 정보">
           <div className="lock-detail-meta">
             <section>
               <small>WEATHER</small>
@@ -242,7 +245,7 @@ export function LockDetail({
               자물쇠 삭제
             </button>
           ) : null}
-        </div>
+        </section>
       </article>
 
       {isDeleteDialogOpen ? (

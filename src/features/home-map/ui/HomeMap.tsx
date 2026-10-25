@@ -17,6 +17,7 @@ import {
   type KakaoMaps,
   loadKakaoMapSdk,
 } from '../lib/kakaoMap';
+import { observeMapResize } from '../lib/observeMapResize';
 import './homeMap.css';
 
 type MapMode = 'popular' | 'mine';
@@ -33,6 +34,8 @@ export type MapCenter = {
 
 type HomeMapProps = {
   children?: ReactNode;
+  overview?: ReactNode;
+  primaryAction?: ReactNode;
   isPlaylistRequested?: boolean;
   isPlaylistVisible?: boolean;
   onPlaylistReady?: () => void;
@@ -209,6 +212,8 @@ function createClusterPinBackground() {
 /** 홈의 지도 표시 기반과 목업의 지도 모드 선택 UI를 제공한다. */
 export function HomeMap({
   children,
+  overview,
+  primaryAction,
   isPlaylistRequested = false,
   isPlaylistVisible = false,
   onPlaylistReady = () => undefined,
@@ -216,6 +221,23 @@ export function HomeMap({
   onInitialCenterResolved,
   onCurrentLocationResolved,
 }: HomeMapProps) {
+  const [isDesktopPanel, setIsDesktopPanel] = useState(
+    () =>
+      typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches,
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(min-width: 1024px)');
+    // CSS와 같은 경계에서만 숨겨진 기본 패널의 키보드 접근을 차단한다.
+    const updatePanelMode = () => setIsDesktopPanel(query.matches);
+    query.addEventListener('change', updatePanelMode);
+    return () => query.removeEventListener('change', updatePanelMode);
+  }, []);
+  // 부모의 슬롯/콜백 재조립은 지도를 재생성하거나 GPS를 다시 요청할 이유가 아니다.
+  const locationCallbacksRef = useRef({ onInitialCenterResolved, onCurrentLocationResolved });
+  useEffect(() => {
+    locationCallbacksRef.current = { onInitialCenterResolved, onCurrentLocationResolved };
+  }, [onInitialCenterResolved, onCurrentLocationResolved]);
   const navigate = useNavigate();
   const location = useLocation();
   const { fetchAuthenticatedJson, isAuthenticated } = useSession();
@@ -469,6 +491,7 @@ export function HomeMap({
     let markers: KakaoMarker[] = [];
     let markerClusterer: KakaoMarkerClusterer | undefined;
     let activeRequestController: AbortController | undefined;
+    let resizeObserver: ReturnType<typeof observeMapResize> | undefined;
     let removeIdleListener: (() => void) | undefined;
     let removeMapClickListener: (() => void) | undefined;
     let removeClusterClickListener: (() => void) | undefined;
@@ -488,9 +511,14 @@ export function HomeMap({
     let currentLocationOverlay: KakaoCustomOverlay | undefined;
     let resetSelectedMarkerImage: ((marker: KakaoMarker) => void) | undefined;
 
-    /** 현재 viewport의 Cluster와 선택된 지도 모드의 Marker를 모두 제거한다. */
-    function removeMapMarkers() {
-      clearMapSelection();
+    /** Marker를 교체하되 resize 갱신에서는 선택 장소의 시각적 표시 수명을 분리한다. */
+    function removeMapMarkers(preserveSelection = false) {
+      if (preserveSelection) {
+        selectedMarker = undefined;
+        selectedClusterMarker = undefined;
+      } else {
+        clearMapSelection();
+      }
       markerClusterer?.clear();
       removeMarkerClickListeners.forEach((removeListener) => removeListener());
       removeMarkerClickListeners = [];
@@ -530,14 +558,14 @@ export function HomeMap({
         }
 
         if (locationResult.kind !== 'ready') {
-          onCurrentLocationResolved?.(null);
+          locationCallbacksRef.current.onCurrentLocationResolved?.(null);
           setLocationLoadState(locationResult.kind);
           return;
         }
 
         const initialCenter = locationResult.center;
-        onInitialCenterResolved?.(initialCenter);
-        onCurrentLocationResolved?.(initialCenter);
+        locationCallbacksRef.current.onInitialCenterResolved?.(initialCenter);
+        locationCallbacksRef.current.onCurrentLocationResolved?.(initialCenter);
         setLocationLoadState('ready');
 
         const kakao = await loadKakaoMapSdk(env.kakaoMapAppKey);
@@ -594,15 +622,17 @@ export function HomeMap({
         clearMapSelectionRef.current = clearMapSelection;
         setMapLoadState('ready');
 
-        /** 현재 모드와 viewport에 맞는 Place 목록을 조회해 Marker와 Cluster를 교체한다. */
-        async function refreshMapMarkers() {
+        /** 현재 bounds를 조회하며 resize일 때는 선택 목록·초점과 응답 전 Marker를 보존한다. */
+        async function refreshMapMarkers(preserveSelection = false) {
           activeRequestController?.abort();
-          if (mapModeRef.current === 'mine') {
-            closeMyLocksSheetRef.current();
-          } else {
-            closePopularTracksSheetRef.current();
+          if (!preserveSelection) {
+            if (mapModeRef.current === 'mine') {
+              closeMyLocksSheetRef.current();
+            } else {
+              closePopularTracksSheetRef.current();
+            }
+            removeMapMarkers();
           }
-          removeMapMarkers();
 
           const requestController = new AbortController();
           activeRequestController = requestController;
@@ -634,6 +664,9 @@ export function HomeMap({
               return;
             }
 
+            const selectedPlaceId = selectedMarker ? markerPlaceIds.get(selectedMarker) : undefined;
+            if (preserveSelection) removeMapMarkers(true);
+
             markers = mapMarkers.map((marker) => {
               const myRecordsCount = 'myRecordsCount' in marker ? marker.myRecordsCount : 1;
               const markerImage =
@@ -653,6 +686,10 @@ export function HomeMap({
               markerPlaceIds.set(kakaoMarker, marker.placeId);
               markerDefaultImages.set(kakaoMarker, markerImage);
               markerSelectedImages.set(kakaoMarker, selectedMarkerImage);
+              if (preserveSelection && marker.placeId === selectedPlaceId) {
+                selectedMarker = kakaoMarker;
+                selectedMarker.setImage(selectedMarkerImage);
+              }
               resetSelectedMarkerImage = (selected) =>
                 selected.setImage(markerDefaultImages.get(selected) ?? musicNoteMarkerImage);
               const handleMarkerClick = () => {
@@ -741,7 +778,12 @@ export function HomeMap({
           );
         };
 
+        resizeObserver = observeMapResize(mapContainer, map, () => {
+          void refreshMapMarkers(true);
+        });
+
         const handleMapIdle = () => {
+          if (resizeObserver?.isResizeIdle()) return;
           void refreshMapMarkers();
         };
 
@@ -773,6 +815,7 @@ export function HomeMap({
     return () => {
       isMounted = false;
       activeRequestController?.abort();
+      resizeObserver?.disconnect();
       removeIdleListener?.();
       removeMapClickListener?.();
       removeClusterClickListener?.();
@@ -784,12 +827,7 @@ export function HomeMap({
       removeMapMarkers();
       clearMapSelectionRef.current = () => undefined;
     };
-  }, [
-    fetchAuthenticatedJson,
-    locationRetryKey,
-    onCurrentLocationResolved,
-    onInitialCenterResolved,
-  ]);
+  }, [fetchAuthenticatedJson, locationRetryKey]);
 
   const isMissingMapAppKey = !env.kakaoMapAppKey;
 
@@ -866,8 +904,15 @@ export function HomeMap({
     }
   }
 
+  const hideDefaultPanel = isDesktopPanel && (isMyLocksSheetVisible || isPopularTracksSheetVisible);
+
   return (
     <section className="home-map-section" aria-label="자물쇠 지도">
+      {overview ? (
+        <div className="home-map-overview" inert={hideDefaultPanel} aria-hidden={hideDefaultPanel}>
+          {overview}
+        </div>
+      ) : null}
       <div className="home-map-toggle" role="group" aria-label="지도 보기 모드">
         <button
           ref={popularModeButtonRef}
@@ -890,88 +935,90 @@ export function HomeMap({
       </div>
 
       <div className="home-map-canvas">
-        <div className="home-map-instance" ref={mapContainerRef} />
-        {locationLoadState === 'ready' && mapLoadState === 'ready' ? (
-          <button
-            className="home-map-recenter"
-            type="button"
-            aria-label="내 위치로 이동"
-            disabled={isRecentering}
-            onClick={() => void handleRecenterToCurrentLocation()}
-          >
-            <span aria-hidden="true">◎</span>
-          </button>
-        ) : null}
-        {recenterFailed ? (
-          <p className="home-map-recenter-error" role="alert">
-            현재 위치를 다시 확인하지 못했어요.
-          </p>
-        ) : null}
-        {locationLoadState !== 'ready' ? (
-          <div
-            className="home-map-notice home-map-notice--location"
-            role={locationLoadState === 'loading' ? 'status' : 'alert'}
-          >
-            <span aria-hidden="true">{locationLoadState === 'loading' ? '📍' : '⚠️'}</span>
-            <strong>
-              {locationLoadState === 'loading'
-                ? '현재 위치를 확인하는 중이에요'
-                : locationLoadState === 'permission-denied'
-                  ? '위치 권한이 필요해요'
-                  : locationLoadState === 'unsupported'
-                    ? '위치 기능을 사용할 수 없어요'
-                    : '현재 위치를 확인할 수 없어요'}
-            </strong>
-            <p>
-              {locationLoadState === 'permission-denied'
-                ? '브라우저 설정에서 이 사이트의 위치 권한을 허용한 뒤 아래 버튼을 눌러주세요.'
-                : locationLoadState === 'unsupported'
-                  ? '현재 브라우저에서는 위치 기반 기능을 이용할 수 없습니다.'
-                  : locationLoadState === 'loading'
-                    ? '잠시만 기다려주세요.'
-                    : '위치를 다시 요청합니다. 권한 요청 창이 나타나면 브라우저에서 허용해주세요.'}
+        <div className="home-map-viewport">
+          <div className="home-map-instance" ref={mapContainerRef} />
+          {locationLoadState === 'ready' && mapLoadState === 'ready' ? (
+            <button
+              className="home-map-recenter"
+              type="button"
+              aria-label="내 위치로 이동"
+              disabled={isRecentering}
+              onClick={() => void handleRecenterToCurrentLocation()}
+            >
+              <span aria-hidden="true">◎</span>
+            </button>
+          ) : null}
+          {recenterFailed ? (
+            <p className="home-map-recenter-error" role="alert">
+              현재 위치를 다시 확인하지 못했어요.
             </p>
-            {locationLoadState !== 'loading' && locationLoadState !== 'unsupported' ? (
-              <button type="button" onClick={() => setLocationRetryKey((key) => key + 1)}>
+          ) : null}
+          {locationLoadState !== 'ready' ? (
+            <div
+              className="home-map-notice home-map-notice--location"
+              role={locationLoadState === 'loading' ? 'status' : 'alert'}
+            >
+              <span aria-hidden="true">{locationLoadState === 'loading' ? '📍' : '⚠️'}</span>
+              <strong>
+                {locationLoadState === 'loading'
+                  ? '현재 위치를 확인하는 중이에요'
+                  : locationLoadState === 'permission-denied'
+                    ? '위치 권한이 필요해요'
+                    : locationLoadState === 'unsupported'
+                      ? '위치 기능을 사용할 수 없어요'
+                      : '현재 위치를 확인할 수 없어요'}
+              </strong>
+              <p>
                 {locationLoadState === 'permission-denied'
-                  ? '위치 권한 다시 확인'
-                  : '위치 권한 허용하기'}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {isMissingMapAppKey ? (
-          <div className="home-map-notice" role="status">
-            <span aria-hidden="true">🗺️</span>
-            <strong>카카오맵을 불러오지 못했습니다</strong>
-            <p>잠시 후 다시 시도해주세요.</p>
-          </div>
-        ) : null}
-        {mapLoadState === 'error' ? (
-          <div className="home-map-notice" role="alert">
-            <span aria-hidden="true">⚠️</span>
-            <strong>카카오맵을 불러오지 못했어요</strong>
-            <p>카카오 JavaScript 앱 키와 등록 도메인을 확인한 뒤 다시 시도해주세요.</p>
-          </div>
-        ) : null}
-        {mapLoadState === 'ready' && markersLoadState === 'error' ? (
-          <div className="home-map-notice" role="alert">
-            <span aria-hidden="true">⚠️</span>
-            <strong>
-              {mapMode === 'popular'
-                ? '인기 자물쇠를 불러오지 못했어요'
-                : '내 자물쇠를 불러오지 못했어요'}
-            </strong>
-            <p>잠시 후 다시 시도해주세요.</p>
-          </div>
-        ) : null}
-        {!isMissingMapAppKey && locationLoadState === 'ready' && mapLoadState === 'idle' ? (
-          <div className="home-map-notice" role="status">
-            <span aria-hidden="true">🗺️</span>
-            <strong>지도를 불러오는 중이에요</strong>
-          </div>
-        ) : null}
-        {children}
+                  ? '브라우저 설정에서 이 사이트의 위치 권한을 허용한 뒤 아래 버튼을 눌러주세요.'
+                  : locationLoadState === 'unsupported'
+                    ? '현재 브라우저에서는 위치 기반 기능을 이용할 수 없습니다.'
+                    : locationLoadState === 'loading'
+                      ? '잠시만 기다려주세요.'
+                      : '위치를 다시 요청합니다. 권한 요청 창이 나타나면 브라우저에서 허용해주세요.'}
+              </p>
+              {locationLoadState !== 'loading' && locationLoadState !== 'unsupported' ? (
+                <button type="button" onClick={() => setLocationRetryKey((key) => key + 1)}>
+                  {locationLoadState === 'permission-denied'
+                    ? '위치 권한 다시 확인'
+                    : '위치 권한 허용하기'}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {isMissingMapAppKey ? (
+            <div className="home-map-notice" role="status">
+              <span aria-hidden="true">🗺️</span>
+              <strong>카카오맵을 불러오지 못했습니다</strong>
+              <p>잠시 후 다시 시도해주세요.</p>
+            </div>
+          ) : null}
+          {mapLoadState === 'error' ? (
+            <div className="home-map-notice" role="alert">
+              <span aria-hidden="true">⚠️</span>
+              <strong>카카오맵을 불러오지 못했어요</strong>
+              <p>카카오 JavaScript 앱 키와 등록 도메인을 확인한 뒤 다시 시도해주세요.</p>
+            </div>
+          ) : null}
+          {mapLoadState === 'ready' && markersLoadState === 'error' ? (
+            <div className="home-map-notice" role="alert">
+              <span aria-hidden="true">⚠️</span>
+              <strong>
+                {mapMode === 'popular'
+                  ? '인기 자물쇠를 불러오지 못했어요'
+                  : '내 자물쇠를 불러오지 못했어요'}
+              </strong>
+              <p>잠시 후 다시 시도해주세요.</p>
+            </div>
+          ) : null}
+          {!isMissingMapAppKey && locationLoadState === 'ready' && mapLoadState === 'idle' ? (
+            <div className="home-map-notice" role="status">
+              <span aria-hidden="true">🗺️</span>
+              <strong>지도를 불러오는 중이에요</strong>
+            </div>
+          ) : null}
+          {children}
+        </div>
         {isMyLocksSheetVisible ? (
           <MyLocksSheet
             isOpen={isMyLocksSheetOpen}
@@ -1005,6 +1052,15 @@ export function HomeMap({
           />
         ) : null}
       </div>
+      {primaryAction ? (
+        <div
+          className="home-map-primary-action"
+          inert={hideDefaultPanel}
+          aria-hidden={hideDefaultPanel}
+        >
+          {primaryAction}
+        </div>
+      ) : null}
     </section>
   );
 }

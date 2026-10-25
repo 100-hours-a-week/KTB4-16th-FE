@@ -9,7 +9,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
 
   return (
-    <main className="static-page">
+    <main className="static-page dashboard-page">
       <div className="static-page-content">
         <header className="static-page-header">
           <h1 className="static-page-title">내 대시보드</h1>

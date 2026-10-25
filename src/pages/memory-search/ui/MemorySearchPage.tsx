@@ -8,6 +8,7 @@ import type { MemoryRecordCard } from '../../../features/memory-search/model/mem
 import { searchWithConflictWait } from '../../../features/memory-search/model/searchWithConflictWait';
 import { useMemorySearchConversation } from '../../../features/memory-search/model/useMemorySearchConversation';
 import { ApiError } from '../../../shared/api/apiError';
+import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
 import '../../pageShell.css';
 import './memorySearchPage.css';
 import { MemorySearchEmptyState } from './MemorySearchEmptyState';
@@ -341,6 +342,9 @@ export function MemorySearchPage() {
             ➤
           </button>
         </form>
+      </div>
+      <div className="memory-navigation-area" inert={isResultsOpen}>
+        <MainNavigation wideOnly />
       </div>
       {isResultsOpen && selectedTurn ? (
         <div className="memory-sheet-backdrop">

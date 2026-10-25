@@ -21,7 +21,7 @@
 
 .preference-vote-hero h2 {
   margin: 7px 0 0;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 15px;
   font-weight: 600;
   line-height: 1.5;

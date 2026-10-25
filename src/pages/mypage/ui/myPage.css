@@ -17,7 +17,7 @@
   font-weight: 800;
 }
 .my-profile strong {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 17px;
 }
 .my-profile small {
@@ -120,4 +120,30 @@
 }
 .withdrawal-submit:hover:not(:disabled) {
   background: #a6404a;
+}
+
+.account-page > .static-page-content {
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+}
+.account-page .static-page-header {
+  flex-wrap: wrap;
+}
+.my-profile strong,
+.my-profile small,
+.profile-change-current,
+.withdrawal-notice p {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 768px) {
+  .profile-change-card {
+    padding: 24px;
+  }
+  .settings-back-link,
+  .profile-change-current,
+  .withdrawal-notice p {
+    font-size: 14px;
+  }
 }

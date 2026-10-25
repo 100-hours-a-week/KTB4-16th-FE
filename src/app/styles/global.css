@@ -1,14 +1,33 @@
 :root {
-  font-family:
-    Inter,
-    Pretendard,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
-  color: #332b4a;
-  background: #faf6ff;
+  /* 제목과 본문에 같은 한글 고딕 계열을 사용하고, 설치되지 않은 글꼴은 다음 후보로 대체한다. */
+  --mulo-font-sans:
+    Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  --mulo-bg-lav: #faf6ff;
+  --mulo-panel: #fff;
+  --mulo-line: #ece3f7;
+  --mulo-line-strong: #dccbf0;
+  --mulo-lilac-500: #a78bde;
+  --mulo-lilac-700: #7a5cbe;
+  --mulo-lilac-100: #efe7fa;
+  --mulo-peach-500: #ff9e6d;
+  --mulo-peach-300: #ffc9a6;
+  --mulo-peach-100: #ffeee1;
+  --mulo-mint-500: #5fc4a6;
+  --mulo-mint-100: #e4f7f0;
+  --mulo-gold-500: #e8b54b;
+  --mulo-ink-900: #332b4a;
+  --mulo-ink-600: #6c6285;
+  --mulo-ink-400: #9a90b3;
+  /* 앱 형태가 가로로 늘어나지 않도록 페이지·독립 채팅이 같은 구간별 상한을 공유한다. */
+  --mulo-mobile-max-width: 600px;
+  --mulo-tablet-max-width: 840px;
+  --mulo-sidebar-width: 184px;
+  --mulo-detail-width: 288px;
+  --mulo-page-gap: 24px;
+  font-family: var(--mulo-font-sans);
+  color: var(--mulo-ink-900);
+  background: var(--mulo-bg-lav);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -18,8 +37,8 @@
 }
 
 html {
-  /* 모달이 스크롤바를 숨겨도 공간을 유지해 가운데 정렬된 화면이 움직이지 않게 한다. */
-  scrollbar-gutter: stable;
+  /* 전체 폭 모바일 셸에는 사용하지 않는 스크롤바 여백을 남기지 않는다. */
+  scrollbar-gutter: auto;
 }
 
 html,
@@ -39,9 +58,29 @@ body,
 }
 
 body {
+  font-size: 14px;
+  line-height: 1.5;
   background:
     radial-gradient(circle at 15% 5%, rgb(255 158 109 / 10%), transparent 42%),
     radial-gradient(circle at 85% 95%, rgb(95 196 166 / 12%), transparent 42%), #faf6ff;
+}
+
+#root {
+  /* 첫 자식의 바깥 여백이 root 밖으로 합쳐져 문서 스크롤을 만들지 않게 한다. */
+  display: flow-root;
+}
+
+@media (min-width: 768px) {
+  html {
+    /* 넓은 화면에서는 모달 전후 스크롤바 유무와 무관하게 셸 중심을 유지한다. */
+    scrollbar-gutter: stable;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --mulo-detail-width: 320px;
+  }
 }
 
 button,
@@ -79,6 +118,7 @@ a:hover {
 .auth-page {
   display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
   place-items: center;
   padding: 24px;
 }
@@ -105,7 +145,7 @@ a:hover {
 
 .auth-brand h1 {
   color: #a78bde;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   font-size: 2.35rem;
   font-weight: 700;
   letter-spacing: -0.025em;
@@ -259,7 +299,7 @@ a:hover {
 .primary-button {
   min-height: 48px;
   padding: 12px 18px;
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(120deg, #a78bde, #8f6fda);
   box-shadow: 0 12px 22px -8px rgb(122 92 190 / 45%);
   color: #ffffff;
@@ -325,7 +365,7 @@ a:focus-visible {
   text-align: center;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 767px) {
   .auth-page {
     align-items: stretch;
     padding: 0;
@@ -333,7 +373,10 @@ a:focus-visible {
 
   .auth-card {
     width: 100%;
+    max-width: var(--mulo-mobile-max-width);
+    margin-inline: auto;
     min-height: 100vh;
+    min-height: 100dvh;
     padding: 52px 22px 36px;
     border: 0;
     border-radius: 0;

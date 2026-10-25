@@ -1,59 +1,108 @@
 .static-page {
+  position: relative;
   display: flex;
   width: 100%;
+  max-width: var(--mulo-mobile-max-width);
   /* Keep the shell bounded so its content can scroll without moving the bottom navigation. */
   height: 100vh;
   height: 100dvh;
   min-height: 0;
-  max-width: 480px;
   margin: 0 auto;
   flex-direction: column;
   overflow: hidden;
-  background: #faf6ff;
+  background: var(--mulo-bg-lav);
   box-shadow: 0 0 34px rgb(122 92 190 / 8%);
 }
 
 .static-page-content {
+  min-width: 0;
   min-height: 0;
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   padding: max(26px, env(safe-area-inset-top)) 18px 28px;
 }
 .static-page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: var(--mulo-page-gap);
 }
 .static-page-title {
   margin: 0;
-  color: #332b4a;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 16px;
+  color: var(--mulo-ink-900);
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 .static-page-chip {
   padding: 5px 9px;
-  border: 1px solid #dccbf0;
+  border: 1px solid var(--mulo-line-strong);
   border-radius: 999px;
-  background: #fff;
-  color: #6c6285;
-  font-size: 10.5px;
+  background: var(--mulo-panel);
+  color: var(--mulo-ink-600);
+  font-size: 12px;
 }
 .surface-card {
-  border: 1px solid #ece3f7;
+  border: 1px solid var(--mulo-line);
   border-radius: 20px;
-  background: #fff;
+  background: var(--mulo-panel);
   box-shadow: 0 3px 14px rgb(122 92 190 / 6%);
 }
 
-@media (min-width: 481px) {
+@media (min-width: 768px) {
   .static-page {
-    height: min(800px, calc(100vh - 48px));
-    height: min(800px, calc(100dvh - 48px));
-    margin-top: 24px;
-    margin-bottom: 24px;
-    border: 1px solid #dccbf0;
+    width: calc(100% - 32px);
+    max-width: var(--mulo-tablet-max-width);
+    height: calc(100vh - 32px);
+    height: calc(100dvh - 32px);
+    margin-block: 16px;
+    border: 1px solid var(--mulo-line-strong);
+    border-radius: 24px;
+  }
+
+  .static-page-content {
+    padding: var(--mulo-page-gap);
+  }
+
+  /* inert를 소유하는 친구 메뉴 wrapper도 그대로 두고 상단 행으로 배치한다. */
+  .static-page > .main-bottom-nav,
+  .static-page > :has(> .main-bottom-nav) {
+    order: -1;
+    flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .static-page {
+    width: calc(100% - 48px);
+    max-width: 1440px;
+    height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
+    margin-block: 24px;
     border-radius: 28px;
+  }
+
+  /* 메뉴가 없는 중첩 상세에는 빈 sidebar를 만들지 않는다. 별도 헤더도 본문 열을 공유한다. */
+  .static-page:has(> .main-bottom-nav),
+  .static-page:has(> * > .main-bottom-nav) {
+    padding-left: var(--mulo-sidebar-width);
+  }
+
+  .static-page > .main-bottom-nav,
+  .static-page > :has(> .main-bottom-nav) {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--mulo-sidebar-width);
+    min-height: 0;
+  }
+
+  .static-page > :has(> .main-bottom-nav) > .main-bottom-nav {
+    height: 100%;
+  }
+
+  .static-page-title {
+    font-size: 24px;
   }
 }
