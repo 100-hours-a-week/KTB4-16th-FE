@@ -566,16 +566,10 @@ describe('HomeMap responsive panel', () => {
     await waitFor(() => expect(next).toHaveBeenCalledOnce());
   });
 
-  it('renders slots once and releases hidden desktop actions when switching back to mobile', async () => {
-    let desktop = true;
-    let change: (() => void) | undefined;
+  it('keeps mobile actions accessible once when a selected sheet opens in a wide window', async () => {
     vi.stubGlobal('matchMedia', () => ({
-      get matches() {
-        return desktop;
-      },
-      addEventListener: (_event: string, callback: () => void) => {
-        change = callback;
-      },
+      matches: true,
+      addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     }));
     renderHomeMap({
@@ -583,19 +577,15 @@ describe('HomeMap responsive panel', () => {
       primaryAction: <button>자물쇠 생성</button>,
     });
     await waitFor(() => expect(mocks.markers).toHaveLength(2));
-    expect(screen.getAllByText('추천 시작')).toHaveLength(1);
     act(() => mocks.triggerMarker(0));
     await screen.findByText('밤편지');
-    const overview = screen.getByText('추천 시작').parentElement;
-    expect(overview).toHaveAttribute('inert');
-    expect(overview).toHaveAttribute('aria-hidden', 'true');
-    expect(screen.getByText('자물쇠 생성').parentElement).toHaveAttribute('inert');
 
-    desktop = false;
-    act(() => change?.());
-    expect(overview).not.toHaveAttribute('inert');
-    expect(overview).not.toHaveAttribute('aria-hidden', 'true');
-    expect(screen.getAllByText('추천 시작')).toHaveLength(1);
+    for (const name of ['추천 시작', '자물쇠 생성']) {
+      const action = screen.getByRole('button', { name });
+      expect(screen.getAllByRole('button', { name })).toHaveLength(1);
+      expect(action.parentElement).not.toHaveAttribute('inert');
+      expect(action.parentElement).not.toHaveAttribute('aria-hidden', 'true');
+    }
     fireEvent.click(screen.getByRole('button', { name: '인기 음악 목록 닫기' }));
     expect(screen.getByRole('button', { name: '추천 시작' })).toBeEnabled();
   });

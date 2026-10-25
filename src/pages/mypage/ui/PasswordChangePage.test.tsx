@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -44,18 +44,10 @@ beforeEach(() => {
 });
 
 describe('PasswordChangePage', () => {
-  it('넓은 화면 메뉴에서 마이페이지를 활성 목적지로 유지한다', () => {
+  it('주요 메뉴 대신 기존 마이페이지 뒤로 가기 링크를 제공한다', () => {
     renderPasswordChangePage();
-
-    const menu = screen.getByRole('navigation', { name: '주요 메뉴' });
-    expect(within(menu).getByRole('link', { name: '마이페이지' })).toHaveAttribute(
-      'href',
-      '/mypage',
-    );
-    expect(within(menu).getByRole('link', { name: '마이페이지' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '‹ 마이페이지' })).toHaveAttribute('href', '/mypage');
   });
 
   it('프로필 조회가 완료되기 전에는 비밀번호 폼을 표시하지 않는다', async () => {

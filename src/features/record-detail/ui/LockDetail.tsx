@@ -143,7 +143,7 @@ export function LockDetail({
           </span>
         </header>
 
-        {/* 사진·음악·추가 정보를 각각 한 번 렌더링해 화면 크기에 따라 같은 순서로 재배치한다. */}
+        {/* 사진 → 음악 → 추가 정보의 문서 순서를 유지하고 각 영역을 한 번만 렌더링한다. */}
         <div className="lock-detail-body lock-detail-summary">
           <time className="lock-detail-date" dateTime={detail.createdAt}>
             {formatRecordDateTime(detail.createdAt)}

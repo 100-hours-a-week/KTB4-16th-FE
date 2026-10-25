@@ -137,13 +137,3 @@
   max-width: 100%;
   overflow-wrap: anywhere;
 }
-@media (min-width: 768px) {
-  .profile-change-card {
-    padding: 24px;
-  }
-  .settings-back-link,
-  .profile-change-current,
-  .withdrawal-notice p {
-    font-size: 14px;
-  }
-}
