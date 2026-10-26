@@ -23,7 +23,9 @@ export function LockCreatePage() {
           type="button"
           onClick={() => navigate(-1)}
         >
-          <span className="lock-create-back-icon">‹</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m15 5-7 7 7 7" />
+          </svg>
         </button>
         <h1 className="static-page-title">자물쇠 만들기</h1>
         <span aria-hidden="true" className="lock-create-header-spacer" />

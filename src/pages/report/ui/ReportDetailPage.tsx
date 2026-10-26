@@ -92,7 +92,9 @@ export function ReportDetailPage() {
       <div className="static-page-content">
         <header className="report-detail-header">
           <Link aria-label="리포트 목록으로" className="report-back-button" to="/report">
-            ‹
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m15 5-7 7 7 7" />
+            </svg>
           </Link>
           <h1 className="static-page-title">
             {year}년 {month}월 리포트

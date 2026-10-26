@@ -136,7 +136,9 @@ export function LockDetail({
             type="button"
             onClick={onClose}
           >
-            <span aria-hidden="true">×</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
           </button>
           <span className="lock-detail-place">
             📍 {detail.place.legalDongName ?? '확인할 수 없음'}

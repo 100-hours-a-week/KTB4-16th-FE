@@ -952,9 +952,12 @@ export function HomeMap({
               className="home-map-notice home-map-notice--location"
               role={locationLoadState === 'loading' ? 'status' : 'alert'}
             >
-              <span className="home-map-location-icon" aria-hidden="true">
-                <CurrentLocationIcon />
-              </span>
+              {/* 권한 거부 안내는 장식 아이콘 없이 문구와 재확인 행동에 집중한다. */}
+              {locationLoadState !== 'permission-denied' ? (
+                <span className="home-map-location-icon" aria-hidden="true">
+                  <CurrentLocationIcon />
+                </span>
+              ) : null}
               <strong>
                 {locationLoadState === 'loading'
                   ? '현재 위치를 확인하는 중이에요'

@@ -195,7 +195,7 @@ a:hover {
 }
 
 .form-field-input-wrap--password input {
-  padding-right: 48px;
+  padding-right: 60px;
 }
 
 .form-field-password-toggle {
@@ -203,8 +203,8 @@ a:hover {
   top: 50%;
   right: 10px;
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   padding: 4px;
   transform: translateY(-50%);
   place-items: center;
@@ -315,7 +315,7 @@ a:focus-visible {
 
 .auth-topbar {
   display: grid;
-  grid-template-columns: 32px 1fr 32px;
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
   margin: -12px 0 26px;
 }
@@ -329,8 +329,8 @@ a:focus-visible {
 
 .back-button {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: #efe7fa;
   color: #332b4a;
@@ -339,10 +339,6 @@ a:focus-visible {
   line-height: 1;
   place-items: center;
   text-decoration: none;
-}
-.back-button > span {
-  display: inline-block;
-  transform: translate(0px, -2px);
 }
 
 .auth-switch {
@@ -391,4 +387,19 @@ a:focus-visible {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* 문자 기준선 보정 없이 아이콘을 터치 영역 중앙에 표시한다. */
+.back-button {
+  padding: 0;
+}
+.back-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
