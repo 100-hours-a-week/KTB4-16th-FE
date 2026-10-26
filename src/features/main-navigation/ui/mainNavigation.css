@@ -1,8 +1,9 @@
 .main-bottom-nav {
-  display: flex;
+  /* 메뉴 이름 길이에 관계없이 다섯 항목의 중심을 동일 간격으로 배치한다. */
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   min-width: 0;
   flex: 0 0 auto;
-  justify-content: space-around;
   padding: 9px 6px calc(13px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--mulo-line);
   background: var(--mulo-panel);
@@ -36,6 +37,8 @@
 }
 .main-bottom-nav-link.is-active {
   color: var(--mulo-lilac-700);
+  background: var(--mulo-lilac-100);
+  border-radius: 12px;
 }
 
 .main-bottom-nav-link:focus-visible {

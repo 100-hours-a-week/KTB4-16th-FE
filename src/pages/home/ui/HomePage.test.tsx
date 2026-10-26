@@ -8,11 +8,13 @@ const mocks = vi.hoisted(() => ({
   fetchAuthenticatedJson: vi.fn(),
   isAuthenticated: false,
   isSessionRestoring: false,
+  locationState: null as null | { recordCreated: boolean },
 }));
 
 vi.mock('react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router')>()),
   useNavigate: () => navigate,
+  useLocation: () => ({ pathname: '/', state: mocks.locationState }),
 }));
 vi.mock('../../../features/home-map/ui/HomeMap', () => ({
   HomeMap: ({
@@ -55,8 +57,17 @@ vi.mock('../../../entities/session/model/useSession', () => ({
 import { HomePage } from './HomePage';
 
 describe('HomePage weather location handling', () => {
+  it('shows the saved memory confirmation and lets the user dismiss it', async () => {
+    mocks.locationState = { recordCreated: true };
+    render(<HomePage />);
+    expect(screen.getByText('이곳에 추억의 자물쇠를 남겼어요')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '저장 완료 안내 닫기' }));
+    expect(screen.queryByText('이곳에 추억의 자물쇠를 남겼어요')).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.locationState = null;
     mocks.isAuthenticated = false;
     mocks.isSessionRestoring = false;
     vi.stubGlobal('fetch', vi.fn());

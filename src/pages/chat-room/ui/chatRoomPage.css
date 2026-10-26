@@ -2,8 +2,9 @@
   position: relative;
   display: flex;
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
+  /* 홈과 동일한 높이 상한을 적용하고 작은 창에서는 가시 높이에 맞춘다. */
+  height: min(100vh, var(--mulo-mobile-max-height));
+  height: min(100dvh, var(--mulo-mobile-max-height));
   min-height: 0;
   max-width: var(--mulo-mobile-max-width);
   margin: 0 auto;
@@ -44,8 +45,8 @@
 
 .chat-room-back-button {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   flex: 0 0 auto;
   place-items: center;
   border-radius: 50%;
@@ -57,8 +58,8 @@
 }
 
 .chat-room-header-spacer {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   flex: 0 0 auto;
 }
 
@@ -292,4 +293,19 @@
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
+}
+
+/* 문자 기준선 보정 없이 아이콘을 터치 영역 중앙에 표시한다. */
+.chat-room-back-button {
+  padding: 0;
+}
+.chat-room-back-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

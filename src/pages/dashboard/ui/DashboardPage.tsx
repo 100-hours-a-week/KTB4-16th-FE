@@ -21,7 +21,10 @@ export function DashboardPage() {
               aria-label="자물쇠 만들기"
               onClick={() => navigate('/locks/create')}
             >
-              <span className="dashboard-create-icon">+</span>
+              {/* 글꼴의 기준선 대신 대칭 SVG 좌표로 십자 중심을 맞춘다. */}
+              <svg className="dashboard-create-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
             </button>
           </div>
         </header>

@@ -23,16 +23,18 @@ export function LockCreatePage() {
           type="button"
           onClick={() => navigate(-1)}
         >
-          <span className="lock-create-back-icon">‹</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m15 5-7 7 7 7" />
+          </svg>
         </button>
-        <h1 className="static-page-title">자물쇠 만들기</h1>
+        <h1 className="static-page-title">이곳에 추억의 자물쇠 걸기</h1>
         <span aria-hidden="true" className="lock-create-header-spacer" />
       </header>
       <div className="static-page-content lock-create-content">
         <div className="lock-create-form">
           <RecordCreateForm
             onCoordinatesChange={setCoordinates}
-            onCreated={() => navigate('/', { replace: true })}
+            onCreated={() => navigate('/', { replace: true, state: { recordCreated: true } })}
             weather={<HomeWeather coordinates={coordinates} />}
           />
         </div>

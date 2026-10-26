@@ -128,7 +128,7 @@
 }
 .report-detail-header {
   display: grid;
-  grid-template-columns: 30px 1fr 30px;
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
   margin-bottom: 16px;
 }
@@ -137,8 +137,8 @@
 }
 .report-back-button {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border-radius: 50%;
   background: #efe7fa;
@@ -147,13 +147,9 @@
   line-height: 1;
   text-decoration: none;
 }
-.report-back-icon {
-  display: inline-block;
-  transform: translateY(-2px);
-}
 .report-header-spacer {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
 }
 .report-recap span,
 .report-stat-grid small {
@@ -241,4 +237,19 @@
 .report-recap h2,
 .report-photo {
   overflow-wrap: anywhere;
+}
+
+/* 문자 기준선 보정 없이 아이콘을 터치 영역 중앙에 표시한다. */
+.report-back-button {
+  padding: 0;
+}
+.report-back-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

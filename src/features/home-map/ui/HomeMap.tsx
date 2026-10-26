@@ -49,6 +49,17 @@ type PendingMapSheet = {
   placeIds: number[];
 };
 
+/** 위치 버튼과 권한 안내에서 글꼴에 영향받지 않는 중앙 정렬 아이콘을 표시한다. */
+function CurrentLocationIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+    </svg>
+  );
+}
+
 function getMapModeFromLocationState(state: unknown): MapMode {
   if (typeof state !== 'object' || state === null || !('mapMode' in state)) {
     return 'popular';
@@ -928,7 +939,7 @@ export function HomeMap({
               disabled={isRecentering}
               onClick={() => void handleRecenterToCurrentLocation()}
             >
-              <span aria-hidden="true">◎</span>
+              <CurrentLocationIcon />
             </button>
           ) : null}
           {recenterFailed ? (
@@ -941,7 +952,12 @@ export function HomeMap({
               className="home-map-notice home-map-notice--location"
               role={locationLoadState === 'loading' ? 'status' : 'alert'}
             >
-              <span aria-hidden="true">{locationLoadState === 'loading' ? '📍' : '⚠️'}</span>
+              {/* 권한 거부 안내는 장식 아이콘 없이 문구와 재확인 행동에 집중한다. */}
+              {locationLoadState !== 'permission-denied' ? (
+                <span className="home-map-location-icon" aria-hidden="true">
+                  <CurrentLocationIcon />
+                </span>
+              ) : null}
               <strong>
                 {locationLoadState === 'loading'
                   ? '현재 위치를 확인하는 중이에요'

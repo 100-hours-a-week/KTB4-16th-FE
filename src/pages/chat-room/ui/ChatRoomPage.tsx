@@ -930,7 +930,9 @@ export function ChatRoomPage({
           <span aria-hidden="true" className="chat-room-header-spacer" />
         ) : (
           <Link aria-label="취향 투표로 돌아가기" className="chat-room-back-button" to="/matching">
-            ‹
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m15 5-7 7 7 7" />
+            </svg>
           </Link>
         )}
         <div className="chat-room-title" title={resolvedRoomInfo?.partnerNickname}>

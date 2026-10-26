@@ -23,11 +23,7 @@ export function MemorySearchWelcome({ onSelectExample }: MemorySearchWelcomeProp
           <br />
           어떤 기억을 찾고 싶으세요?
         </h2>
-        <p>
-          기억나는 장소나 시기, 날씨를 알려주세요.
-          <br />
-          남겨 둔 자물쇠에서 함께 찾아볼게요.
-        </p>
+        <p>어렴풋이 떠오르는 장소나 음악을 이야기해 주세요.</p>
       </div>
       <div className="memory-welcome-examples">
         <p className="memory-welcome-label">이렇게 물어보세요</p>

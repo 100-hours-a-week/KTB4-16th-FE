@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import { HomeMap, type MapCenter } from '../../../features/home-map/ui/HomeMap';
@@ -47,6 +47,17 @@ export function HomePage() {
   const playlistTriggerRef = useRef<HTMLButtonElement>(null);
   const openAnimationFrameRef = useRef<number | null>(null);
   const navigate = useNavigate();
+  const routeLocation = useLocation();
+  const [showCreatedNotice, setShowCreatedNotice] = useState(
+    () => routeLocation.state?.recordCreated === true,
+  );
+
+  // 저장 완료 상태를 소비해 새로고침이나 뒤로가기에서 안내가 반복되지 않도록 한다.
+  useEffect(() => {
+    if (routeLocation.state?.recordCreated === true) {
+      navigate(routeLocation.pathname, { replace: true, state: null });
+    }
+  }, [navigate, routeLocation.pathname, routeLocation.state]);
 
   useEffect(
     () => () => {
@@ -107,6 +118,18 @@ export function HomePage() {
 
   return (
     <main className="home-page">
+      {showCreatedNotice ? (
+        <div className="home-created-notice" role="status">
+          <span>이곳에 추억의 자물쇠를 남겼어요</span>
+          <button
+            type="button"
+            aria-label="저장 완료 안내 닫기"
+            onClick={() => setShowCreatedNotice(false)}
+          >
+            닫기
+          </button>
+        </div>
+      ) : null}
       <div className="home-page-stage">
         <div className="home-page-content" inert={isPlaylistVisible}>
           <header className="home-topbar">
@@ -139,7 +162,7 @@ export function HomePage() {
               <circle cx="11" cy="11" r="7" />
               <path d="m21 21-4.3-4.3" />
             </svg>
-            <span>“비 오던 날 홍대에서 들었던 노래” 같은 기억, 물어보세요</span>
+            <span>그때 그 기억, 함께 찾아볼까요?</span>
           </button>
 
           {/* 추천·지도·생성 UI를 한 번씩 조립해 상태·초점과 모바일 순서를 유지한다. */}
@@ -188,7 +211,7 @@ export function HomePage() {
             primaryAction={
               <div className="home-create-action">
                 <button type="button" onClick={() => navigate('/locks/create')}>
-                  🔒 자물쇠 만들기
+                  🔒 추억 자물쇠 만들기
                 </button>
               </div>
             }

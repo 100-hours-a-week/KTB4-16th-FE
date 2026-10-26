@@ -180,7 +180,7 @@ export function MemorySearchPage() {
           >
             ‹
           </button>
-          <h1 className="static-page-title">AI 기억 검색</h1>
+          <h1 className="static-page-title">그때 그 기억</h1>
           <span aria-hidden="true" className="memory-search-header-spacer" />
         </header>
 
@@ -324,7 +324,7 @@ export function MemorySearchPage() {
                 ? '자물쇠를 남긴 뒤 검색할 수 있어요'
                 : status === 'gone'
                   ? '새 대화를 시작해 주세요'
-                  : '기억나는 단서로 물어보세요'
+                  : '그날의 기억을 들려주세요'
             }
             value={conversation.pendingQuery ? '' : inputValue}
           />

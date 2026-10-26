@@ -52,7 +52,7 @@
   display: flex;
   min-height: 220px;
   flex: 1;
-  margin: 0 18px 14px;
+  margin: 0 18px 4px;
   overflow: hidden;
   border: 1px solid var(--mulo-line-strong);
   border-radius: 20px;
@@ -73,9 +73,10 @@
   right: 12px;
   z-index: 2;
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   place-items: center;
+  padding: 0;
   border: 1px solid #dccbf0;
   border-radius: 50%;
   background: rgb(255 255 255 / 92%);
@@ -216,12 +217,39 @@
 }
 
 .home-map-section {
-  /* 지도와 행동 영역의 실제 높이를 반영해 낮은 창에서도 본문 스크롤로 모두 접근한다. */
+  /* 지도와 생성 행동을 담는 영역은 홈의 남는 높이를 채운다. */
   flex: 1 0 auto;
 }
 
 .home-map-canvas {
-  /* 모든 창에서 모바일 지도 비율을 유지하고 남는 세로 공간도 활용한다. */
-  aspect-ratio: 16 / 10;
-  flex: 1 0 auto;
+  /* 최대 852px인 홈 안에서 남는 높이를 채우고 작은 창에서는 최소 높이를 유지한다. */
+  height: auto;
+  flex: 1 0 220px;
+}
+
+/* 생성 버튼을 메뉴 위에 유지하고 낮은 창에서는 본문 스크롤로 접근한다. */
+.home-map-primary-action {
+  margin-top: auto;
+}
+
+/* 위치 아이콘을 버튼·안내 영역의 중심에 동일한 선 두께로 표시한다. */
+.home-map-recenter svg,
+.home-map-location-icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.home-map-location-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--mulo-lilac-100);
+  color: var(--mulo-lilac-700);
 }
