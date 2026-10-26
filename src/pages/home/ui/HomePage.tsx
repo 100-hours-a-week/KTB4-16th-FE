@@ -139,7 +139,7 @@ export function HomePage() {
               <circle cx="11" cy="11" r="7" />
               <path d="m21 21-4.3-4.3" />
             </svg>
-            <span>“비 오던 날 홍대에서 들었던 노래” 같은 기억, 물어보세요</span>
+            <span>그날 들었던 노래를 찾아보세요</span>
           </button>
 
           {/* 추천·지도·생성 UI를 한 번씩 조립해 상태·초점과 모바일 순서를 유지한다. */}
@@ -163,8 +163,8 @@ export function HomePage() {
                     🎧
                   </span>
                   <span>
-                    <strong>지금 나를 위한 플레이리스트</strong>
-                    <small>위치·날씨·시간·히스토리 기반 추천</small>
+                    <strong>지금 나를 위한 음악</strong>
+                    <small>현재 장소와 시간에 어울리는 추천</small>
                   </span>
                 </button>
                 <button
@@ -179,8 +179,8 @@ export function HomePage() {
                     💬
                   </span>
                   <span>
-                    <strong>취향 투표로 랜덤 채팅</strong>
-                    <small>회원님이 좋아할 만한 취향 투표 질문을 준비했어요</small>
+                    <strong>취향이 맞는 사람과 대화</strong>
+                    <small>취향 투표로 시작하는 랜덤 채팅</small>
                   </span>
                 </button>
               </section>
