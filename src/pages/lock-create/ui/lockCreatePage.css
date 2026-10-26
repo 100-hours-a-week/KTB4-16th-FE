@@ -25,7 +25,7 @@
 }
 .lock-create-header {
   display: grid;
-  grid-template-columns: 30px 1fr 30px;
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
   margin-bottom: 16px;
 }
@@ -34,8 +34,8 @@
 }
 .lock-create-back {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border-radius: 50%;
   background: #efe7fa;
@@ -43,13 +43,9 @@
   font-size: 22px;
   line-height: 1;
 }
-.lock-create-back-icon {
-  display: inline-block;
-  transform: translate(0px, -2px);
-}
 .lock-create-header-spacer {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
 }
 .lock-create-context {
   display: grid;
@@ -546,9 +542,10 @@
   right: 12px;
   bottom: 12px;
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   place-items: center;
+  padding: 0;
   border: 1px solid #dccbf0;
   border-radius: 50%;
   background: rgb(255 255 255 / 92%);
@@ -557,6 +554,20 @@
   font-size: 19px;
   line-height: 1;
   z-index: 3;
+}
+/* 홈과 동일한 크기·선 두께로 현재 위치 아이콘을 중앙에 표시한다. */
+.lock-create-current-location svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.lock-create-current-location:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 .lock-create-current-location:focus-visible {
   outline: 3px solid rgb(122 92 190 / 48%);
@@ -623,4 +634,19 @@
 .lock-create-music-results span {
   color: #6c6285;
   font-size: 11px;
+}
+
+/* 문자 기준선 보정 없이 아이콘을 터치 영역 중앙에 표시한다. */
+.lock-create-back {
+  padding: 0;
+}
+.lock-create-back svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

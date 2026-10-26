@@ -27,8 +27,8 @@
   top: 13px;
   right: 13px;
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border-radius: 50%;
   background: rgb(255 255 255 / 88%);
@@ -36,10 +36,6 @@
   font-size: 22px;
   line-height: 1;
   box-shadow: 0 3px 12px rgb(51 43 74 / 12%);
-}
-
-.lock-detail-close > span {
-  transform: translateY(-2px);
 }
 
 .lock-detail-place {
@@ -346,4 +342,19 @@
   border-color: #d76565;
   background: #d76565;
   color: #fff;
+}
+
+/* 문자 기준선 보정 없이 아이콘을 터치 영역 중앙에 표시한다. */
+.lock-detail-close {
+  padding: 0;
+}
+.lock-detail-close svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

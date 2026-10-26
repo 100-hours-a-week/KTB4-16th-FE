@@ -114,7 +114,9 @@ export function SignupPage() {
       <section className="auth-card auth-card--signup" aria-labelledby="signup-title">
         <header className="auth-topbar">
           <Link className="back-button" to="/login" aria-label="로그인으로 돌아가기">
-            <span aria-hidden="true">‹</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m15 5-7 7 7 7" />
+            </svg>
           </Link>
           <h1 id="signup-title">회원가입</h1>
           <span className="topbar-spacer" aria-hidden="true" />
