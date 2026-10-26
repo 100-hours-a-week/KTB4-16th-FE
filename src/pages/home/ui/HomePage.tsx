@@ -162,7 +162,7 @@ export function HomePage() {
               <circle cx="11" cy="11" r="7" />
               <path d="m21 21-4.3-4.3" />
             </svg>
-            <span>“비 오던 날 홍대에서 들었던 노래” 같은 기억, 물어보세요</span>
+            <span>그때 그 기억, 함께 찾아볼까요?</span>
           </button>
 
           {/* 추천·지도·생성 UI를 한 번씩 조립해 상태·초점과 모바일 순서를 유지한다. */}
