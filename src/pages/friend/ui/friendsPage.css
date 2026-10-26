@@ -460,32 +460,3 @@
   flex: 0 0 100%;
   box-sizing: border-box;
 }
-
-@media (min-width: 768px) {
-  .friends-page > .friends-page-content {
-    width: 100%;
-    max-width: 840px;
-    margin-inline: auto;
-    padding: 24px;
-  }
-  .friends-header .static-page-title {
-    font-size: 24px;
-  }
-  .friends-header p {
-    max-width: none;
-    font-size: 14px;
-  }
-  .friend-card {
-    padding: 20px;
-  }
-  .friends-page.has-notice .friends-page-content {
-    padding-bottom: 104px;
-  }
-  .friends-navigation-area .friends-toast {
-    position: fixed;
-    right: 32px;
-    bottom: 32px;
-    left: auto;
-    width: min(520px, calc(100vw - 64px));
-  }
-}

@@ -199,7 +199,7 @@
   font-weight: 700;
 }
 
-/* 지도와 기본 행동은 한 번만 렌더링하고 CSS가 모바일 순서와 PC 열을 조립한다. */
+/* 추천·지도·생성 행동을 한 번씩 렌더링하고 모바일 문서 순서를 유지한다. */
 .home-map-overview,
 .home-map-primary-action {
   min-width: 0;
@@ -215,75 +215,13 @@
   border-radius: inherit;
 }
 
-@media (width < 1024px) {
-  .home-map-section {
-    /* 지도와 행동 영역의 실제 높이를 반영해 낮은 창에서도 본문 스크롤로 모두 접근한다. */
-    flex: 1 0 auto;
-  }
-
-  .home-map-canvas {
-    /* 넓은 모바일·태블릿의 지도 높이를 폭 기준으로 확보하고 남는 세로 공간도 활용한다. */
-    aspect-ratio: 16 / 10;
-    flex: 1 0 auto;
-  }
+.home-map-section {
+  /* 지도와 행동 영역의 실제 높이를 반영해 낮은 창에서도 본문 스크롤로 모두 접근한다. */
+  flex: 1 0 auto;
 }
 
-@media (min-width: 768px) and (width < 1024px) {
-  .home-map-canvas {
-    min-height: 360px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .home-map-section {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--mulo-detail-width, 288px);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: 16px;
-    min-height: 0;
-    flex-shrink: 1;
-  }
-
-  .home-map-toggle {
-    grid-column: 1;
-    grid-row: 1;
-    margin: 0;
-  }
-
-  .home-map-overview {
-    grid-column: 2;
-    grid-row: 1 / 3;
-    min-height: 0;
-    overflow-y: auto;
-  }
-
-  .home-map-primary-action {
-    grid-column: 2;
-    grid-row: 3;
-  }
-
-  .home-map-overview[aria-hidden='true'],
-  .home-map-primary-action[aria-hidden='true'] {
-    visibility: hidden;
-  }
-
-  /* absolute 시트의 기준은 section으로 바꾸되 지도 자체의 클리핑은 viewport가 맡는다. */
-  .home-map-canvas {
-    position: static;
-    grid-column: 1;
-    grid-row: 2 / 4;
-    min-width: 0;
-    min-height: 0;
-    margin: 0;
-    overflow: visible;
-    border: 0;
-    background: none;
-  }
-
-  .home-map-viewport {
-    min-height: 0;
-    border: 1px solid var(--mulo-line-strong);
-    background: linear-gradient(160deg, #f3edfc, #fceff9);
-  }
+.home-map-canvas {
+  /* 모든 창에서 모바일 지도 비율을 유지하고 남는 세로 공간도 활용한다. */
+  aspect-ratio: 16 / 10;
+  flex: 1 0 auto;
 }

@@ -142,7 +142,7 @@ export function HomePage() {
             <span>“비 오던 날 홍대에서 들었던 노래” 같은 기억, 물어보세요</span>
           </button>
 
-          {/* 하나의 UI를 지도에 전달해 PC 패널과 모바일 흐름에서 상태·초점을 공유한다. */}
+          {/* 추천·지도·생성 UI를 한 번씩 조립해 상태·초점과 모바일 순서를 유지한다. */}
           <HomeMap
             isPlaylistRequested={isPlaylistRequested}
             isPlaylistVisible={isPlaylistVisible}

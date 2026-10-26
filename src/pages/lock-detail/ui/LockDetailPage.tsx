@@ -8,7 +8,6 @@ import { updateRecordComment } from '../../../features/record-detail/api/updateR
 import type { LockDetailData } from '../../../features/record-detail/model/lockDetail.types';
 import { LockDetail } from '../../../features/record-detail/ui/LockDetail';
 import { ApiError } from '../../../shared/api/apiError';
-import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
 import '../../pageShell.css';
 import './lockDetailPage.css';
 
@@ -130,10 +129,6 @@ export function LockDetailPage() {
           />
         ) : null}
       </div>
-      {/* 중첩 상세는 부모 메뉴를 추가하지 않고 기존 뒤로 가기 흐름을 유지한다. */}
-      {!isNestedFriendDetail ? (
-        <MainNavigation activeItem={isFriendOrigin ? 'friends' : 'dashboard'} wideOnly />
-      ) : null}
     </main>
   );
 }

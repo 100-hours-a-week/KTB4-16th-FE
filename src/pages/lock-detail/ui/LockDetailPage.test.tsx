@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,19 +63,13 @@ beforeEach(() => {
 });
 
 describe('LockDetailPage', () => {
-  it('독립 상세의 넓은 화면 메뉴로 대시보드에 이동한다', async () => {
+  it('독립 상세는 주요 메뉴를 추가하지 않고 닫기 동작으로 나간다', async () => {
     const user = userEvent.setup();
     renderPage('/records/585');
     await screen.findByText('📍 매산로1가');
-
-    const menu = screen.getByRole('navigation', { name: '주요 메뉴' });
-    expect(within(menu).getByRole('link', { name: '대시보드' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    await user.click(within(menu).getByRole('link', { name: '대시보드' }));
-
-    expect(screen.getByTestId('current-path')).toHaveTextContent('/dashboard');
+    expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '자물쇠 상세 닫기' }));
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/');
   });
 
   it('loads the URL record ID and renders the detail response', async () => {
