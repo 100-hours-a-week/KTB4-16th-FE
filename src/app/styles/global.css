@@ -21,6 +21,8 @@
   --mulo-ink-400: #9a90b3;
   /* 창이 넓어져도 페이지·홈·독립 채팅은 같은 모바일 폭을 유지한다. */
   --mulo-mobile-max-width: 480px;
+  /* 홈과 모든 페이지가 공유하는 모바일 화면 높이 상한이다. */
+  --mulo-mobile-max-height: 852px;
   --mulo-page-gap: 24px;
   font-family: var(--mulo-font-sans);
   color: var(--mulo-ink-900);
@@ -101,8 +103,9 @@ a:hover {
 
 .auth-page {
   display: grid;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: min(100vh, var(--mulo-mobile-max-height));
+  height: min(100dvh, var(--mulo-mobile-max-height));
+  overflow: auto;
   place-items: center;
   padding: 24px;
 }
@@ -358,8 +361,8 @@ a:focus-visible {
   width: 100%;
   max-width: var(--mulo-mobile-max-width);
   margin-inline: auto;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* 긴 가입 폼은 인증 페이지 내부에서 스크롤하며 화면 상한을 넘기지 않는다. */
+  min-height: 100%;
   padding: 52px 22px 36px;
   border: 0;
   border-radius: 0;
@@ -374,7 +377,7 @@ a:focus-visible {
 .auth-card--login {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
 }
 
 .auth-card--signup {

@@ -123,13 +123,13 @@ describe('HomePage weather location handling', () => {
     const user = userEvent.setup();
     render(<HomePage />);
 
-    const playlistCard = screen.getByRole('button', { name: /지금 나를 위한 플레이리스트/ });
-    const matchingCard = screen.getByRole('button', { name: /취향 투표로 랜덤 채팅/ });
+    const playlistCard = screen.getByRole('button', { name: /지금 나를 위한 음악/ });
+    const matchingCard = screen.getByRole('button', { name: /취향이 맞는 사람과 대화/ });
 
     expect(
       playlistCard.compareDocumentPosition(matchingCard) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(matchingCard).toHaveTextContent('회원님이 좋아할 만한 취향 투표 질문을 준비했어요');
+    expect(matchingCard).toHaveTextContent('취향 투표로 시작하는 랜덤 채팅');
 
     await user.click(matchingCard);
 

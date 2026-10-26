@@ -4,8 +4,9 @@
   width: 100%;
   max-width: var(--mulo-mobile-max-width);
   /* Keep the shell bounded so its content can scroll without moving the bottom navigation. */
-  height: 100vh;
-  height: 100dvh;
+  /* 홈과 동일한 높이 상한을 적용하고 작은 창에서는 가시 높이에 맞춘다. */
+  height: min(100vh, var(--mulo-mobile-max-height));
+  height: min(100dvh, var(--mulo-mobile-max-height));
   min-height: 0;
   margin: 0 auto;
   flex-direction: column;

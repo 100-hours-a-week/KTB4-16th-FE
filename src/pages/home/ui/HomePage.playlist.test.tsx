@@ -74,7 +74,7 @@ it('추천을 지도 밖에서 열고 닫은 뒤 다시 열면 빈 세션으로 
       <HomePage />
     </MemoryRouter>,
   );
-  const open = screen.getByRole('button', { name: /지금 나를 위한 플레이리스트/ });
+  const open = screen.getByRole('button', { name: /지금 나를 위한 음악/ });
   await user.click(open);
   const sheet = await screen.findByRole('dialog', { name: 'AI 추천 플레이리스트' });
   expect(document.querySelector('[aria-label="홈 지도"]')?.contains(sheet)).toBe(false);
