@@ -120,7 +120,7 @@ describe('AppRouter', () => {
     renderRoute('/');
 
     await user.click(screen.getByRole('button', { name: '테스트 로그인' }));
-    await user.click(screen.getByRole('button', { name: /취향이 맞는 사람과 대화/ }));
+    await user.click(screen.getByRole('button', { name: /취향 투표로 랜덤 채팅/ }));
     expect(await screen.findByRole('heading', { name: '취향 투표' })).toBeInTheDocument();
     expect(screen.getByText('취향 투표 질문을 준비하고 있어요.')).toBeInTheDocument();
 

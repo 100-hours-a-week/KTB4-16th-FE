@@ -229,3 +229,22 @@
   font-size: 14px;
   font-weight: 800;
 }
+
+/* 저장 성공 뒤 홈에서 완료 결과를 읽고 직접 닫을 수 있도록 안내한다. */
+.home-created-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 18px;
+  flex-shrink: 0;
+  background: var(--mulo-mint-100);
+  color: var(--mulo-ink-900);
+}
+.home-created-notice button {
+  min-height: 44px;
+  padding: 8px;
+  background: transparent;
+  color: inherit;
+  flex-shrink: 0;
+}

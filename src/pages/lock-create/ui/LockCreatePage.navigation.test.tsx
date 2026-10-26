@@ -31,7 +31,7 @@ describe('LockCreatePage creation navigation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '생성 성공' }));
 
-    expect(navigate).toHaveBeenCalledWith('/', { replace: true });
+    expect(navigate).toHaveBeenCalledWith('/', { replace: true, state: { recordCreated: true } });
     expect(screen.queryByText(/#1356/)).not.toBeInTheDocument();
   });
 });
