@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DashboardContent } from './DashboardContent';
@@ -47,6 +47,34 @@ beforeEach(() => {
 });
 
 describe('DashboardContent', () => {
+  it('restores the selected region after closing a record detail', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route path="/dashboard" element={<DashboardContent />} />
+          <Route path="/records/:recordId" element={<DetailCloseProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByRole('button', { name: /영통동/ }));
+    await user.click(await screen.findByRole('link', { name: /REDRED/ }));
+    await user.click(screen.getByRole('button', { name: '상세 닫기' }));
+    expect(await screen.findByRole('link', { name: /REDRED/ })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '영통동 자물쇠' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '닫기' }));
+    expect(await screen.findByRole('button', { name: /영통동/ })).toBeInTheDocument();
+  });
+
+  it('restores a region list when opening its dashboard URL directly', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard?region=4111710100']}>
+        <DashboardContent />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('link', { name: /REDRED/ })).toBeInTheDocument();
+  });
+
   it('renders the album cover received in the selected region records response', async () => {
     const user = userEvent.setup();
     renderDashboard();
@@ -120,4 +148,10 @@ function renderDashboard() {
 function LocationProbe() {
   const location = useLocation();
   return <span data-testid="current-path">{location.pathname}</span>;
+}
+
+/** 실제 상세 닫기와 같은 뒤로가기로 대시보드의 재마운트를 재현한다. */
+function DetailCloseProbe() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate(-1)}>상세 닫기</button>;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
 import { getRecordRegions, type RecordRegion } from '../api/getRecordRegions';
@@ -12,6 +12,9 @@ type RecordsLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 /** 지역 목록과 선택 지역의 Cursor 기반 자물쇠 목록을 대시보드에서 관리한다. */
 export function DashboardContent() {
   const { fetchAuthenticatedJson } = useSession();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // 상세 화면에서 돌아와 재마운트되더라도 마지막 지역의 첫 목록을 복원한다.
+  const regionToRestoreRef = useRef(searchParams.get('region'));
   const regionsRequestRef = useRef<AbortController | null>(null);
   const recordsRequestRef = useRef<AbortController | null>(null);
   const recordsRequestIdRef = useRef(0);
@@ -39,7 +42,16 @@ export function DashboardContent() {
     setNextCursor(null);
     setIsLoadingMore(false);
     setLoadMoreFailed(false);
-  }, []);
+    regionToRestoreRef.current = null;
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete('region');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   /** 선택 지역의 첫 페이지 또는 다음 Cursor 페이지를 최신 요청만 반영한다. */
   const loadRegionRecords = useCallback(
@@ -122,6 +134,15 @@ export function DashboardContent() {
 
       setRegions(nextRegions);
       setRegionsLoadState(nextRegions.length === 0 ? 'empty' : 'ready');
+      // URL의 지역 코드는 서버가 반환한 본인 지역 목록과 대조해 복원한다.
+      const restoredRegion = nextRegions.find(
+        (region) => region.legalDongCode === regionToRestoreRef.current,
+      );
+      if (restoredRegion) {
+        selectedCodeRef.current = restoredRegion.legalDongCode;
+        setSelectedRegion(restoredRegion);
+        void loadRegionRecords(restoredRegion, null, false);
+      }
     } catch {
       if (!controller.signal.aborted && regionsRequestRef.current === controller) {
         setRegionsLoadState('error');
@@ -131,7 +152,7 @@ export function DashboardContent() {
         regionsRequestRef.current = null;
       }
     }
-  }, [fetchAuthenticatedJson]);
+  }, [fetchAuthenticatedJson, loadRegionRecords]);
 
   useEffect(() => {
     const requestFrame = requestAnimationFrame(() => {
@@ -146,7 +167,17 @@ export function DashboardContent() {
     };
   }, [loadRegions]);
 
+  /** 상세 이동 전에 현재 대시보드 기록에 지역을 보존해 닫기 시 복원한다. */
   function selectRegion(region: RecordRegion) {
+    regionToRestoreRef.current = region.legalDongCode;
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('region', region.legalDongCode);
+        return next;
+      },
+      { replace: true },
+    );
     selectedCodeRef.current = region.legalDongCode;
     setSelectedRegion(region);
     void loadRegionRecords(region, null, false);
