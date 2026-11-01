@@ -4,8 +4,11 @@ export type RecommendationCoordinates = {
   longitude: number;
 };
 
+export type RecommendationAttempt = 1 | 2 | 3;
+
 /** 이번 추천 화면에서 누적한 외부 곡 ID를 좌표와 함께 전달한다. */
 export type RecommendationPlaylistRequest = RecommendationCoordinates & {
+  recommendationAttempt: RecommendationAttempt;
   excludeTrackIds: string[];
 };
 

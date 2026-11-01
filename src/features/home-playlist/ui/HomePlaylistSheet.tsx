@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { useSession } from '../../../entities/session/model/useSession';
 import { createRecommendationPlaylist } from '../api/recommendationPlaylistApi';
 import type {
+  RecommendationAttempt,
   RecommendationCoordinates,
   RecommendationPlaylist,
   RecommendationTrack,
@@ -20,6 +21,11 @@ type HomePlaylistSheetProps = {
 
 const MAX_RECOMMENDATIONS = 3;
 type LoadState = 'idle' | 'ready' | 'error' | 'creating';
+
+function toRecommendationAttempt(value: number): RecommendationAttempt | null {
+  if (value === 1 || value === 2 || value === 3) return value;
+  return null;
+}
 
 /** 외부 링크가 브라우저에서 안전하게 열 수 있는 HTTP(S) URL인지 확인한다. */
 function isSafeExternalUrl(value: string): boolean {
@@ -190,11 +196,17 @@ export function HomePlaylistSheet({
     )
       return;
     const controller = new AbortController();
+    const recommendationAttempt = toRecommendationAttempt(successCountRef.current + 1);
+    if (recommendationAttempt === null) return;
     createControllerRef.current = controller;
     setLoadState('creating');
     try {
       const nextPlaylist = await createRecommendationPlaylist(
-        { ...currentLocation, excludeTrackIds: [...excludedTrackIdsRef.current] },
+        {
+          ...currentLocation,
+          recommendationAttempt,
+          excludeTrackIds: [...excludedTrackIdsRef.current],
+        },
         fetchAuthenticatedJson,
         controller.signal,
       );

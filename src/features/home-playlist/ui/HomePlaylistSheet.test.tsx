@@ -80,15 +80,22 @@ describe('HomePlaylistSheet session', () => {
     await user.click(button);
     expect(createRecommendationPlaylist).toHaveBeenCalledTimes(3);
     expect(vi.mocked(createRecommendationPlaylist).mock.calls.map(([request]) => request)).toEqual([
-      { latitude: 37.5, longitude: 127.03, excludeTrackIds: [] },
       {
         latitude: 37.5,
         longitude: 127.03,
+        recommendationAttempt: 1,
+        excludeTrackIds: [],
+      },
+      {
+        latitude: 37.5,
+        longitude: 127.03,
+        recommendationAttempt: 2,
         excludeTrackIds: ['track-1-0', 'track-1-1', 'track-1-2', 'track-1-3', 'track-1-4'],
       },
       {
         latitude: 37.5,
         longitude: 127.03,
+        recommendationAttempt: 3,
         excludeTrackIds: [
           'track-1-0',
           'track-1-1',
@@ -132,6 +139,27 @@ describe('HomePlaylistSheet session', () => {
     expect(vi.mocked(createRecommendationPlaylist).mock.calls[1][0]).toEqual(
       vi.mocked(createRecommendationPlaylist).mock.calls[2][0],
     );
+    expect(vi.mocked(createRecommendationPlaylist).mock.calls[1][0].recommendationAttempt).toBe(2);
+  });
+
+  it('첫 요청 실패 또는 fallback 뒤의 재시도도 1회차로 유지한다', async () => {
+    const user = userEvent.setup();
+    vi.mocked(createRecommendationPlaylist)
+      .mockRejectedValueOnce(new Error('추천 생성 실패'))
+      .mockRejectedValueOnce(new Error('RECOMMENDATION_NOT_CREATED'))
+      .mockResolvedValueOnce(playlist(1));
+    renderSheet();
+
+    await user.click(screen.getByRole('button', { name: '추천 받기' }));
+    await user.click(await screen.findByRole('button', { name: '다시 시도 · 3회 남음' }));
+    await user.click(await screen.findByRole('button', { name: '다시 시도 · 3회 남음' }));
+
+    expect(await screen.findByText('1회차 추천곡 1')).toBeInTheDocument();
+    expect(
+      vi
+        .mocked(createRecommendationPlaylist)
+        .mock.calls.map(([request]) => request.recommendationAttempt),
+    ).toEqual([1, 1, 1]);
   });
 
   it('요청 중 연타로 추가 요청을 보내지 않는다', () => {
@@ -192,6 +220,9 @@ describe('HomePlaylistSheet session', () => {
       if (hasPlaylist) {
         await user.click(screen.getByRole('button', { name: '추천 받기' }));
         await screen.findByText('1회차 추천곡 1');
+        expect(vi.mocked(createRecommendationPlaylist).mock.calls[0][0].recommendationAttempt).toBe(
+          1,
+        );
       }
       /** 초기 안내·추천 완료 상태에서도 모든 종료 경로에 같은 의사 확인을 적용한다. */
       function close() {
@@ -237,6 +268,7 @@ describe('HomePlaylistSheet session', () => {
     fireEvent.click(screen.getByRole('button', { name: '추천 받기' }));
     await screen.findByText('2회차 추천곡 1');
     expect(vi.mocked(createRecommendationPlaylist).mock.calls[1][0]).toMatchObject({
+      recommendationAttempt: 1,
       excludeTrackIds: [],
     });
   });
