@@ -9,6 +9,7 @@ afterEach(() => vi.clearAllMocks());
 
 const response = {
   message: '사진 기반 음악 추천 성공',
+  recommendationId: 19,
   data: Array.from({ length: 5 }, (_, index) => ({
     externalTrackId: `spotify-track-${index + 1}`,
     title: index === 0 ? 'REALLY REALLY' : `추천곡 ${index + 1}`,
@@ -26,7 +27,7 @@ describe('getPhotoMusicRecommendations', () => {
 
     await expect(
       getPhotoMusicRecommendations(77, fetchAuthenticatedJson, controller.signal),
-    ).resolves.toEqual(response.data);
+    ).resolves.toEqual({ recommendationId: 19, tracks: response.data });
 
     expect(fetchAuthenticatedJson).toHaveBeenCalledWith('/recommendations/photo', {
       method: 'POST',
@@ -34,6 +35,18 @@ describe('getPhotoMusicRecommendations', () => {
       headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': 'csrf' },
       body: JSON.stringify({ uploadId: 77 }),
       signal: controller.signal,
+    });
+  });
+
+  it('recommendationId가 없는 응답도 목록을 반환하고 ID는 null로 처리한다', async () => {
+    vi.mocked(getCsrfToken).mockResolvedValue('csrf');
+    const fetchAuthenticatedJson = vi
+      .fn()
+      .mockResolvedValue({ message: response.message, data: response.data });
+
+    await expect(getPhotoMusicRecommendations(77, fetchAuthenticatedJson)).resolves.toEqual({
+      recommendationId: null,
+      tracks: response.data,
     });
   });
 

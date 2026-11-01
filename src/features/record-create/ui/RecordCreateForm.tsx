@@ -124,6 +124,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photoSelectionIdRef = useRef(0);
   const recommendationRequestIdRef = useRef(0);
+  const feedbackSubmissionRef = useRef(false);
   const restoredLocationRef = useRef<RecordLocation | null>(null);
   const [location, setLocation] = useState<RecordLocation | null>(null);
   const [draftLocation, setDraftLocation] = useState<RecordLocation | null>(null);
@@ -139,12 +140,16 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [recommendations, setRecommendations] = useState<PhotoMusicRecommendation[]>([]);
+  const [recommendationId, setRecommendationId] = useState<number | null>(null);
   const [recommendationLoadState, setRecommendationLoadState] = useState<
     'loading' | 'ready' | 'error'
   >('ready');
   const [isRecommendationOpen, setIsRecommendationOpen] = useState(false);
   const [isRecommending, setIsRecommending] = useState(false);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
+  const [hasSubmittedRecommendationFeedback, setHasSubmittedRecommendationFeedback] =
+    useState(false);
   const [selectedMusic, setSelectedMusic] = useState<SelectedMusic | null>(null);
   const [moodScore, setMoodScore] = useState(0);
   const [comment, setComment] = useState('');
@@ -165,6 +170,12 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   if (!location) missingRequiredItems.push('위치 선택');
   if (!uploadId) missingRequiredItems.push('사진 업로드');
   if (!selectedMusic) missingRequiredItems.push('음악 선택');
+  const isPhotoRecommendationFeedbackRequired =
+    recommendationId !== null && recommendationLoadState === 'ready' && recommendations.length > 0;
+  const isPhotoRecommendationFeedbackLocked =
+    isRecommendationOpen &&
+    isPhotoRecommendationFeedbackRequired &&
+    !hasSubmittedRecommendationFeedback;
 
   useEffect(() => {
     let isActive = true;
@@ -350,6 +361,8 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     recommendationRequestIdRef.current += 1;
     const selectionId = photoSelectionIdRef.current;
     setRecommendations([]);
+    setRecommendationId(null);
+    setHasSubmittedRecommendationFeedback(false);
     setIsRecommendationOpen(false);
     setIsRecommending(false);
     setRecommendationLoadState('ready');
@@ -400,6 +413,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     if (!draftToRestore) return;
     recommendationRequestIdRef.current += 1;
     photoSelectionIdRef.current += 1;
+    setRecommendationId(null);
     restoredLocationRef.current = draftToRestore.location;
     setLocation(draftToRestore.location);
     setDraftLocation(null);
@@ -473,6 +487,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     setPhotoPreview(null);
     setPhotoError(null);
     setRecommendations([]);
+    setRecommendationId(null);
     setRecommendationLoadState('ready');
     setRecommendationError(null);
     setIsRecommendationOpen(false);
@@ -644,6 +659,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
 
   async function handleSubmit() {
     if (isSubmitting) return;
+    if (isPhotoRecommendationFeedbackLocked) return;
     if (!location || !uploadId || !selectedMusic) {
       setSubmitError('위치, 사진 업로드, 음악 선택을 모두 완료해 주세요.');
       return;
@@ -670,7 +686,8 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
 
   /** 최신 업로드 사진에 대해서만 사용자 요청 시 AI 음악 추천을 조회한다. */
   async function requestPhotoMusicRecommendations() {
-    if (!uploadId || isRecommending || isUploading || isSubmitting) return;
+    if (!uploadId || isRecommending || isUploading || isSubmitting || feedbackSubmissionRef.current)
+      return;
 
     const requestId = recommendationRequestIdRef.current + 1;
     const photoSelectionId = photoSelectionIdRef.current;
@@ -680,19 +697,19 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     setRecommendationLoadState('loading');
     setRecommendationError(null);
     setRecommendations([]);
+    setRecommendationId(null);
+    setHasSubmittedRecommendationFeedback(false);
 
     try {
-      const nextRecommendations = await getPhotoMusicRecommendations(
-        uploadId,
-        fetchAuthenticatedJson,
-      );
+      const result = await getPhotoMusicRecommendations(uploadId, fetchAuthenticatedJson);
       if (
         requestId !== recommendationRequestIdRef.current ||
         photoSelectionId !== photoSelectionIdRef.current
       ) {
         return;
       }
-      setRecommendations(nextRecommendations);
+      setRecommendationId(result.recommendationId);
+      setRecommendations(result.tracks);
       setRecommendationLoadState('ready');
     } catch (error) {
       if (
@@ -712,6 +729,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
 
   /** 추천곡을 기존 직접 검색과 같은 선택 음악 상태로 반영한다. */
   function selectRecommendedMusic(recommendation: PhotoMusicRecommendation) {
+    if (isPhotoRecommendationFeedbackLocked) return;
     setSelectedMusic(recommendation);
     setIsRecommendationOpen(false);
   }
@@ -871,7 +889,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
           <input
             aria-label="사진 업로드"
             accept="image/jpeg,image/png,image/heic,image/webp"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPhotoRecommendationFeedbackLocked}
             ref={photoInputRef}
             type="file"
             onChange={(event) => {
@@ -885,7 +903,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
           <button
             className="lock-create-upload"
             type="button"
-            disabled={isUploading || isSubmitting}
+            disabled={isUploading || isSubmitting || isPhotoRecommendationFeedbackLocked}
             onClick={() => photoInputRef.current?.click()}
           >
             {isUploading ? '사진 업로드 중…' : '사진 바꾸기'}
@@ -894,7 +912,9 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         <button
           className="lock-create-ai"
           type="button"
-          disabled={!uploadId || isUploading || isSubmitting || isRecommending}
+          disabled={
+            !uploadId || isUploading || isSubmitting || isRecommending || isFeedbackSubmitting
+          }
           onClick={() => void requestPhotoMusicRecommendations()}
         >
           {isRecommending ? '음악 추천 중…' : '✨ AI 음악 추천받기'}
@@ -965,7 +985,13 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
       <button
         className="lock-create-save"
         type="button"
-        disabled={isSubmitting || !location || !uploadId || !selectedMusic}
+        disabled={
+          isSubmitting ||
+          isPhotoRecommendationFeedbackLocked ||
+          !location ||
+          !uploadId ||
+          !selectedMusic
+        }
         onClick={() => void handleSubmit()}
       >
         {isSubmitting ? '자물쇠 저장 중…' : '🔒 자물쇠 저장하기'}
@@ -1090,6 +1116,15 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         errorMessage={recommendationError}
         isOpen={isRecommendationOpen}
         loadState={recommendationLoadState}
+        recommendationId={recommendationId}
+        isFeedbackRequired={isPhotoRecommendationFeedbackRequired}
+        hasSubmittedFeedback={hasSubmittedRecommendationFeedback}
+        onFeedbackSubmitted={() => setHasSubmittedRecommendationFeedback(true)}
+        isFeedbackSubmitting={isRecommending || isFeedbackSubmitting}
+        onFeedbackSubmittingChange={(value) => {
+          feedbackSubmissionRef.current = value;
+          setIsFeedbackSubmitting(value);
+        }}
         onClose={() => setIsRecommendationOpen(false)}
         onDirectSearch={() => setIsRecommendationOpen(false)}
         onRetry={() => void requestPhotoMusicRecommendations()}

@@ -25,5 +25,6 @@ export type RecommendationTrack = {
 /** 로그인 사용자의 현재 추천 플레이리스트와 서버 정렬 순서의 트랙 목록이다. */
 export type RecommendationPlaylist = {
   recommendationPlaylistId: number;
+  recommendationId?: number;
   tracks: RecommendationTrack[];
 };
