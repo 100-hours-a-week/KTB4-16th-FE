@@ -16,14 +16,14 @@
 
 ## 기존 내용과 수정 내용
 
-| 책임                     | 기존                          | 수정                                           |
-| ------------------------ | ----------------------------- | ---------------------------------------------- |
-| `HomePlaylistSheet` 진입 | 마지막 DB 추천 조회           | 안내와 최초 추천 버튼                          |
-| 추천 생성                | 횟수·제외 목록 없이 호출      | 성공 최대 3회, 누적 제외 목록 전달             |
-| 생성 실패                | 오류 표시                     | 현재 세션의 표시 목록·횟수·제외 ID 유지        |
-| 시트 배치                | `HomeMap`의 자식              | `HomePage`에서 지도와 별도로 렌더링            |
-| 생성 요청 DTO            | `latitude`, `longitude`       | 필수 `recommendationAttempt` 및 선택 `excludeTrackIds` 추가 |
-| 곡 응답 DTO              | 내부 `musicTrackId` 및 표시값 | `externalTrackId` 추가                         |
+| 책임                     | 기존                          | 수정                                                          |
+| ------------------------ | ----------------------------- | ------------------------------------------------------------- |
+| `HomePlaylistSheet` 진입 | 마지막 DB 추천 조회           | 안내와 최초 추천 버튼                                         |
+| 추천 생성                | 횟수·제외 목록 없이 호출      | 성공 최대 3회, 누적 제외 목록 전달                            |
+| 생성 실패                | 오류 표시                     | 현재 세션의 표시 목록·횟수·제외 ID 유지                       |
+| 시트 배치                | `HomeMap`의 자식              | `HomePage`에서 지도와 별도로 렌더링                           |
+| 생성 요청 DTO            | `latitude`, `longitude`       | 필수 `recommendationAttempt` 및 선택 `excludeTrackIds` 추가   |
+| 곡 응답 DTO              | 내부 `musicTrackId` 및 표시값 | `externalTrackId` 추가                                        |
 | POST 응답                | 저장/유지에 따라 201/200      | `data.replaced`와 정상 생성 시 최상위 `recommendationId` 추가 |
 
 생성 요청 본문은 기존 `JSON.stringify(coordinates)`에서 `JSON.stringify(request)`로 바뀌며 다음 세 필드를 전송한다.
