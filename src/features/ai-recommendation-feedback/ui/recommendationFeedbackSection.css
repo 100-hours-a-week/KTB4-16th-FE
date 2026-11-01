@@ -1,0 +1,138 @@
+.recommendation-feedback {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.recommendation-feedback-divider {
+  height: 1px;
+  background: #ece3f7;
+}
+
+.recommendation-feedback-question {
+  margin: 0;
+  color: #332b4a;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.recommendation-feedback-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.recommendation-feedback-actions button {
+  min-width: 112px;
+  padding: 9px 14px;
+  border: 1px solid #dccbf0;
+  border-radius: 999px;
+  background: #fff;
+  color: #66539b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.recommendation-feedback-actions button.is-selected {
+  border-color: #9471d8;
+  background: #f3edfc;
+  color: #5e438f;
+}
+
+.recommendation-feedback-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.recommendation-feedback-track-selection {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.recommendation-feedback-track-selection legend {
+  margin-bottom: 4px;
+  color: #6c6285;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.recommendation-feedback-track-selection label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #ece3f7;
+  border-radius: 10px;
+}
+
+.recommendation-feedback-track-selection input {
+  flex: 0 0 auto;
+  accent-color: #9471d8;
+}
+
+.recommendation-feedback-track-selection label > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.recommendation-feedback-track-selection strong,
+.recommendation-feedback-track-selection small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommendation-feedback-track-selection strong {
+  color: #332b4a;
+  font-size: 12px;
+}
+
+.recommendation-feedback-track-selection small {
+  color: #9a90b3;
+  font-size: 11px;
+}
+
+.recommendation-feedback-submit {
+  width: min(100%, 240px);
+  justify-self: center;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #9471d8, #7959ba);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.recommendation-feedback-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.recommendation-feedback-note,
+.recommendation-feedback-success,
+.recommendation-feedback-error {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.recommendation-feedback-note {
+  color: #9a90b3;
+}
+
+.recommendation-feedback-success {
+  color: #27836c;
+  font-weight: 700;
+}
+
+.recommendation-feedback-error {
+  color: #b64d4d;
+}

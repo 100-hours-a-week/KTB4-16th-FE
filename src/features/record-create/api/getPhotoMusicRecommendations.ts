@@ -9,9 +9,13 @@ export type PhotoMusicRecommendation = {
   externalUrl: string;
 };
 
-type PhotoMusicRecommendationsResponse = {
+export type PhotoMusicRecommendations = {
+  recommendationId: number | null;
+  tracks: PhotoMusicRecommendation[];
+};
+
+type PhotoMusicRecommendationsResponse = PhotoMusicRecommendations & {
   message: string;
-  data: PhotoMusicRecommendation[];
 };
 
 const REQUIRED_PHOTO_RECOMMENDATION_COUNT = 5;
@@ -21,7 +25,7 @@ export async function getPhotoMusicRecommendations(
   uploadId: number,
   fetchAuthenticatedJson: AuthenticatedApiClient['fetchJson'],
   signal?: AbortSignal,
-): Promise<PhotoMusicRecommendation[]> {
+): Promise<PhotoMusicRecommendations> {
   if (!Number.isSafeInteger(uploadId) || uploadId <= 0) {
     throw new Error('유효한 사진 업로드 정보가 필요합니다.');
   }
@@ -35,7 +39,8 @@ export async function getPhotoMusicRecommendations(
     signal,
   });
 
-  return parsePhotoMusicRecommendationsResponse(response).data;
+  const parsed = parsePhotoMusicRecommendationsResponse(response);
+  return { recommendationId: parsed.recommendationId, tracks: parsed.tracks };
 }
 
 /** 신뢰할 수 없는 사진 추천 응답을 작성 화면에서 사용할 음악 목록으로 검증한다. */
@@ -43,11 +48,22 @@ function parsePhotoMusicRecommendationsResponse(value: unknown): PhotoMusicRecom
   if (!isRecord(value) || typeof value.message !== 'string' || !Array.isArray(value.data)) {
     throw new Error('음악 추천 응답 형식이 올바르지 않습니다.');
   }
+  const recommendationId = parseRecommendationId(value.recommendationId);
   if (value.data.length !== REQUIRED_PHOTO_RECOMMENDATION_COUNT) {
     throw new Error('음악 추천 응답 형식이 올바르지 않습니다.');
   }
 
-  return { message: value.message, data: value.data.map(parsePhotoMusicRecommendation) };
+  return {
+    message: value.message,
+    recommendationId,
+    tracks: value.data.map(parsePhotoMusicRecommendation),
+  };
+}
+
+function parseRecommendationId(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return value;
+  throw new Error('음악 추천 응답 형식이 올바르지 않습니다.');
 }
 
 function parsePhotoMusicRecommendation(value: unknown): PhotoMusicRecommendation {

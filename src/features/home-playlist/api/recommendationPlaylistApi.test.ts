@@ -91,7 +91,7 @@ describe('recommendationPlaylistApi', () => {
         },
         request,
       ),
-    ).resolves.toEqual(playlist);
+    ).resolves.toEqual({ ...playlist, recommendationId: 44 });
     expect(request).toHaveBeenCalledWith('/recommendations/playlists', {
       method: 'POST',
       credentials: 'include',

@@ -7,11 +7,23 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { createRecommendationPlaylist } from '../../../features/home-playlist/api/recommendationPlaylistApi';
 import { HomePage } from './HomePage';
 
+vi.mock('../../../shared/api/csrf', () => ({ getCsrfToken: async () => 'test-csrf' }));
 vi.mock('../../../entities/session/model/useSession', () => ({
   useSession: () => ({
     isAuthenticated: true,
     isSessionRestoring: false,
-    fetchAuthenticatedJson: async () => ({ data: { notifications: [], nextCursor: null } }),
+    fetchAuthenticatedJson: async (path: string) =>
+      path.includes('/feedback')
+        ? {
+            message: '피드백 제출 성공',
+            data: {
+              feedbackId: 1,
+              recommendationId: 17,
+              feedback: 'LIKE',
+              selectedTrackId: 'track-0',
+            },
+          }
+        : { data: { notifications: [], nextCursor: null } },
   }),
 }));
 vi.mock('../../../features/home-playlist/api/recommendationPlaylistApi', () => ({
@@ -60,6 +72,7 @@ it('추천을 지도 밖에서 열고 닫은 뒤 다시 열면 빈 세션으로 
   const user = userEvent.setup();
   vi.mocked(createRecommendationPlaylist).mockResolvedValue({
     recommendationPlaylistId: 1,
+    recommendationId: 17,
     tracks: Array.from({ length: 5 }, (_, index) => ({
       musicTrackId: index + 1,
       externalTrackId: `track-${index}`,
@@ -80,6 +93,10 @@ it('추천을 지도 밖에서 열고 닫은 뒤 다시 열면 빈 세션으로 
   expect(document.querySelector('[aria-label="홈 지도"]')?.contains(sheet)).toBe(false);
   await user.click(screen.getByRole('button', { name: '추천 받기' }));
   expect(await screen.findByText('이번 세션 곡 0')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '👍 좋아요' }));
+  await user.click(screen.getAllByRole('radio')[0]);
+  await user.click(screen.getByRole('button', { name: '평가 제출하기' }));
+  expect(await screen.findByText('평가를 제출했어요.')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '플레이리스트 안내 닫기' }));
   fireEvent.transitionEnd(sheet, { propertyName: 'transform' });
   await waitFor(() => expect(document.querySelector('.home-playlist-sheet')).toBeNull());

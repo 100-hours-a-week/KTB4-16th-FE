@@ -24,6 +24,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../../entities/session/model/useSession', () => ({
   useSession: () => ({ fetchAuthenticatedJson: mocks.fetchAuthenticatedJson }),
 }));
+vi.mock('../../../shared/api/csrf', () => ({
+  getCsrfToken: vi.fn().mockResolvedValue('test-csrf'),
+}));
 vi.mock('../../home-map/lib/kakaoMap', () => ({ loadKakaoMapSdk: mocks.loadKakaoMapSdk }));
 vi.mock('../../music-search/api/musicSearchApi', () => ({ searchMusic: vi.fn() }));
 vi.mock('../api/createRecord', () => ({ createRecord: mocks.createRecord }));
@@ -96,7 +99,10 @@ beforeEach(() => {
   mocks.loadKakaoMapSdk.mockResolvedValue(createKakaoMaps());
   mocks.uploadPhoto.mockResolvedValue(77);
   mocks.getUploadSignedUrl.mockResolvedValue('https://storage.example/photo.jpg?signature=temp');
-  mocks.getPhotoMusicRecommendations.mockResolvedValue([selectedMusic]);
+  mocks.getPhotoMusicRecommendations.mockResolvedValue({
+    recommendationId: 19,
+    tracks: [selectedMusic],
+  });
   mocks.getRecordDraft.mockResolvedValue(null);
   mocks.saveRecordDraft.mockResolvedValue(undefined);
   mocks.deleteRecordDraft.mockResolvedValue(undefined);
@@ -593,7 +599,7 @@ describe('RecordCreateForm', () => {
     );
   });
 
-  it('requests photo music recommendations only after an uploaded photo and selects one through selectedMusic', async () => {
+  it('requires successful feedback before selecting a photo recommendation', async () => {
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
 
@@ -607,7 +613,19 @@ describe('RecordCreateForm', () => {
 
     expect(getPhotoMusicRecommendations).toHaveBeenCalledOnce();
     expect(getPhotoMusicRecommendations).toHaveBeenCalledWith(77, expect.any(Function));
-    fireEvent.click(await screen.findByRole('button', { name: /REALLY REALLY/ }));
+    const recommendationButton = await screen.findByRole('button', { name: /REALLY REALLY/ });
+    fireEvent.click(recommendationButton);
+    expect(screen.getByRole('dialog', { name: '사진 음악 추천' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('현재 선택한 음악')).not.toBeInTheDocument();
+
+    mocks.fetchAuthenticatedJson.mockResolvedValueOnce({
+      message: '피드백 제출 성공',
+      data: { feedbackId: 7, recommendationId: 19, feedback: 'LIKE', selectedTrackId: null },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '👍 좋아요' }));
+    fireEvent.click(screen.getByRole('button', { name: '평가 제출하기' }));
+    expect(await screen.findByText('평가를 제출했어요.')).toBeInTheDocument();
+    fireEvent.click(recommendationButton);
 
     expect(screen.queryByRole('dialog', { name: '사진 음악 추천' })).not.toBeInTheDocument();
     expect(
@@ -616,12 +634,16 @@ describe('RecordCreateForm', () => {
   });
 
   it('clears photo recommendations when a replacement photo is selected', async () => {
-    let resolveRecommendations: ((value: (typeof selectedMusic)[]) => void) | undefined;
+    let resolveRecommendations:
+      | ((value: { recommendationId: number | null; tracks: (typeof selectedMusic)[] }) => void)
+      | undefined;
     mocks.getPhotoMusicRecommendations.mockImplementationOnce(
       () =>
-        new Promise<(typeof selectedMusic)[]>((resolve) => {
-          resolveRecommendations = resolve;
-        }),
+        new Promise<{ recommendationId: number | null; tracks: (typeof selectedMusic)[] }>(
+          (resolve) => {
+            resolveRecommendations = resolve;
+          },
+        ),
     );
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
@@ -632,7 +654,7 @@ describe('RecordCreateForm', () => {
     fireEvent.change(input as HTMLInputElement, {
       target: { files: [new File(['second'], 'second.jpg', { type: 'image/jpeg' })] },
     });
-    resolveRecommendations?.([selectedMusic]);
+    resolveRecommendations?.({ recommendationId: 19, tracks: [selectedMusic] });
 
     await screen.findByRole('button', { name: '사진 바꾸기' });
     expect(screen.queryByRole('dialog', { name: '사진 음악 추천' })).not.toBeInTheDocument();
@@ -641,7 +663,7 @@ describe('RecordCreateForm', () => {
   it('keeps the form inputs and allows a failed recommendation request to be retried', async () => {
     mocks.getPhotoMusicRecommendations
       .mockRejectedValueOnce(new Error('추천 실패'))
-      .mockResolvedValueOnce([selectedMusic]);
+      .mockResolvedValueOnce({ recommendationId: 19, tracks: [selectedMusic] });
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
     await selectAndUploadPhoto(input, new File(['photo'], 'memory.jpg', { type: 'image/jpeg' }));

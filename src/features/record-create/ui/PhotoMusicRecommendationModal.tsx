@@ -1,10 +1,18 @@
 import type { PhotoMusicRecommendation } from '../api/getPhotoMusicRecommendations';
+import { useCallback, useEffect, useState } from 'react';
+import { RecommendationFeedbackSection } from '../../ai-recommendation-feedback';
 import './photoMusicRecommendationModal.css';
 
 type Props = {
   isOpen: boolean;
   loadState: 'loading' | 'ready' | 'error';
   recommendations: PhotoMusicRecommendation[];
+  recommendationId: number | null;
+  isFeedbackRequired?: boolean;
+  hasSubmittedFeedback?: boolean;
+  onFeedbackSubmitted?: () => void;
+  isFeedbackSubmitting: boolean;
+  onFeedbackSubmittingChange: (isSubmitting: boolean) => void;
   errorMessage: string | null;
   onClose: () => void;
   onDirectSearch: () => void;
@@ -17,16 +25,51 @@ export function PhotoMusicRecommendationModal({
   isOpen,
   loadState,
   recommendations,
+  recommendationId,
+  isFeedbackRequired = false,
+  hasSubmittedFeedback = false,
+  onFeedbackSubmitted,
+  isFeedbackSubmitting,
+  onFeedbackSubmittingChange,
   errorMessage,
   onClose,
   onDirectSearch,
   onSelect,
   onRetry,
 }: Props) {
+  const [showBlockedHint, setShowBlockedHint] = useState(false);
+  const canLeave = !isFeedbackRequired || hasSubmittedFeedback;
+
+  const requestAction = useCallback(
+    (action: () => void) => {
+      if (!canLeave) {
+        setShowBlockedHint(true);
+        return;
+      }
+      setShowBlockedHint(false);
+      action();
+    },
+    [canLeave],
+  );
+
+  const requestClose = useCallback(() => requestAction(onClose), [onClose, requestAction]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      requestClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, requestClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="photo-music-recommendation-overlay" role="presentation" onClick={onClose}>
+    <div className="photo-music-recommendation-overlay" role="presentation" onClick={requestClose}>
       <section
         aria-label="사진 음악 추천"
         aria-modal="true"
@@ -36,7 +79,7 @@ export function PhotoMusicRecommendationModal({
       >
         <div className="photo-music-recommendation-heading">
           <h2>이 사진과 어울리는 음악 ✨</h2>
-          <button aria-label="사진 음악 추천 닫기" type="button" onClick={onClose}>
+          <button aria-label="사진 음악 추천 닫기" type="button" onClick={requestClose}>
             ×
           </button>
         </div>
@@ -59,32 +102,53 @@ export function PhotoMusicRecommendationModal({
           </p>
         ) : null}
         {loadState === 'ready' && recommendations.length > 0 ? (
-          <ul className="photo-music-recommendation-list" aria-label="사진 음악 추천 결과">
-            {recommendations.map((recommendation) => (
-              <li key={recommendation.externalTrackId}>
-                <button type="button" onClick={() => onSelect(recommendation)}>
-                  <span className="photo-music-recommendation-cover">
-                    <img
-                      alt={`${recommendation.title} - ${recommendation.artistName} 앨범 커버`}
-                      src={recommendation.albumImageUrl}
-                      onError={(event) => {
-                        event.currentTarget.hidden = true;
-                      }}
-                    />
-                  </span>
-                  <span>
-                    <strong>{recommendation.title}</strong>
-                    <small>{recommendation.artistName}</small>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="photo-music-recommendation-list" aria-label="사진 음악 추천 결과">
+              {recommendations.map((recommendation) => (
+                <li key={recommendation.externalTrackId}>
+                  <button
+                    type="button"
+                    onClick={() => requestAction(() => onSelect(recommendation))}
+                  >
+                    <span className="photo-music-recommendation-cover">
+                      <img
+                        alt={`${recommendation.title} - ${recommendation.artistName} 앨범 커버`}
+                        src={recommendation.albumImageUrl}
+                        onError={(event) => {
+                          event.currentTarget.hidden = true;
+                        }}
+                      />
+                    </span>
+                    <span>
+                      <strong>{recommendation.title}</strong>
+                      <small>{recommendation.artistName}</small>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <RecommendationFeedbackSection
+              recommendationId={recommendationId}
+              tracks={recommendations}
+              allowTrackSelection={false}
+              onSubmitted={() => {
+                setShowBlockedHint(false);
+                onFeedbackSubmitted?.();
+              }}
+              disabled={isFeedbackSubmitting}
+              onSubmittingChange={onFeedbackSubmittingChange}
+            />
+          </>
+        ) : null}
+        {showBlockedHint ? (
+          <p className="photo-music-recommendation-status" role="status">
+            추천 결과를 평가한 후 다음 단계로 진행할 수 있어요.
+          </p>
         ) : null}
         <button
           className="photo-music-recommendation-search"
           type="button"
-          onClick={onDirectSearch}
+          onClick={() => requestAction(onDirectSearch)}
         >
           직접 검색하기
         </button>
