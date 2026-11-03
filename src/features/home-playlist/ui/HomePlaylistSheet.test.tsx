@@ -4,10 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AiRecommendationFeedbackResponse } from '../../ai-recommendation-feedback/api/aiRecommendationFeedbackApi';
-import {
-  createRecommendationPlaylist,
-  getRecommendationPlaylist,
-} from '../api/recommendationPlaylistApi';
+import { createRecommendationPlaylist } from '../api/recommendationPlaylistApi';
 import { HomePlaylistSheet } from './HomePlaylistSheet';
 
 const mocks = vi.hoisted(() => ({
@@ -20,14 +17,13 @@ vi.mock('../../ai-recommendation-feedback/api/aiRecommendationFeedbackApi', () =
   submitAiRecommendationFeedback: mocks.submitFeedback,
 }));
 vi.mock('../api/recommendationPlaylistApi', () => ({
-  getRecommendationPlaylist: vi.fn(),
   createRecommendationPlaylist: vi.fn(),
 }));
 
 /** 각 회차마다 서로 다른 외부 곡 ID를 가진 다섯 곡을 준비한다. */
 function playlist(round: number, trackCount = 5) {
   return {
-    recommendationPlaylistId: round,
+    recommendReason: `${round}회차의 추천 이유 🌙\n함께 들어요.`,
     recommendationId: round + 100,
     tracks: Array.from({ length: trackCount }, (_, index) => ({
       musicTrackId: round * 10 + index,
@@ -74,11 +70,31 @@ beforeEach(() => {
 });
 
 describe('HomePlaylistSheet session', () => {
+  it('추천 결과 위에 AI 추천 이유 원문을 표시한다', async () => {
+    vi.mocked(createRecommendationPlaylist).mockResolvedValue(playlist(1));
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: '추천 받기' }));
+    expect((await screen.findByRole('note', { name: '추천 이유' })).textContent).toBe(
+      '1회차의 추천 이유 🌙\n함께 들어요.',
+    );
+  });
+
+  it.each([null, '', '   '])('추천 이유가 %j이면 빈 안내 영역을 만들지 않는다', async (reason) => {
+    vi.mocked(createRecommendationPlaylist).mockResolvedValue({
+      ...playlist(1),
+      recommendReason: reason,
+    });
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: '추천 받기' }));
+    await screen.findByText('1회차 추천곡 1');
+    expect(screen.queryByRole('note', { name: '추천 이유' })).not.toBeInTheDocument();
+  });
+
   it('진입 시 이전 추천 조회와 자동 생성 없이 3회 안내를 표시한다', () => {
     renderSheet();
     expect(screen.getByText(/이 창에서 최대 3번/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '추천 받기' })).toBeEnabled();
-    expect(getRecommendationPlaylist).not.toHaveBeenCalled();
+    expect(mocks.fetchAuthenticatedJson).not.toHaveBeenCalled();
     expect(createRecommendationPlaylist).not.toHaveBeenCalled();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
@@ -96,6 +112,9 @@ describe('HomePlaylistSheet session', () => {
     await submitCurrentPlaylistFeedback();
     await user.click(screen.getByRole('button', { name: '다시 추천받기 · 2회 남음' }));
     expect(await screen.findByText('2회차 추천곡 1')).toBeInTheDocument();
+    expect(screen.getByRole('note', { name: '추천 이유' }).textContent).toBe(
+      '2회차의 추천 이유 🌙\n함께 들어요.',
+    );
     expect(screen.queryByText('1회차 추천곡 1')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '평가 제출하기' })).toBeDisabled();
     await submitCurrentPlaylistFeedback();
@@ -177,6 +196,9 @@ describe('HomePlaylistSheet session', () => {
     await user.click(await screen.findByRole('button', { name: '다시 추천받기 · 2회 남음' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getAllByText('1회차 추천곡 1')).toHaveLength(2);
+    expect(screen.getByRole('note', { name: '추천 이유' }).textContent).toBe(
+      '1회차의 추천 이유 🌙\n함께 들어요.',
+    );
     expect(screen.getByText('평가를 제출했어요.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '다시 시도 · 2회 남음' }));
     expect(await screen.findByRole('button', { name: '다시 추천받기 · 1회 남음' })).toBeDisabled();

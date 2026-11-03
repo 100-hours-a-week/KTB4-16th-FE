@@ -15,6 +15,8 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   display: grid;
+  /* 스크롤바가 생겨도 내용의 최소 폭 때문에 모달이 가로로 넘치지 않게 한다. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   padding: 18px;
   border: 1px solid #dccbf0;
@@ -146,4 +148,21 @@
 .photo-music-recommendation-search {
   width: 100%;
   padding: 10px;
+}
+
+.photo-music-recommendation-reason {
+  /* 원문의 개행·긴 단어를 보존하면서 좁은 화면 안에서 줄바꿈한다. */
+  min-width: 0;
+  margin: 0;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--mulo-line-strong);
+  border-radius: 0 10px 10px 0;
+  background: #f8f4fd;
+  color: var(--mulo-ink-900);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

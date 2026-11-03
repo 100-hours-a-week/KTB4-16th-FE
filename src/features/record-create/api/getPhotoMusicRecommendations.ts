@@ -11,6 +11,7 @@ export type PhotoMusicRecommendation = {
 
 export type PhotoMusicRecommendations = {
   recommendationId: number | null;
+  recommendReason: string | null;
   tracks: PhotoMusicRecommendation[];
 };
 
@@ -40,7 +41,11 @@ export async function getPhotoMusicRecommendations(
   });
 
   const parsed = parsePhotoMusicRecommendationsResponse(response);
-  return { recommendationId: parsed.recommendationId, tracks: parsed.tracks };
+  return {
+    recommendationId: parsed.recommendationId,
+    recommendReason: parsed.recommendReason,
+    tracks: parsed.tracks,
+  };
 }
 
 /** 신뢰할 수 없는 사진 추천 응답을 작성 화면에서 사용할 음악 목록으로 검증한다. */
@@ -56,10 +61,19 @@ function parsePhotoMusicRecommendationsResponse(value: unknown): PhotoMusicRecom
   return {
     message: value.message,
     recommendationId,
+    recommendReason: parseRecommendReason(value.recommendReason),
     tracks: value.data.map(parsePhotoMusicRecommendation),
   };
 }
 
+/** AI 문구 원문을 보존하며 선택 필드의 누락은 null로 처리한다. */
+function parseRecommendReason(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string') return value;
+  throw new Error('음악 추천 응답 형식이 올바르지 않습니다.');
+}
+
+/** 선택적인 평가 결과 ID를 검증한다. */
 function parseRecommendationId(value: unknown): number | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return value;

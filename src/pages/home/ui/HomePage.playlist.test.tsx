@@ -71,7 +71,7 @@ beforeEach(() => {
 it('추천을 지도 밖에서 열고 닫은 뒤 다시 열면 빈 세션으로 시작한다', async () => {
   const user = userEvent.setup();
   vi.mocked(createRecommendationPlaylist).mockResolvedValue({
-    recommendationPlaylistId: 1,
+    recommendReason: '이번 화면에만 표시할 추천 이유',
     recommendationId: 17,
     tracks: Array.from({ length: 5 }, (_, index) => ({
       musicTrackId: index + 1,
@@ -93,6 +93,9 @@ it('추천을 지도 밖에서 열고 닫은 뒤 다시 열면 빈 세션으로 
   expect(document.querySelector('[aria-label="홈 지도"]')?.contains(sheet)).toBe(false);
   await user.click(screen.getByRole('button', { name: '추천 받기' }));
   expect(await screen.findByText('이번 세션 곡 0')).toBeInTheDocument();
+  expect(screen.getByRole('note', { name: '추천 이유' })).toHaveTextContent(
+    '이번 화면에만 표시할 추천 이유',
+  );
   await user.click(screen.getByRole('button', { name: '👍 좋아요' }));
   await user.click(screen.getAllByRole('radio')[0]);
   await user.click(screen.getByRole('button', { name: '평가 제출하기' }));
@@ -103,4 +106,5 @@ it('추천을 지도 밖에서 열고 닫은 뒤 다시 열면 빈 세션으로 
   await user.click(open);
   expect(await screen.findByRole('button', { name: '추천 받기' })).toBeEnabled();
   expect(screen.queryByText('이번 세션 곡 0')).not.toBeInTheDocument();
+  expect(screen.queryByRole('note', { name: '추천 이유' })).not.toBeInTheDocument();
 });
