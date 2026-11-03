@@ -2,15 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../../shared/api/apiError';
 import { getCsrfToken } from '../../../shared/api/csrf';
-import {
-  createRecommendationPlaylist,
-  getRecommendationPlaylist,
-} from './recommendationPlaylistApi';
+import { createRecommendationPlaylist } from './recommendationPlaylistApi';
 
 vi.mock('../../../shared/api/csrf', () => ({ getCsrfToken: vi.fn() }));
 
 const playlist = {
-  recommendationPlaylistId: 71,
   tracks: [
     {
       musicTrackId: 3,
@@ -31,32 +27,42 @@ const playlist = {
   ],
 };
 
-beforeEach(() => vi.clearAllMocks());
+const requestBody = {
+  latitude: 37.5,
+  longitude: 127,
+  recommendationAttempt: 1 as const,
+  excludeTrackIds: [],
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
+});
 
 describe('recommendationPlaylistApi', () => {
-  it('저장된 플레이리스트가 없으면 null을 정상 반환한다', async () => {
+  it('저장용 플리 ID 없이 AI 추천 이유와 평가 ID를 그대로 반환한다', async () => {
+    vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
+    const reason = '  선선한 저녁 🌙\n잔잔하게 들어요.  ';
     const request = vi.fn().mockResolvedValue({
-      message: '현재 추천 플레이리스트 조회 성공',
-      data: { playlist: null },
+      message: '추천 플레이리스트 생성 성공',
+      recommendationId: 44,
+      recommendReason: reason,
+      data: { playlist: { tracks: playlist.tracks }, replaced: true },
     });
 
-    await expect(getRecommendationPlaylist(request)).resolves.toBeNull();
-    expect(request).toHaveBeenCalledWith('/recommendations/playlists', { signal: undefined });
-  });
-
-  it('저장된 플레이리스트를 화면용 트랙 목록으로 변환한다', async () => {
-    const request = vi.fn().mockResolvedValue({
-      message: '현재 추천 플레이리스트 조회 성공',
-      data: { playlist, replaced: true },
-    });
-
-    await expect(getRecommendationPlaylist(request)).resolves.toEqual(playlist);
+    await expect(
+      createRecommendationPlaylist(
+        { latitude: 37.5, longitude: 127, recommendationAttempt: 1, excludeTrackIds: [] },
+        request,
+      ),
+    ).resolves.toEqual({ recommendationId: 44, recommendReason: reason, tracks: playlist.tracks });
   });
 
   it.each([4, 6])('곡이 정확히 5개가 아닌 %i개인 플레이리스트 응답을 거부한다', async (count) => {
     const request = vi.fn().mockResolvedValue({
       message: '현재 추천 플레이리스트 조회 성공',
       data: {
+        replaced: true,
         playlist: {
           ...playlist,
           tracks: Array.from({ length: count }, (_, index) => ({
@@ -67,11 +73,42 @@ describe('recommendationPlaylistApi', () => {
       },
     });
 
-    await expect(getRecommendationPlaylist(request)).rejects.toMatchObject({
+    await expect(createRecommendationPlaylist(requestBody, request)).rejects.toMatchObject({
       status: 502,
       code: 'INVALID_RESPONSE',
     } satisfies Partial<ApiError>);
   });
+
+  it.each([undefined, null, '', '   '])(
+    '이유가 %j여도 추천은 성공하고 누락만 null로 처리한다',
+    async (reason) => {
+      const request = vi.fn().mockResolvedValue({
+        message: '생성 성공',
+        recommendReason: reason,
+        recommendationId: 44,
+        data: { playlist, replaced: true },
+      });
+      await expect(createRecommendationPlaylist(requestBody, request)).resolves.toEqual({
+        ...playlist,
+        recommendationId: 44,
+        recommendReason: reason ?? null,
+      });
+    },
+  );
+
+  it.each([1, false, {}, []])(
+    '문자열이 아닌 추천 이유 %j는 응답 계약 오류로 처리한다',
+    async (reason) => {
+      const request = vi.fn().mockResolvedValue({
+        message: '생성 성공',
+        recommendReason: reason,
+        data: { playlist, replaced: true },
+      });
+      await expect(createRecommendationPlaylist(requestBody, request)).rejects.toMatchObject({
+        code: 'INVALID_RESPONSE',
+      });
+    },
+  );
 
   it('CSRF와 좌표 JSON을 사용해 새 플레이리스트를 요청한다', async () => {
     vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
@@ -91,7 +128,7 @@ describe('recommendationPlaylistApi', () => {
         },
         request,
       ),
-    ).resolves.toEqual({ ...playlist, recommendationId: 44 });
+    ).resolves.toEqual({ ...playlist, recommendationId: 44, recommendReason: null });
     expect(request).toHaveBeenCalledWith('/recommendations/playlists', {
       method: 'POST',
       credentials: 'include',
@@ -109,6 +146,7 @@ describe('recommendationPlaylistApi', () => {
     const request = vi.fn().mockResolvedValue({
       message: '현재 추천 플레이리스트 조회 성공',
       data: {
+        replaced: true,
         playlist: {
           ...playlist,
           tracks: playlist.tracks.map((track, index) =>
@@ -118,7 +156,7 @@ describe('recommendationPlaylistApi', () => {
       },
     });
 
-    await expect(getRecommendationPlaylist(request)).rejects.toMatchObject({
+    await expect(createRecommendationPlaylist(requestBody, request)).rejects.toMatchObject({
       status: 502,
       code: 'INVALID_RESPONSE',
     } satisfies Partial<ApiError>);
@@ -165,13 +203,14 @@ describe('recommendationPlaylistApi', () => {
     const request = vi.fn().mockResolvedValue({
       message: '조회 성공',
       data: {
+        replaced: true,
         playlist: {
           ...playlist,
           tracks: playlist.tracks.map((track) => ({ ...track, externalTrackId: undefined })),
         },
       },
     });
-    await expect(getRecommendationPlaylist(request)).rejects.toMatchObject({
+    await expect(createRecommendationPlaylist(requestBody, request)).rejects.toMatchObject({
       code: 'INVALID_RESPONSE',
     });
   });

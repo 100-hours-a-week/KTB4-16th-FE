@@ -8,6 +8,7 @@ type Props = {
   loadState: 'loading' | 'ready' | 'error';
   recommendations: PhotoMusicRecommendation[];
   recommendationId: number | null;
+  recommendReason: string | null;
   isFeedbackRequired?: boolean;
   hasSubmittedFeedback?: boolean;
   onFeedbackSubmitted?: () => void;
@@ -26,6 +27,7 @@ export function PhotoMusicRecommendationModal({
   loadState,
   recommendations,
   recommendationId,
+  recommendReason,
   isFeedbackRequired = false,
   hasSubmittedFeedback = false,
   onFeedbackSubmitted,
@@ -103,6 +105,11 @@ export function PhotoMusicRecommendationModal({
         ) : null}
         {loadState === 'ready' && recommendations.length > 0 ? (
           <>
+            {recommendReason?.trim() ? (
+              <p className="photo-music-recommendation-reason" role="note" aria-label="추천 이유">
+                {recommendReason}
+              </p>
+            ) : null}
             <ul className="photo-music-recommendation-list" aria-label="사진 음악 추천 결과">
               {recommendations.map((recommendation) => (
                 <li key={recommendation.externalTrackId}>

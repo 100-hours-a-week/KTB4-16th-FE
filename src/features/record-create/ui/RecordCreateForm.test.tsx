@@ -101,6 +101,7 @@ beforeEach(() => {
   mocks.getUploadSignedUrl.mockResolvedValue('https://storage.example/photo.jpg?signature=temp');
   mocks.getPhotoMusicRecommendations.mockResolvedValue({
     recommendationId: 19,
+    recommendReason: '사진의 차분한 분위기에 어울리는 곡들이에요.',
     tracks: [selectedMusic],
   });
   mocks.getRecordDraft.mockResolvedValue(null);
@@ -614,6 +615,9 @@ describe('RecordCreateForm', () => {
     expect(getPhotoMusicRecommendations).toHaveBeenCalledOnce();
     expect(getPhotoMusicRecommendations).toHaveBeenCalledWith(77, expect.any(Function));
     const recommendationButton = await screen.findByRole('button', { name: /REALLY REALLY/ });
+    expect(screen.getByRole('note', { name: '추천 이유' })).toHaveTextContent(
+      '사진의 차분한 분위기에 어울리는 곡들이에요.',
+    );
     fireEvent.click(recommendationButton);
     expect(screen.getByRole('dialog', { name: '사진 음악 추천' })).toBeInTheDocument();
     expect(screen.queryByLabelText('현재 선택한 음악')).not.toBeInTheDocument();
@@ -635,15 +639,21 @@ describe('RecordCreateForm', () => {
 
   it('clears photo recommendations when a replacement photo is selected', async () => {
     let resolveRecommendations:
-      | ((value: { recommendationId: number | null; tracks: (typeof selectedMusic)[] }) => void)
+      | ((value: {
+          recommendationId: number | null;
+          recommendReason: string | null;
+          tracks: (typeof selectedMusic)[];
+        }) => void)
       | undefined;
     mocks.getPhotoMusicRecommendations.mockImplementationOnce(
       () =>
-        new Promise<{ recommendationId: number | null; tracks: (typeof selectedMusic)[] }>(
-          (resolve) => {
-            resolveRecommendations = resolve;
-          },
-        ),
+        new Promise<{
+          recommendationId: number | null;
+          recommendReason: string | null;
+          tracks: (typeof selectedMusic)[];
+        }>((resolve) => {
+          resolveRecommendations = resolve;
+        }),
     );
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
@@ -654,16 +664,25 @@ describe('RecordCreateForm', () => {
     fireEvent.change(input as HTMLInputElement, {
       target: { files: [new File(['second'], 'second.jpg', { type: 'image/jpeg' })] },
     });
-    resolveRecommendations?.({ recommendationId: 19, tracks: [selectedMusic] });
+    resolveRecommendations?.({
+      recommendationId: 19,
+      recommendReason: '폐기할 늦은 이유',
+      tracks: [selectedMusic],
+    });
 
     await screen.findByRole('button', { name: '사진 바꾸기' });
     expect(screen.queryByRole('dialog', { name: '사진 음악 추천' })).not.toBeInTheDocument();
+    expect(screen.queryByText('폐기할 늦은 이유')).not.toBeInTheDocument();
   });
 
   it('keeps the form inputs and allows a failed recommendation request to be retried', async () => {
     mocks.getPhotoMusicRecommendations
       .mockRejectedValueOnce(new Error('추천 실패'))
-      .mockResolvedValueOnce({ recommendationId: 19, tracks: [selectedMusic] });
+      .mockResolvedValueOnce({
+        recommendationId: 19,
+        recommendReason: null,
+        tracks: [selectedMusic],
+      });
     const { container } = renderForm();
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
     await selectAndUploadPhoto(input, new File(['photo'], 'memory.jpg', { type: 'image/jpeg' }));
