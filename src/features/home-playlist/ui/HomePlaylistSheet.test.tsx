@@ -3,14 +3,22 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AiRecommendationFeedbackResponse } from '../../ai-recommendation-feedback/api/aiRecommendationFeedbackApi';
 import {
   createRecommendationPlaylist,
   getRecommendationPlaylist,
 } from '../api/recommendationPlaylistApi';
 import { HomePlaylistSheet } from './HomePlaylistSheet';
 
-const mocks = vi.hoisted(() => ({ isAuthenticated: false, fetchAuthenticatedJson: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  isAuthenticated: false,
+  fetchAuthenticatedJson: vi.fn(),
+  submitFeedback: vi.fn(),
+}));
 vi.mock('../../../entities/session/model/useSession', () => ({ useSession: () => ({ ...mocks }) }));
+vi.mock('../../ai-recommendation-feedback/api/aiRecommendationFeedbackApi', () => ({
+  submitAiRecommendationFeedback: mocks.submitFeedback,
+}));
 vi.mock('../api/recommendationPlaylistApi', () => ({
   getRecommendationPlaylist: vi.fn(),
   createRecommendationPlaylist: vi.fn(),
@@ -20,6 +28,7 @@ vi.mock('../api/recommendationPlaylistApi', () => ({
 function playlist(round: number, trackCount = 5) {
   return {
     recommendationPlaylistId: round,
+    recommendationId: round + 100,
     tracks: Array.from({ length: trackCount }, (_, index) => ({
       musicTrackId: round * 10 + index,
       externalTrackId: `track-${round}-${index}`,
@@ -29,6 +38,13 @@ function playlist(round: number, trackCount = 5) {
       externalUrl: `https://open.spotify.com/track/${round}-${index}`,
     })),
   };
+}
+
+async function submitCurrentPlaylistFeedback() {
+  fireEvent.click(screen.getByRole('button', { name: '👍 좋아요' }));
+  fireEvent.click(screen.getAllByRole('radio')[0]);
+  fireEvent.click(screen.getByRole('button', { name: '평가 제출하기' }));
+  await screen.findByText('평가를 제출했어요.');
 }
 
 /** 라우터를 포함한 실제 추천 화면을 렌더링한다. */
@@ -49,6 +65,12 @@ function renderSheet(props?: Partial<Parameters<typeof HomePlaylistSheet>[0]>) {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.isAuthenticated = true;
+  mocks.submitFeedback.mockImplementation(async (recommendationId, request) => ({
+    feedbackId: 1,
+    recommendationId,
+    feedback: request.feedback,
+    selectedTrackId: request.selectedTrackId,
+  }));
 });
 
 describe('HomePlaylistSheet session', () => {
@@ -70,9 +92,13 @@ describe('HomePlaylistSheet session', () => {
     renderSheet();
     await user.click(screen.getByRole('button', { name: '추천 받기' }));
     expect(await screen.findByText('1회차 추천곡 1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다시 추천받기 · 2회 남음' })).toBeDisabled();
+    await submitCurrentPlaylistFeedback();
     await user.click(screen.getByRole('button', { name: '다시 추천받기 · 2회 남음' }));
     expect(await screen.findByText('2회차 추천곡 1')).toBeInTheDocument();
     expect(screen.queryByText('1회차 추천곡 1')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '평가 제출하기' })).toBeDisabled();
+    await submitCurrentPlaylistFeedback();
     await user.click(screen.getByRole('button', { name: '다시 추천받기 · 1회 남음' }));
     expect(await screen.findByText('3회차 추천곡 1')).toBeInTheDocument();
     const button = screen.getByRole('button', { name: '추천 3회를 모두 받았어요' });
@@ -80,15 +106,22 @@ describe('HomePlaylistSheet session', () => {
     await user.click(button);
     expect(createRecommendationPlaylist).toHaveBeenCalledTimes(3);
     expect(vi.mocked(createRecommendationPlaylist).mock.calls.map(([request]) => request)).toEqual([
-      { latitude: 37.5, longitude: 127.03, excludeTrackIds: [] },
       {
         latitude: 37.5,
         longitude: 127.03,
+        recommendationAttempt: 1,
+        excludeTrackIds: [],
+      },
+      {
+        latitude: 37.5,
+        longitude: 127.03,
+        recommendationAttempt: 2,
         excludeTrackIds: ['track-1-0', 'track-1-1', 'track-1-2', 'track-1-3', 'track-1-4'],
       },
       {
         latitude: 37.5,
         longitude: 127.03,
+        recommendationAttempt: 3,
         excludeTrackIds: [
           'track-1-0',
           'track-1-1',
@@ -113,7 +146,22 @@ describe('HomePlaylistSheet session', () => {
 
     expect(await screen.findAllByRole('listitem')).toHaveLength(trackCount);
     expect(screen.getByText('1 / 3회')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '다시 추천받기 · 2회 남음' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다시 추천받기 · 2회 남음' })).toBeDisabled();
+  });
+
+  it('추천 ID가 없어도 곡 목록은 표시하고 피드백·재추천을 안전하게 막는다', async () => {
+    vi.mocked(createRecommendationPlaylist).mockResolvedValueOnce({
+      ...playlist(1),
+      recommendationId: undefined,
+    });
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: '추천 받기' }));
+
+    expect(await screen.findByText('1회차 추천곡 1')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('추천 정보를 확인할 수 없어');
+    expect(screen.getByRole('button', { name: '평가 제출하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '다시 추천받기 · 2회 남음' })).toBeDisabled();
+    expect(mocks.submitFeedback).not.toHaveBeenCalled();
   });
 
   it('실패 후 이전 목록과 남은 횟수를 유지하고 같은 제외 목록으로 재시도한다', async () => {
@@ -124,14 +172,98 @@ describe('HomePlaylistSheet session', () => {
       .mockResolvedValueOnce(playlist(2));
     renderSheet();
     await user.click(screen.getByRole('button', { name: '추천 받기' }));
+    await screen.findByText('1회차 추천곡 1');
+    await submitCurrentPlaylistFeedback();
     await user.click(await screen.findByRole('button', { name: '다시 추천받기 · 2회 남음' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    expect(screen.getByText('1회차 추천곡 1')).toBeInTheDocument();
+    expect(screen.getAllByText('1회차 추천곡 1')).toHaveLength(2);
+    expect(screen.getByText('평가를 제출했어요.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '다시 시도 · 2회 남음' }));
-    expect(await screen.findByRole('button', { name: '다시 추천받기 · 1회 남음' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: '다시 추천받기 · 1회 남음' })).toBeDisabled();
     expect(vi.mocked(createRecommendationPlaylist).mock.calls[1][0]).toEqual(
       vi.mocked(createRecommendationPlaylist).mock.calls[2][0],
     );
+    expect(vi.mocked(createRecommendationPlaylist).mock.calls[1][0].recommendationAttempt).toBe(2);
+  });
+
+  it('피드백 제출 중에는 새 추천 요청을 시작할 수 없다', async () => {
+    let resolveFeedback: ((response: AiRecommendationFeedbackResponse) => void) | undefined;
+    mocks.submitFeedback.mockReturnValueOnce(
+      new Promise<AiRecommendationFeedbackResponse>((resolve) => {
+        resolveFeedback = resolve;
+      }),
+    );
+    vi.mocked(createRecommendationPlaylist).mockResolvedValueOnce(playlist(1));
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: '추천 받기' }));
+    await screen.findByText('1회차 추천곡 1');
+    fireEvent.click(screen.getByRole('button', { name: '👍 좋아요' }));
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    fireEvent.click(screen.getByRole('button', { name: '평가 제출하기' }));
+
+    const createButton = screen.getByRole('button', { name: '다시 추천받기 · 2회 남음' });
+    expect(createButton).toBeDisabled();
+    fireEvent.click(createButton);
+    expect(createRecommendationPlaylist).toHaveBeenCalledOnce();
+
+    resolveFeedback?.({
+      feedbackId: 7,
+      recommendationId: 101,
+      feedback: 'LIKE',
+      selectedTrackId: 'track-1-0',
+    });
+    expect(await screen.findByText('평가를 제출했어요.')).toBeInTheDocument();
+    expect(createButton).toBeEnabled();
+  });
+
+  it('피드백 제출 실패 상태에서는 닫기를 막고 재시도 성공 후 닫기를 허용한다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mocks.submitFeedback
+      .mockRejectedValueOnce(new Error('피드백 제출 실패'))
+      .mockImplementationOnce(async (recommendationId, request) => ({
+        feedbackId: 2,
+        recommendationId,
+        feedback: request.feedback,
+        selectedTrackId: request.selectedTrackId,
+      }));
+    vi.mocked(createRecommendationPlaylist).mockResolvedValueOnce(playlist(1));
+    renderSheet({ onClose });
+    await user.click(screen.getByRole('button', { name: '추천 받기' }));
+    await screen.findByText('1회차 추천곡 1');
+    await user.click(screen.getByRole('button', { name: '👎 싫어요' }));
+    await user.click(screen.getByRole('button', { name: '평가 제출하기' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('평가를 제출하지 못했어요.');
+    await user.click(screen.getByRole('button', { name: '플레이리스트 안내 닫기' }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: '평가 제출하기' }));
+    expect(await screen.findByText('평가를 제출했어요.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '플레이리스트 안내 닫기' }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('첫 요청 실패 또는 fallback 뒤의 재시도도 1회차로 유지한다', async () => {
+    const user = userEvent.setup();
+    vi.mocked(createRecommendationPlaylist)
+      .mockRejectedValueOnce(new Error('추천 생성 실패'))
+      .mockRejectedValueOnce(new Error('RECOMMENDATION_NOT_CREATED'))
+      .mockResolvedValueOnce(playlist(1));
+    renderSheet();
+
+    await user.click(screen.getByRole('button', { name: '추천 받기' }));
+    await user.click(await screen.findByRole('button', { name: '다시 시도 · 3회 남음' }));
+    await user.click(await screen.findByRole('button', { name: '다시 시도 · 3회 남음' }));
+
+    expect(await screen.findByText('1회차 추천곡 1')).toBeInTheDocument();
+    expect(
+      vi
+        .mocked(createRecommendationPlaylist)
+        .mock.calls.map(([request]) => request.recommendationAttempt),
+    ).toEqual([1, 1, 1]);
   });
 
   it('요청 중 연타로 추가 요청을 보내지 않는다', () => {
@@ -182,7 +314,7 @@ describe('HomePlaylistSheet session', () => {
     { method: 'backdrop', hasPlaylist: true },
     { method: 'escape', hasPlaylist: true },
   ])(
-    '요청이 없을 때도 $method 닫기를 확인한다 (추천 표시: $hasPlaylist)',
+    '요청이 없거나 피드백을 마친 뒤 $method 닫기는 기존 확인을 거친다 (추천 표시: $hasPlaylist)',
     async ({ method, hasPlaylist }) => {
       const user = userEvent.setup();
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
@@ -192,8 +324,10 @@ describe('HomePlaylistSheet session', () => {
       if (hasPlaylist) {
         await user.click(screen.getByRole('button', { name: '추천 받기' }));
         await screen.findByText('1회차 추천곡 1');
+        expect(vi.mocked(createRecommendationPlaylist).mock.calls[0][0].recommendationAttempt).toBe(
+          1,
+        );
       }
-      /** 초기 안내·추천 완료 상태에서도 모든 종료 경로에 같은 의사 확인을 적용한다. */
       function close() {
         if (method === 'escape') fireEvent.keyDown(document, { key: 'Escape' });
         else
@@ -203,7 +337,17 @@ describe('HomePlaylistSheet session', () => {
             }),
           );
       }
+      /** 초기 안내·추천 완료 상태에서도 모든 종료 경로에 같은 의사 확인을 적용한다. */
       close();
+      if (hasPlaylist) {
+        expect(confirm).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
+        expect(screen.getByRole('status')).toHaveTextContent(
+          '추천 결과를 평가한 후 창을 닫거나 다시 추천받을 수 있어요.',
+        );
+        await submitCurrentPlaylistFeedback();
+        close();
+      }
       expect(confirm).toHaveBeenCalledOnce();
       expect(onClose).not.toHaveBeenCalled();
       expect(
@@ -211,7 +355,7 @@ describe('HomePlaylistSheet session', () => {
           name: hasPlaylist ? '다시 추천받기 · 2회 남음' : '추천 받기',
         }),
       ).toBeEnabled();
-      if (hasPlaylist) expect(screen.getByText('1회차 추천곡 1')).toBeInTheDocument();
+      if (hasPlaylist) expect(screen.getAllByText('1회차 추천곡 1')).toHaveLength(2);
       confirm.mockReturnValue(true);
       close();
       expect(onClose).toHaveBeenCalledOnce();
@@ -237,6 +381,7 @@ describe('HomePlaylistSheet session', () => {
     fireEvent.click(screen.getByRole('button', { name: '추천 받기' }));
     await screen.findByText('2회차 추천곡 1');
     expect(vi.mocked(createRecommendationPlaylist).mock.calls[1][0]).toMatchObject({
+      recommendationAttempt: 1,
       excludeTrackIds: [],
     });
   });

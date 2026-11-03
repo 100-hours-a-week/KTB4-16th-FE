@@ -77,15 +77,21 @@ describe('recommendationPlaylistApi', () => {
     vi.mocked(getCsrfToken).mockResolvedValue('csrf-token');
     const request = vi.fn().mockResolvedValue({
       message: '추천 플레이리스트 생성 성공',
+      recommendationId: 44,
       data: { playlist, replaced: true },
     });
 
     await expect(
       createRecommendationPlaylist(
-        { latitude: 37.5665, longitude: 126.978, excludeTrackIds: ['previous-track'] },
+        {
+          latitude: 37.5665,
+          longitude: 126.978,
+          recommendationAttempt: 1,
+          excludeTrackIds: ['previous-track'],
+        },
         request,
       ),
-    ).resolves.toEqual(playlist);
+    ).resolves.toEqual({ ...playlist, recommendationId: 44 });
     expect(request).toHaveBeenCalledWith('/recommendations/playlists', {
       method: 'POST',
       credentials: 'include',
@@ -93,6 +99,7 @@ describe('recommendationPlaylistApi', () => {
       body: JSON.stringify({
         latitude: 37.5665,
         longitude: 126.978,
+        recommendationAttempt: 1,
         excludeTrackIds: ['previous-track'],
       }),
     });
@@ -121,7 +128,10 @@ describe('recommendationPlaylistApi', () => {
     const request = vi.fn();
 
     await expect(
-      createRecommendationPlaylist({ latitude: 91, longitude: 127, excludeTrackIds: [] }, request),
+      createRecommendationPlaylist(
+        { latitude: 91, longitude: 127, recommendationAttempt: 1, excludeTrackIds: [] },
+        request,
+      ),
     ).rejects.toMatchObject({
       status: 400,
       code: 'INVALID_COORDINATES',
@@ -139,7 +149,12 @@ describe('recommendationPlaylistApi', () => {
       });
       await expect(
         createRecommendationPlaylist(
-          { latitude: 37.5, longitude: 127, excludeTrackIds: [] },
+          {
+            latitude: 37.5,
+            longitude: 127,
+            recommendationAttempt: 1,
+            excludeTrackIds: [],
+          },
           request,
         ),
       ).rejects.toMatchObject({ code: 'RECOMMENDATION_NOT_CREATED' });
@@ -168,7 +183,12 @@ describe('recommendationPlaylistApi', () => {
       .mockResolvedValue({ message: '생성 성공', data: { playlist, replaced: true } });
     await expect(
       createRecommendationPlaylist(
-        { latitude: 37.5, longitude: 127, excludeTrackIds: ['track-1'] },
+        {
+          latitude: 37.5,
+          longitude: 127,
+          recommendationAttempt: 1,
+          excludeTrackIds: ['track-1'],
+        },
         request,
       ),
     ).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });

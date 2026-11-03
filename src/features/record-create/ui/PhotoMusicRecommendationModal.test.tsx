@@ -5,6 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PhotoMusicRecommendation } from '../api/getPhotoMusicRecommendations';
 import { PhotoMusicRecommendationModal } from './PhotoMusicRecommendationModal';
 
+const mocks = vi.hoisted(() => ({ fetchAuthenticatedJson: vi.fn() }));
+vi.mock('../../../entities/session/model/useSession', () => ({
+  useSession: () => ({ fetchAuthenticatedJson: mocks.fetchAuthenticatedJson }),
+}));
+vi.mock('../../../shared/api/csrf', () => ({ getCsrfToken: vi.fn().mockResolvedValue('csrf') }));
+
 const recommendation = {
   externalTrackId: 'spotify-track',
   title: 'REALLY REALLY',
@@ -17,6 +23,11 @@ const defaultProps = {
   isOpen: true,
   loadState: 'ready' as const,
   recommendations: [recommendation],
+  recommendationId: 51,
+  isFeedbackRequired: false,
+  hasSubmittedFeedback: false,
+  isFeedbackSubmitting: false,
+  onFeedbackSubmittingChange: vi.fn(),
   errorMessage: null,
   onClose: vi.fn(),
   onDirectSearch: vi.fn(),
@@ -68,6 +79,103 @@ describe('PhotoMusicRecommendationModal', () => {
     fireEvent.error(image);
     expect(image).not.toBeVisible();
     expect(container.querySelector('.photo-music-recommendation-cover')).toBeInTheDocument();
+  });
+
+  it('사진 추천은 곡 선택 영역 없이 피드백을 표시하고 닫을 때 자동 제출하지 않는다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<PhotoMusicRecommendationModal {...defaultProps} onClose={onClose} />);
+
+    expect(screen.getByRole('region', { name: '추천 결과 피드백' })).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '👍 좋아요' }));
+    await user.click(screen.getByRole('button', { name: '사진 음악 추천 닫기' }));
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(mocks.fetchAuthenticatedJson).not.toHaveBeenCalled();
+  });
+
+  it('필수 피드백 미제출 중에는 X·배경·ESC·곡 선택·직접 검색을 막는다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
+    const onDirectSearch = vi.fn();
+    render(
+      <PhotoMusicRecommendationModal
+        {...defaultProps}
+        isFeedbackRequired
+        onClose={onClose}
+        onSelect={onSelect}
+        onDirectSearch={onDirectSearch}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '사진 음악 추천 닫기' }));
+    await user.click(screen.getByRole('button', { name: /REALLY REALLY/ }));
+    await user.click(screen.getByRole('button', { name: '직접 검색하기' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('presentation'));
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onDirectSearch).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '추천 결과를 평가한 후 다음 단계로 진행할 수 있어요.',
+    );
+  });
+
+  it('피드백 API 성공 응답 이후에는 곡 선택과 모달 닫기가 허용된다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
+    mocks.fetchAuthenticatedJson.mockResolvedValueOnce({
+      message: '피드백 제출 성공',
+      data: { feedbackId: 7, recommendationId: 51, feedback: 'DISLIKE', selectedTrackId: null },
+    });
+    const props = { ...defaultProps, isFeedbackRequired: true, onClose, onSelect };
+    const { rerender } = render(<PhotoMusicRecommendationModal {...props} />);
+
+    await user.click(screen.getByRole('button', { name: '👎 싫어요' }));
+    await user.click(screen.getByRole('button', { name: '평가 제출하기' }));
+    expect(await screen.findByText('평가를 제출했어요.')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    rerender(<PhotoMusicRecommendationModal {...props} hasSubmittedFeedback />);
+    await user.click(screen.getByRole('button', { name: /REALLY REALLY/ }));
+    await user.click(screen.getByRole('button', { name: '사진 음악 추천 닫기' }));
+    expect(onSelect).toHaveBeenCalledWith(recommendation);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('추천 ID가 없거나 추천 결과가 없는 경우에는 피드백 없이 기존 종료·이동을 허용한다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
+    const { rerender } = render(
+      <PhotoMusicRecommendationModal
+        {...defaultProps}
+        recommendationId={null}
+        onClose={onClose}
+        onSelect={onSelect}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '사진 음악 추천 닫기' }));
+    await user.click(screen.getByRole('button', { name: /REALLY REALLY/ }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledOnce();
+
+    rerender(
+      <PhotoMusicRecommendationModal
+        {...defaultProps}
+        recommendations={[]}
+        isFeedbackRequired={false}
+        onClose={onClose}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '사진 음악 추천 닫기' }));
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 
   it('supports empty, error, close, direct-search, and retry states', async () => {

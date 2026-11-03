@@ -78,11 +78,15 @@ function parseRecommendationPlaylistResponse(value: unknown): RecommendationPlay
     throw invalidResponse();
   }
 
-  return parseRecommendationPlaylist(playlist);
+  const recommendationId = parseRecommendationId(value.recommendationId);
+  return parseRecommendationPlaylist(playlist, recommendationId);
 }
 
 /** 플레이리스트 ID와 트랙 배열이 화면 계약을 만족하는지 검증한다. */
-function parseRecommendationPlaylist(value: Record<string, unknown>): RecommendationPlaylist {
+function parseRecommendationPlaylist(
+  value: Record<string, unknown>,
+  recommendationId: number | null,
+): RecommendationPlaylist {
   if (
     !isPositiveInteger(value.recommendationPlaylistId) ||
     !Array.isArray(value.tracks) ||
@@ -95,7 +99,17 @@ function parseRecommendationPlaylist(value: Record<string, unknown>): Recommenda
   if (new Set(tracks.map((track) => track.externalTrackId)).size !== tracks.length) {
     throw invalidResponse();
   }
-  return { recommendationPlaylistId: value.recommendationPlaylistId, tracks };
+  return {
+    recommendationPlaylistId: value.recommendationPlaylistId,
+    ...(recommendationId === null ? {} : { recommendationId }),
+    tracks,
+  };
+}
+
+function parseRecommendationId(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (isPositiveInteger(value)) return value;
+  throw invalidResponse();
 }
 
 /** 추천 음악의 식별자·표시 문자열·앨범 이미지 URL·외부 링크 문자열을 검증한다. */

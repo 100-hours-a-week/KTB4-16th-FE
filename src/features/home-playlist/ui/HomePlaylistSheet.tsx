@@ -3,8 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 
 import { useSession } from '../../../entities/session/model/useSession';
+import { RecommendationFeedbackSection } from '../../ai-recommendation-feedback';
 import { createRecommendationPlaylist } from '../api/recommendationPlaylistApi';
 import type {
+  RecommendationAttempt,
   RecommendationCoordinates,
   RecommendationPlaylist,
   RecommendationTrack,
@@ -20,6 +22,11 @@ type HomePlaylistSheetProps = {
 
 const MAX_RECOMMENDATIONS = 3;
 type LoadState = 'idle' | 'ready' | 'error' | 'creating';
+
+function toRecommendationAttempt(value: number): RecommendationAttempt | null {
+  if (value === 1 || value === 2 || value === 3) return value;
+  return null;
+}
 
 /** 외부 링크가 브라우저에서 안전하게 열 수 있는 HTTP(S) URL인지 확인한다. */
 function isSafeExternalUrl(value: string): boolean {
@@ -99,9 +106,15 @@ export function HomePlaylistSheet({
   const [playlist, setPlaylist] = useState<RecommendationPlaylist | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [successCount, setSuccessCount] = useState(0);
+  const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
+  const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
+  const [feedbackEpoch, setFeedbackEpoch] = useState(0);
+  const [closeGuidance, setCloseGuidance] = useState(false);
   const excludedTrackIdsRef = useRef(new Set<string>());
   const successCountRef = useRef(0);
   const createControllerRef = useRef<AbortController | null>(null);
+  const feedbackSubmissionRef = useRef(false);
+  const feedbackEpochRef = useRef(0);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
@@ -112,6 +125,13 @@ export function HomePlaylistSheet({
 
   /** 모든 닫기 경로에서 의사를 확인하고, 동의한 경우에만 요청과 화면 세션을 종료한다. */
   const requestClose = useCallback(() => {
+    const requiresFeedback =
+      playlist !== null && playlist.recommendationId != null && playlist.tracks.length > 0;
+    if (requiresFeedback && (!hasSubmittedFeedback || feedbackSubmissionRef.current)) {
+      setCloseGuidance(true);
+      return;
+    }
+    setCloseGuidance(false);
     const pending = createControllerRef.current;
     const message =
       pending && !pending.signal.aborted
@@ -119,8 +139,12 @@ export function HomePlaylistSheet({
         : '추천 창을 닫을까요? 닫으면 이번 추천 목록과 횟수가 초기화돼요.';
     if (!window.confirm(message)) return;
     pending?.abort();
+    feedbackEpochRef.current += 1;
+    setFeedbackEpoch(feedbackEpochRef.current);
+    setHasSubmittedFeedback(false);
+    setIsFeedbackSubmitting(feedbackSubmissionRef.current);
     onCloseRef.current();
-  }, []);
+  }, [hasSubmittedFeedback, playlist]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -186,15 +210,23 @@ export function HomePlaylistSheet({
       !isAuthenticated ||
       currentLocation === null ||
       createControllerRef.current ||
+      feedbackSubmissionRef.current ||
+      (playlist !== null && !hasSubmittedFeedback) ||
       successCountRef.current >= MAX_RECOMMENDATIONS
     )
       return;
     const controller = new AbortController();
+    const recommendationAttempt = toRecommendationAttempt(successCountRef.current + 1);
+    if (recommendationAttempt === null) return;
     createControllerRef.current = controller;
     setLoadState('creating');
     try {
       const nextPlaylist = await createRecommendationPlaylist(
-        { ...currentLocation, excludeTrackIds: [...excludedTrackIdsRef.current] },
+        {
+          ...currentLocation,
+          recommendationAttempt,
+          excludeTrackIds: [...excludedTrackIdsRef.current],
+        },
         fetchAuthenticatedJson,
         controller.signal,
       );
@@ -203,6 +235,8 @@ export function HomePlaylistSheet({
         excludedTrackIdsRef.current.add(track.externalTrackId);
       successCountRef.current += 1;
       setSuccessCount(successCountRef.current);
+      setHasSubmittedFeedback(false);
+      setCloseGuidance(false);
       setPlaylist(nextPlaylist);
       setLoadState('ready');
     } catch {
@@ -210,7 +244,14 @@ export function HomePlaylistSheet({
     } finally {
       if (createControllerRef.current === controller) createControllerRef.current = null;
     }
-  }, [currentLocation, fetchAuthenticatedJson, isAuthenticated, isOpen]);
+  }, [
+    currentLocation,
+    fetchAuthenticatedJson,
+    hasSubmittedFeedback,
+    isAuthenticated,
+    isOpen,
+    playlist,
+  ]);
 
   const remainingCount = MAX_RECOMMENDATIONS - successCount;
   const isCreating = loadState === 'creating';
@@ -279,6 +320,30 @@ export function HomePlaylistSheet({
                 ))}
               </ul>
             ) : null}
+            {isOpen && playlist !== null ? (
+              <RecommendationFeedbackSection
+                key={`${feedbackEpoch}-${successCount}-${playlist.recommendationId ?? 'unavailable'}`}
+                recommendationId={playlist.recommendationId ?? null}
+                tracks={playlist.tracks}
+                allowTrackSelection
+                disabled={isCreating || isFeedbackSubmitting}
+                onSubmittingChange={(value) => {
+                  feedbackSubmissionRef.current = value;
+                  setIsFeedbackSubmitting(value);
+                }}
+                onSubmitted={() => {
+                  if (feedbackEpochRef.current === feedbackEpoch) {
+                    setHasSubmittedFeedback(true);
+                    setCloseGuidance(false);
+                  }
+                }}
+              />
+            ) : null}
+            {closeGuidance ? (
+              <p className="home-playlist-notice" role="status">
+                추천 결과를 평가한 후 창을 닫거나 다시 추천받을 수 있어요.
+              </p>
+            ) : null}
             {loadState === 'error' ? (
               <p className="home-playlist-notice" role="alert">
                 추천을 만들지 못했습니다. 횟수는 줄어들지 않았어요.
@@ -292,7 +357,14 @@ export function HomePlaylistSheet({
             <button
               className="home-playlist-save-button"
               type="button"
-              disabled={!isOpen || currentLocation === null || isCreating || remainingCount === 0}
+              disabled={
+                !isOpen ||
+                currentLocation === null ||
+                isCreating ||
+                isFeedbackSubmitting ||
+                (playlist !== null && !hasSubmittedFeedback) ||
+                remainingCount === 0
+              }
               onClick={() => void createPlaylist()}
             >
               {buttonLabel}

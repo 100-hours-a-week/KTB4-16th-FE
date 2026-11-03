@@ -4,8 +4,11 @@ export type RecommendationCoordinates = {
   longitude: number;
 };
 
+export type RecommendationAttempt = 1 | 2 | 3;
+
 /** 이번 추천 화면에서 누적한 외부 곡 ID를 좌표와 함께 전달한다. */
 export type RecommendationPlaylistRequest = RecommendationCoordinates & {
+  recommendationAttempt: RecommendationAttempt;
   excludeTrackIds: string[];
 };
 
@@ -22,5 +25,6 @@ export type RecommendationTrack = {
 /** 로그인 사용자의 현재 추천 플레이리스트와 서버 정렬 순서의 트랙 목록이다. */
 export type RecommendationPlaylist = {
   recommendationPlaylistId: number;
+  recommendationId?: number;
   tracks: RecommendationTrack[];
 };
