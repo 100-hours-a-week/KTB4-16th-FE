@@ -5,6 +5,7 @@
 - 진입 시 이전 추천 GET과 자동 추천 POST를 보내지 않는다. 빈 화면에 최대 3회 안내와 `추천 받기`를 표시한다.
 - 새 추천에 성공한 경우에만 1회를 사용한다. 실패·AI 저하로 기존 목록을 유지한 경우에는 차감하지 않는다.
 - 요청에는 창 세션의 현재 회차인 필수 `recommendationAttempt`(1~3)를 보낸다. FE가 성공 횟수에서 다음 회차를 계산하며 Backend는 전달된 값의 범위만 검증한다.
+- 추천 결과 전체에 대한 최상위 `recommendReason` 원문을 5곡 목록 위에 한 번만 표시한다. 개별 곡에는 이유를 붙이지 않는다. null·누락·빈 문자열·공백뿐인 문구는 이유 영역을 숨긴다. 개행과 긴 단어는 줄바꿈하고 HTML로 해석하지 않는다.
 - 매번 최신 5곡만 표시하고, 이번 화면에서 받은 외부 곡 ID는 중복 없이 누적한다.
 - 첫 요청은 `excludeTrackIds: []`, 두 번째는 앞선 5개, 세 번째는 앞선 10개 ID를 보낸다.
 - 세 번째 성공 후 버튼과 실행 가드로 추가 요청을 막는다.
@@ -37,19 +38,19 @@
 }
 ```
 
-POST 성공 시 `data.replaced=true`인 정상 5곡 응답과 최상위 `recommendationId`를 새 추천으로 표시하고 회차를 차감한다. `false`는 기존 DB 목록 유지 결과이므로 프론트는 재시도 가능한 fallback으로 처리하고 이전 DB 목록을 화면에 노출하지 않는다. fallback 응답은 새 `recommendationId`가 없으며 피드백 대상이 아니다. 요청한 제외 곡이 재등장하거나 한 응답에 동일 외부 ID가 반복되면 정상 추천으로 처리하지 않는다.
+POST 성공 시 `data.replaced=true`인 정상 5곡 응답과 최상위 `recommendationId`를 새 추천으로 표시하고 회차를 차감한다. `false`는 서버에서 목록을 복원하지 않는 degraded 응답(`playlist=null`)이다. 프론트는 재시도 가능한 실패로 처리하고 현재 화면의 목록·추천 이유·남은 횟수를 함께 유지한다. fallback 응답은 새 `recommendationId`가 없으며 피드백 대상이 아니다. 요청한 제외 곡이 재등장하거나 한 응답에 동일 외부 ID가 반복되면 정상 추천으로 처리하지 않는다.
 
 ## 피드백 API와 책임 경계
 
 - 피드백 요청은 `POST /api/ai-recommendations/{recommendationId}/feedback`이며 `feedback`은 `LIKE` 또는 `DISLIKE`다. PLAYLIST LIKE에만 추천 곡 중 하나의 `selectedTrackId`가 필요하다. DISLIKE는 곡 선택 없이 제출한다.
 - FE는 정상 결과의 피드백 성공 전 시트 닫기와 재추천을 막는다. 제출 중에도 닫기와 재추천을 막는다. 시트를 닫고 다시 열면 컴포넌트 상태와 회차가 초기화된다.
 - Backend는 인증, 추천 결과 소유권, 입력 규칙, 선택 곡이 그 추천 결과에 속하는지, 중복 피드백을 검증한다. Backend는 미제출 피드백을 근거로 다음 추천 POST나 자물쇠 생성 요청을 차단하지 않으며, 시트 세션의 3회 제한도 독립적으로 강제하지 않는다.
-- 기존 `GET /api/recommendations/playlists`는 현재 저장 플레이리스트 조회용이며 추천 이력 ID를 연결하지 않는다. `recommendationPlaylistId`는 `recommendationId`가 아니고 GET 결과는 피드백 대상이 아니다.
+- `GET /api/recommendations/playlists`와 `recommendationPlaylistId`는 제거했다. 응답은 `recommendationId`, `recommendReason`, `data.playlist.tracks`, `data.replaced`를 사용한다. 평가용 ID를 저장용 플리 ID로 대체하지 않는다.
 - 추천 실패, 결과가 없거나 정상 결과 ID가 없는 예외 응답에서는 피드백 제출을 요구하지 않는다. 제출 실패는 현재 추천 상태를 유지하여 재시도할 수 있게 한다.
 
 ## 사진 기반 추천 피드백
 
-- 정상 사진 추천 결과에는 최상위 `recommendationId`와 5곡이 포함된다. 사진 평가도 추천 결과 전체에 대한 LIKE/DISLIKE이며 두 요청 모두 `selectedTrackId: null`로 곡 선택은 없다.
+- 정상 사진 추천 결과에는 최상위 `recommendationId`, nullable `recommendReason`, `data` 배열의 5곡이 포함된다. 추천 이유는 곡 목록 위에 표시하며 새 요청·사진 교체·draft 반영·폼 초기화 때 이전 이유를 초기화한다. 늦게 도착한 이전 사진의 응답은 반영하지 않는다. 사진 평가도 추천 결과 전체에 대한 LIKE/DISLIKE이며 두 요청 모두 `selectedTrackId: null`로 곡 선택은 없다.
 - FE는 피드백 제출 성공 전 추천 화면 닫기, 추천 곡 선택, 직접 음악 검색·자물쇠 생성 다음 단계 진행을 막는다. 제출 중에도 닫기와 진행을 막는다. 제출이 실패하면 추천 결과를 유지하고 재시도를 허용한다.
 - 추천 실패, 곡 결과 없음, 또는 `recommendationId`가 없는 경우에는 피드백을 요구하지 않고 닫기·다음 단계 제한을 적용하지 않는다.
 
@@ -58,8 +59,8 @@ POST 성공 시 `data.replaced=true`인 정상 5곡 응답과 최상위 `recomme
 - 화면 세션은 컴포넌트가 열린 동안의 임시 메모리 상태다. 로그인 세션, 서버 세션, 브라우저 저장소와 연결하지 않는다.
 - `musicTrackId`는 서비스 DB 식별자이며 `externalTrackId`는 AI 중복 제외와 피드백 `selectedTrackId`에 사용하는 Spotify 식별자다.
 - 서버는 `recommendationAttempt` 1~3, 제외 목록 최대 50개와 빈 ID를 검증한다. `excludeTrackIds` 생략·null은 빈 목록이다. 회차와 3회 제한은 FE가 관리하며, 서버는 각 요청 값의 범위만 검사하고 서버 호출량 제한을 제공하지 않는다.
-- DB 저장과 기존 GET API는 유지한다. 테이블 삭제나 추천 비저장 전환은 이번 범위에 포함하지 않는다. 새 엔드포인트·Redis·의존성·환경변수·스키마 변경은 없다.
-- 브라우저 요청 취소는 이미 시작된 서버·AI 처리의 중단을 보장하지 않는다. 닫힌 화면의 응답은 무시하지만 서버가 결과를 저장할 수 있다. 새 화면에서는 저장된 결과를 조회하지 않는다.
+- 2026-11-02 사용자 확정에 따라 BE V14는 화면 복원용 두 테이블을 삭제한다. 프론트는 삭제된 GET/플리 ID를 사용하지 않는다. 음악 카탈로그와 평가 이력은 보존하며 추천 이유는 저장하지 않는다. FE의 새 의존성·환경변수·서버 세션은 없다.
+- 브라우저 요청 취소는 이미 시작된 서버·AI 처리의 중단을 보장하지 않는다. 닫힌 화면의 응답은 무시하지만 서버가 평가용 결과 이력을 저장할 수 있다. 새 화면에서는 해당 이력으로 목록을 복원하지 않는다.
 - 닫기 안내는 기본 브라우저 확인 창이며, 종료 경로의 최종 디자인은 추후 조정한다.
 
 ## 근거
@@ -67,7 +68,8 @@ POST 성공 시 `data.replaced=true`인 정상 5곡 응답과 최상위 `recomme
 - [React 상태 초기화](https://react.dev/learn/preserving-and-resetting-state)
 - [W3C 모달 대화상자 초점 관리](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
 - [MDN AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController/abort)
-- 백엔드 OpenAPI v2.8의 `/api/recommendations/playlists`, 서비스 정책 `REC-014`, `REC-015`
+- [wiki #319](https://github.com/100-hours-a-week/KTB4-16th-wiki/issues/319), BE `feat/recommend-reason-319`의 OpenAPI v2.8 추천 두 경로와 서비스 정책 `REC-014`~`REC-016`
+- FE 변경은 BE의 GET/플리 ID 제거 및 recommendReason 추가와 함께 연동해야 한다. 기존 배포 백엔드에서 이유가 없으면 숨기며, 평가 제출 계약은 유지한다.
 
 ## PR 검증 기록 (2026-10-19)
 
