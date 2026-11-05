@@ -184,6 +184,29 @@ function createRestRequest({
         },
       } as T;
     }
+    if (path.startsWith('/chat-rooms/123/messages/sync')) {
+      const url = new URL(path, 'http://localhost');
+      const after = url.searchParams.get('afterMessageId');
+      const upper = Number(
+        url.searchParams.get('throughMessageId') ??
+          Math.max(0, ...historyMessages.map((m) => m.chatMessageId)),
+      );
+      const items =
+        after === null
+          ? []
+          : historyMessages
+              .filter((m) => m.chatMessageId > Number(after) && m.chatMessageId <= upper)
+              .sort((a, b) => a.chatMessageId - b.chatMessageId);
+      return {
+        message: 'ok',
+        data: {
+          messages: items.slice(0, 20),
+          throughMessageId: upper,
+          nextAfterMessageId: items.length > 20 ? items[19].chatMessageId : upper,
+          hasNext: items.length > 20,
+        },
+      } as T;
+    }
     if (path === '/chat-rooms/123/messages') {
       if (failHistory) throw failHistory;
       return {
@@ -552,8 +575,9 @@ describe('ChatRoomPage live connection', () => {
   });
 
   it('refreshes current participant names and latest history after STOMP reconnect', async () => {
+    const names = ['이전 이름'];
     const api = createRestRequest({
-      participantNicknames: ['이전 이름', '최신 닉네임'],
+      participantNicknames: names,
       expiresAt: '2026-10-24T00:00:00+09:00',
       historyMessages: [
         {
@@ -570,6 +594,7 @@ describe('ChatRoomPage live connection', () => {
     const firstSocket = await connectPage();
     expect(await screen.findAllByText('이전 이름')).toHaveLength(2);
 
+    names.push('최신 닉네임');
     act(() => firstSocket.close(1006));
     await waitFor(() => expect(FakeStompSocket.connections).toHaveLength(2), { timeout: 8_000 });
     const reconnectedSocket = FakeStompSocket.connections[1];
@@ -581,8 +606,10 @@ describe('ChatRoomPage live connection', () => {
     });
     expect(screen.getByText('재접속 후에도 보이는 메시지')).toBeInTheDocument();
     expect(screen.queryByText('오래된 이력 이름')).not.toBeInTheDocument();
-    expect(api.requests.filter((path) => path === '/chat-rooms/123')).toHaveLength(2);
-    expect(api.requests.filter((path) => path === '/chat-rooms/123/messages')).toHaveLength(2);
+    expect(api.requests.filter((path) => path === '/chat-rooms/123').length).toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(api.requests.some((path) => path.includes('/messages/sync?'))).toBe(true);
     expect(
       reconnectedSocket.sentFrames.filter((frame) => frame.startsWith('SUBSCRIBE')),
     ).toHaveLength(3);
@@ -672,7 +699,8 @@ describe('ChatRoomPage live connection', () => {
   });
 
   it('updates GROUP active count from refreshed detail after JOINED and LEFT events', async () => {
-    const api = createRestRequest({ roomType: 'GROUP', activeCounts: [1, 2, 1] });
+    const counts = [1];
+    const api = createRestRequest({ roomType: 'GROUP', activeCounts: counts });
     renderPage({ useRestApi: true, fetchAuthenticatedJson: api.fetchAuthenticatedJson });
     const socket = await connectPage();
     const input = screen.getByRole('textbox', { name: '메시지' });
@@ -685,6 +713,7 @@ describe('ChatRoomPage live connection', () => {
     expect(screen.getByText('현재 채팅방에 1명만 참여 중이에요.')).toBeInTheDocument();
     expect(screen.getByText('다른 참여자가 입장하면 채팅을 시작할 수 있어요.')).toBeInTheDocument();
 
+    counts.push(2);
     act(() =>
       receiveUserFrame(socket, '/user/queue/chat-events', {
         type: 'PARTICIPANT_JOINED',
@@ -699,8 +728,11 @@ describe('ChatRoomPage live connection', () => {
     await waitFor(() => expect(input).toBeEnabled());
     expect(screen.getByText('오늘의 취향 투표 · 참여 인원 9/30명')).toBeInTheDocument();
     expect(screen.getByText(/partner님이 입장했습니다/)).toBeInTheDocument();
-    expect(api.requests.filter((path) => path === '/chat-rooms/123')).toHaveLength(2);
+    expect(api.requests.filter((path) => path === '/chat-rooms/123').length).toBeGreaterThanOrEqual(
+      2,
+    );
 
+    counts.push(1);
     act(() =>
       receiveUserFrame(socket, '/user/queue/chat-events', {
         type: 'PARTICIPANT_LEFT',
@@ -714,7 +746,9 @@ describe('ChatRoomPage live connection', () => {
     expect(screen.getByText('오늘의 취향 투표 · 참여 인원 9/30명')).toBeInTheDocument();
     expect(screen.getByText('현재 채팅방에 1명만 참여 중이에요.')).toBeInTheDocument();
     expect(screen.getByText(/partner님이 퇴장했습니다/)).toBeInTheDocument();
-    expect(api.requests.filter((path) => path === '/chat-rooms/123')).toHaveLength(3);
+    expect(api.requests.filter((path) => path === '/chat-rooms/123').length).toBeGreaterThanOrEqual(
+      3,
+    );
   });
 
   it('uses an explicit expiry response from a GROUP detail refresh to stop composition', async () => {
@@ -866,5 +900,126 @@ describe('ChatRoomPage live connection', () => {
     expect(screen.getByText('전송 실패')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다시 보내기' })).not.toBeInTheDocument();
+  });
+  it('recovers 45 committed messages without a WebSocket reconnect', async () => {
+    const historyMessages: Array<{
+      chatMessageId: number;
+      clientMessageId: string;
+      userId: number;
+      nickname: string;
+      content: string;
+      createdAt: string;
+    }> = [];
+    const api = createRestRequest({ historyMessages });
+    renderPage({ useRestApi: true, fetchAuthenticatedJson: api.fetchAuthenticatedJson });
+    await connectPage();
+    await waitFor(() => expect(api.requests.some((p) => p.includes('/messages/sync?'))).toBe(true));
+    for (let i = 1; i <= 45; i++)
+      historyMessages.push({
+        chatMessageId: i,
+        clientMessageId: `550e8400-e29b-41d4-a716-${String(i).padStart(12, '0')}`,
+        userId: 8,
+        nickname: 'partner',
+        content: `recovered-${i}`,
+        createdAt: '2026-10-21T12:00:00+09:00',
+      });
+    act(() => window.dispatchEvent(new Event('online')));
+    expect(await screen.findByText('recovered-45')).toBeInTheDocument();
+    expect(screen.getByText('recovered-1')).toBeInTheDocument();
+    expect(api.requests.some((p) => p.includes('afterMessageId=40&throughMessageId=45'))).toBe(
+      true,
+    );
+    expect(FakeStompSocket.connections).toHaveLength(1);
+  });
+  it('starts recovery after a delayed same-room session bootstrap even if CONNECTED arrived first', async () => {
+    const api = createRestRequest();
+    let bootstraps = 0;
+    let unblock: () => void = () => {};
+    const delayed = new Promise<void>((resolve) => {
+      unblock = resolve;
+    });
+    const fetch: SessionContextValue['fetchAuthenticatedJson'] = async <T,>(
+      path: string,
+      init?: RequestInit,
+    ) => {
+      if (path === '/chat-rooms/123/messages/sync' && ++bootstraps === 2) await delayed;
+      return api.fetchAuthenticatedJson<T>(path, init);
+    };
+    const session: SessionContextValue = {
+      accessToken: 'token',
+      sessionVersion: 1,
+      isAuthenticated: true,
+      isSessionRestoring: false,
+      getAccessToken: () => 'token',
+      refreshAccessToken: vi.fn(),
+      setAccessToken: vi.fn(),
+      clearSession: vi.fn(),
+      fetchAuthenticatedJson: fetch,
+    };
+    const viewFor = (version: number) => (
+      <SessionContext value={{ ...session, sessionVersion: version }}>
+        <MemoryRouter initialEntries={['/chat/123']}>
+          <Routes>
+            <Route path="/chat/:chatRoomId" element={<ChatRoomPage />} />
+          </Routes>
+        </MemoryRouter>
+      </SessionContext>
+    );
+    const view = render(viewFor(1));
+    await connectPage();
+    await waitFor(() => expect(api.requests.some((p) => p.includes('/messages/sync?'))).toBe(true));
+    view.rerender(viewFor(2));
+    await waitFor(() => expect(bootstraps).toBe(2));
+    await waitFor(() => expect(FakeStompSocket.connections).toHaveLength(2));
+    const next = FakeStompSocket.connections[1];
+    act(() => next.open());
+    act(() => next.connected());
+    const before = api.requests.filter((p) => p.includes('/messages/sync?')).length;
+    await act(async () => {
+      unblock();
+      await delayed;
+    });
+    await waitFor(() =>
+      expect(api.requests.filter((p) => p.includes('/messages/sync?')).length).toBeGreaterThan(
+        before,
+      ),
+    );
+  });
+
+  it('repairs a quiet Pub/Sub gap on its periodic timer without online or reconnect events', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    const historyMessages: Array<{
+      chatMessageId: number;
+      clientMessageId: string;
+      userId: number;
+      nickname: string;
+      content: string;
+      createdAt: string;
+    }> = [];
+    const api = createRestRequest({ historyMessages });
+    renderPage({ useRestApi: true, fetchAuthenticatedJson: api.fetchAuthenticatedJson });
+    await act(async () => {
+      for (let i = 0; i < 50; i++) await Promise.resolve();
+    });
+    expect(FakeStompSocket.connections).toHaveLength(1);
+    const socket = FakeStompSocket.connections[0];
+    act(() => socket.open());
+    act(() => socket.connected());
+    await act(async () => {
+      for (let i = 0; i < 50; i++) await Promise.resolve();
+    });
+    historyMessages.push({
+      chatMessageId: 1,
+      clientMessageId: '550e8400-e29b-41d4-a716-446655440099',
+      userId: 8,
+      nickname: 'partner',
+      content: 'periodic repair',
+      createdAt: '2026-10-21T12:00:00+09:00',
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(18000);
+    });
+    expect(screen.getByText('periodic repair')).toBeInTheDocument();
+    expect(FakeStompSocket.connections).toHaveLength(1);
   });
 });

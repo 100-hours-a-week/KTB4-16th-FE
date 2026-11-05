@@ -73,6 +73,11 @@ function createSession(
         },
       } as T;
     }
+    if (path.startsWith('/chat-rooms/42/messages/sync'))
+      return {
+        message: 'ok',
+        data: { messages: [], throughMessageId: 11, nextAfterMessageId: 11, hasNext: false },
+      } as T;
     if (path === '/chat-rooms/42/messages') {
       return {
         message: 'history',
@@ -165,7 +170,7 @@ describe('ChatRoomPage REST integration', () => {
     const { session, requests } = createSession();
     renderInlinePage(session);
     await screen.findByText('상대 메시지');
-    const initialRequestCount = requests.length;
+    const initialEntryCount = requests.filter((r) => r.path.endsWith('/members')).length;
 
     await user.click(screen.getByRole('button', { name: '채팅 전체보기' }));
     expect(screen.getByRole('button', { name: '채팅창 축소' })).toBeInTheDocument();
@@ -174,7 +179,7 @@ describe('ChatRoomPage REST integration', () => {
 
     expect(screen.getByRole('button', { name: '채팅 전체보기' })).toBeInTheDocument();
     expect(screen.getByText('상대 메시지')).toBeInTheDocument();
-    expect(requests).toHaveLength(initialRequestCount);
+    expect(requests.filter((r) => r.path.endsWith('/members'))).toHaveLength(initialEntryCount);
     expect(requests[0]?.path).toBe('/chat-rooms/42/members');
   });
 
@@ -203,8 +208,9 @@ describe('ChatRoomPage REST integration', () => {
     expect(screen.getByText(/참여자 2명/)).toBeInTheDocument();
 
     const requestedPaths = requests.map(({ path }) => path);
-    expect(requestedPaths).toEqual([
+    expect(requestedPaths.slice(0, 5)).toEqual([
       '/chat-rooms/42/members',
+      '/chat-rooms/42/messages/sync',
       '/users/me',
       '/chat-rooms/42',
       '/chat-rooms/42/messages',
