@@ -11,6 +11,7 @@ export type ChatConnectionStopReason =
   'retry-exhausted' | 'authentication' | 'protocol' | 'temporary' | null;
 
 export interface ChatConnectionSnapshot {
+  connectionEpoch?: number;
   state: ChatConnectionState;
   retryCount: number;
   stopReason: ChatConnectionStopReason;

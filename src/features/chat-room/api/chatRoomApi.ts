@@ -255,3 +255,47 @@ function isUuid(value: unknown): value is string {
 function isDateTime(value: unknown): value is string {
   return typeof value === 'string' && !Number.isNaN(Date.parse(value));
 }
+
+export interface ChatMessageSyncPage {
+  messages: ChatRoomMessageRecord[];
+  throughMessageId: number;
+  nextAfterMessageId: number;
+  hasNext: boolean;
+}
+/** 기존 과거 이력 커서와 독립적으로 DB 복구 기준점·페이지를 검증한다. */
+export async function getChatRoomMessageSync(
+  request: AuthenticatedRequest,
+  roomId: string,
+  query: { afterMessageId?: number; throughMessageId?: number },
+  signal?: AbortSignal,
+): Promise<ChatMessageSyncPage> {
+  const params = new URLSearchParams();
+  if (query.afterMessageId !== undefined)
+    params.set('afterMessageId', String(query.afterMessageId));
+  if (query.throughMessageId !== undefined)
+    params.set('throughMessageId', String(query.throughMessageId));
+  const suffix = params.size ? '?' + params.toString() : '';
+  const response = await request<unknown>(`/chat-rooms/${roomId}/messages/sync${suffix}`, {
+    signal,
+  });
+  return parseDataResponse(response, (value) => {
+    if (
+      !isRecord(value) ||
+      !Array.isArray(value.messages) ||
+      typeof value.hasNext !== 'boolean' ||
+      typeof value.throughMessageId !== 'number' ||
+      !Number.isSafeInteger(value.throughMessageId) ||
+      value.throughMessageId < 0 ||
+      typeof value.nextAfterMessageId !== 'number' ||
+      !Number.isSafeInteger(value.nextAfterMessageId) ||
+      value.nextAfterMessageId < 0
+    )
+      throw invalidResponseError();
+    return {
+      messages: value.messages.map(parseMessage),
+      throughMessageId: value.throughMessageId,
+      nextAfterMessageId: value.nextAfterMessageId,
+      hasNext: value.hasNext,
+    };
+  });
+}

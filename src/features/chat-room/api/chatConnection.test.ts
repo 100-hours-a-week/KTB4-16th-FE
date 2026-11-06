@@ -7,6 +7,7 @@ import { createChatConnection, createChatWebSocketUrl } from './chatConnection';
 const controllers: ChatConnection[] = [];
 
 beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0);
   vi.useFakeTimers({
     toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
   });
@@ -114,6 +115,24 @@ describe('chat connection', () => {
     await vi.advanceTimersByTimeAsync(60000);
     expect(FakeStompSocket.connections).toHaveLength(6);
     expect(states.at(-1)).toMatchObject({ state: 'disconnected', stopReason: 'retry-exhausted' });
+  });
+
+  it('spreads the first reconnect with jitter and keeps exponential backoff', async () => {
+    vi.mocked(Math.random).mockReturnValue(0.999);
+    const { controller } = setup();
+    controller.start();
+    let socket = await latestSocket();
+    socket.close(1006);
+    await vi.advanceTimersByTimeAsync(2998);
+    expect(FakeStompSocket.connections).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(FakeStompSocket.connections).toHaveLength(2);
+    socket = await latestSocket();
+    socket.close(1006);
+    await vi.advanceTimersByTimeAsync(5997);
+    expect(FakeStompSocket.connections).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(FakeStompSocket.connections).toHaveLength(3);
   });
 
   it('terminates a connection without CONNECTED after ten seconds', async () => {

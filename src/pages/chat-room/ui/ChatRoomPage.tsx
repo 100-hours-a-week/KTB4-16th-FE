@@ -1,3 +1,7 @@
+import { withChatRequestDeadline as limited } from '../../../features/chat-room/model/chatRequestDeadline';
+import { confirmChatMessage } from '../../../features/chat-room/model/confirmChatMessage';
+import { recoverChatMessages } from '../../../features/chat-room/model/chatMessageSync';
+import { mergeChatMessages } from '../../../features/chat-room/model/mergeChatMessages';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 
@@ -8,6 +12,7 @@ import {
   enterChatRoom,
   getChatRoomDetail,
   getChatRoomMessageHistory,
+  getChatRoomMessageSync,
   leaveChatRoom,
   type ChatRoomDetail,
   type ChatRoomMessageHistory,
@@ -389,6 +394,19 @@ export function ChatRoomPage({
     return () => clearTimeout(timeoutId);
   }, [loadedRoom]);
 
+  /** DB와 live 어느 경로에서 확인하든 현재 사용자의 전송 대기를 한 번 끝낸다. */
+  const acknowledgeMessage = useCallback((userId: number, clientMessageId: string) => {
+    confirmChatMessage(
+      currentRoom.current.loadedRoom?.currentUserId,
+      userId,
+      clientMessageId,
+      pendingMessages.current,
+      retryIdsByContent.current,
+    );
+  }, []);
+  const [syncGeneration, setSyncGeneration] = useState(0);
+  const syncCheckpoint = useRef<{ roomId: string; session: number; through: number } | null>(null);
+
   useEffect(() => {
     frameHandler.current = (destination, body) => {
       let frame: unknown;
@@ -428,22 +446,10 @@ export function ChatRoomPage({
         };
         setLoadedRoom((current) => {
           if (!current || current.chatRoomId !== activeRoomId) return current;
-          const existingIndex = current.messages.findIndex(
-            (item) => item.id === mapped.id || item.clientMessageId === message.clientMessageId,
-          );
-          if (existingIndex < 0) return { ...current, messages: [...current.messages, mapped] };
-          const messages = [...current.messages];
-          messages[existingIndex] = mapped;
-          return { ...current, messages };
+          return { ...current, messages: mergeChatMessages(current.messages, [mapped]) };
         });
 
-        const pending = pendingMessages.current.get(message.clientMessageId);
-        if (pending) {
-          clearTimeout(pending.timeoutId);
-          pendingMessages.current.delete(message.clientMessageId);
-          retryIdsByContent.current.delete(pending.content);
-          pending.resolve();
-        }
+        acknowledgeMessage(message.userId, message.clientMessageId);
         setTransportError('');
         return;
       }
@@ -560,52 +566,147 @@ export function ChatRoomPage({
         void refreshRoomDetail(activeRoomId);
       }
     };
-  }, [refreshRoomDetail, settlePendingMessage]);
+  }, [refreshRoomDetail, settlePendingMessage, acknowledgeMessage]);
 
-  const previousConnectionState = useRef(connection.state);
+  // live 프레임의 최대 ID가 아닌 DB 확인 범위만 기준점으로 유지한다.
   useEffect(() => {
-    const previousState = previousConnectionState.current;
-    previousConnectionState.current = connection.state;
+    const roomId = chatRoomId;
     if (
-      connection.state !== 'connected' ||
-      (previousState !== 'reconnecting' && previousState !== 'disconnected') ||
-      loadedRoom?.chatRoomId !== chatRoomId ||
-      !chatRoomId
-    ) {
+      !roomId ||
+      loadedRoom?.chatRoomId !== roomId ||
+      hasInjectedRoomData ||
+      !isAuthenticated ||
+      isSessionRestoring
+    )
       return;
-    }
-
-    void refreshRoomDetail(chatRoomId)
-      .then((detail) => {
-        if (!detail) return;
-        return getChatRoomMessageHistory(fetchAuthenticatedJson, chatRoomId).then((history) => {
-          setLoadedRoom((current) => {
-            if (!current || current.chatRoomId !== chatRoomId) return current;
-            const merged = new Map(
-              current.messages.map((message) => [
-                message.id,
-                withCurrentParticipants(message, detail),
-              ]),
+    const checkpoint = syncCheckpoint.current;
+    if (!checkpoint || checkpoint.roomId !== roomId || checkpoint.session !== sessionVersion)
+      return;
+    let active = true;
+    let running = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let requestController: AbortController | undefined;
+    /** 고정 상한의 모든 페이지와 방 상세가 성공해야 기준점을 전진시킨다. */
+    async function run() {
+      if (!active || running || document.visibilityState === 'hidden') return;
+      if (timer) clearTimeout(timer);
+      running = true;
+      const controller = new AbortController();
+      requestController = controller;
+      try {
+        const through = await recoverChatMessages({
+          afterMessageId: checkpoint!.through,
+          signal: controller.signal,
+          fetchPage: (after, upper, signal) =>
+            limited(
+              (child) =>
+                getChatRoomMessageSync(
+                  fetchAuthenticatedJson,
+                  roomId!,
+                  { afterMessageId: after, throughMessageId: upper },
+                  child,
+                ),
+              signal,
+            ),
+          applyPage: (messages) => {
+            if (!active || controller.signal.aborted) return;
+            const room = currentRoom.current.loadedRoom;
+            if (!room || room.chatRoomId !== roomId) return;
+            for (const message of messages)
+              acknowledgeMessage(message.userId, message.clientMessageId);
+            setLoadedRoom((current) =>
+              current?.chatRoomId === roomId
+                ? {
+                    ...current,
+                    messages: mergeChatMessages(
+                      current.messages,
+                      messages.map((m) => mapMessage(m, current.currentUserId, current.detail)),
+                    ),
+                  }
+                : current,
             );
-            for (const record of history.messages) {
-              const message = mapMessage(record, current.currentUserId, detail);
-              const duplicate = [...merged.entries()].find(
-                ([, existing]) => existing.clientMessageId === message.clientMessageId,
-              );
-              if (duplicate) merged.delete(duplicate[0]);
-              merged.set(message.id, message);
-            }
-            return { ...current, detail, messages: [...merged.values()] };
-          });
+          },
         });
-      })
-      .catch(() => setTransportError('연결이 복구되었지만 최신 정보를 불러오지 못했어요.'));
+        const detail = await limited(
+          (signal) => getChatRoomDetail(fetchAuthenticatedJson, roomId!, signal),
+          controller.signal,
+        );
+        if (!active || controller.signal.aborted) return;
+        setLoadedRoom((current) => {
+          if (!current || current.chatRoomId !== roomId) return current;
+          const partner = detail.participants.find((p) => p.userId !== current.currentUserId);
+          return {
+            ...current,
+            detail,
+            roomInfo: roomInfoFromDetail(detail, partner?.nickname),
+            messages: current.messages.map((m) => withCurrentParticipants(m, detail)),
+          };
+        });
+        const room = currentRoom.current.loadedRoom;
+        if (room) {
+          const peer = detail.participants.find((p) => p.userId !== room.currentUserId);
+          setRoomResult({
+            chatRoomId: roomId,
+            status:
+              detail.roomType === 'GROUP'
+                ? groupRoomStatus(detail, room.currentUserId)
+                : peer?.hasLeft
+                  ? 'partner-left'
+                  : 'active',
+          });
+        }
+        checkpoint!.through = through;
+        failures = 0;
+        setTransportError('');
+      } catch (error: unknown) {
+        if (!active || controller.signal.aborted) return;
+        if (
+          error instanceof ApiError &&
+          (error.status === 401 || error.status === 403 || error.status === 404)
+        ) {
+          active = false;
+          setRoomResult({
+            chatRoomId: roomId,
+            status: error.code === 'CHAT_ROOM_EXPIRED' ? 'expired' : 'self-left',
+          });
+        } else {
+          failures++;
+          setTransportError('최신 메시지 동기화를 완료하지 못했어요. 다시 확인하고 있어요.');
+        }
+      } finally {
+        running = false;
+        if (active)
+          timer = setTimeout(
+            () => void run(),
+            Math.min(60000, 15000 * 2 ** Math.min(failures, 2)) + Math.random() * 3000,
+          );
+      }
+    }
+    const resume = () => {
+      if (document.visibilityState !== 'hidden') void run();
+    };
+    window.addEventListener('online', resume);
+    document.addEventListener('visibilitychange', resume);
+    void run();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      requestController?.abort();
+      window.removeEventListener('online', resume);
+      document.removeEventListener('visibilitychange', resume);
+    };
   }, [
     chatRoomId,
-    connection.state,
-    fetchAuthenticatedJson,
     loadedRoom?.chatRoomId,
-    refreshRoomDetail,
+    connection.connectionEpoch,
+    syncGeneration,
+    sessionVersion,
+    hasInjectedRoomData,
+    isAuthenticated,
+    isSessionRestoring,
+    fetchAuthenticatedJson,
+    acknowledgeMessage,
   ]);
 
   useEffect(
@@ -638,6 +739,14 @@ export function ChatRoomPage({
     async function loadRoom(): Promise<void> {
       try {
         await enterChatRoom(fetchAuthenticatedJson, requestedRoomId, controller.signal);
+        const checkpoint = await getChatRoomMessageSync(
+          fetchAuthenticatedJson,
+          requestedRoomId,
+          {},
+          controller.signal,
+        );
+        if (!isCurrent) return;
+
         const [profile, detail, history] = await Promise.all([
           getMyProfile(fetchAuthenticatedJson),
           getChatRoomDetail(fetchAuthenticatedJson, requestedRoomId, controller.signal),
@@ -659,6 +768,12 @@ export function ChatRoomPage({
         }
 
         if (!isCurrent) return;
+        syncCheckpoint.current = {
+          roomId: requestedRoomId,
+          session: sessionVersion,
+          through: checkpoint.throughMessageId,
+        };
+        setSyncGeneration((value) => value + 1);
         setLoadedRoom({
           chatRoomId: requestedRoomId,
           detail,
@@ -729,6 +844,7 @@ export function ChatRoomPage({
     onRoomSnapshotInvalidated,
     retryKey,
     validRoomId,
+    sessionVersion,
   ]);
 
   const loadOlderMessages = useCallback(async () => {
@@ -764,7 +880,7 @@ export function ChatRoomPage({
         ? {
             ...current,
             history,
-            messages: [...olderMessages, ...current.messages],
+            messages: mergeChatMessages(current.messages, olderMessages),
           }
         : current,
     );
@@ -1334,6 +1450,8 @@ function errorMessageForCode(code: string): string {
       return '스팸으로 의심되는 메시지는 전송할 수 없어요.';
     case 'MESSAGE_BLOCKED':
       return '부적절한 내용이 포함되어 메시지를 전송할 수 없어요.';
+    case 'CHAT_DELIVERY_UNAVAILABLE':
+      return '채팅 연결을 복구하고 있어요. 잠시 후 다시 보내 주세요.';
     case 'MODERATION_UNAVAILABLE':
       return '현재 메시지를 전송할 수 없어요. 잠시 후 다시 시도해 주세요.';
     case 'CHAT_ROOM_EXPIRED':
