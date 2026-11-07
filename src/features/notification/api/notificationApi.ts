@@ -20,6 +20,10 @@ export type NotificationPage = {
   nextCursor: string | null;
 };
 
+export type UnreadNotificationStatus = {
+  hasUnread: boolean;
+};
+
 type Request = AuthenticatedApiClient['fetchJson'];
 
 /** OpenAPI v2.8의 최신순 알림 페이지를 읽고 외부 응답을 검증한다. */
@@ -55,6 +59,22 @@ export async function hasUnreadNotifications(
     cursor = page.nextCursor;
   } while (cursor !== null);
   return false;
+}
+
+export async function getUnreadNotificationStatus(
+  request: Request,
+  signal: AbortSignal,
+): Promise<UnreadNotificationStatus> {
+  const response = await request<unknown>('/notifications/unread-status', { signal });
+  if (
+    !isRecord(response) ||
+    typeof response.message !== 'string' ||
+    !isRecord(response.data) ||
+    typeof response.data.hasUnread !== 'boolean'
+  ) {
+    throw new Error('미읽음 알림 상태 응답 형식이 올바르지 않습니다.');
+  }
+  return { hasUnread: response.data.hasUnread };
 }
 
 /** 실제 조회한 미읽음 ID만 CSRF를 포함한 PATCH로 일괄 읽음 처리한다. */

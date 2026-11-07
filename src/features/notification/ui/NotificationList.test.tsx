@@ -1,9 +1,14 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
+import {
+  SessionContext,
+  type SessionContextValue,
+} from '../../../entities/session/model/sessionContext';
+import { NotificationSseProvider } from '../model/NotificationSseProvider';
 import { NotificationList } from './NotificationList';
 
 const mocks = vi.hoisted(() => ({ getCsrfToken: vi.fn() }));
@@ -235,5 +240,160 @@ describe('NotificationList', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
     expect(request).not.toHaveBeenCalledWith('/notifications/7', expect.anything());
+  });
+
+  it('refreshes and deduplicates the open cursor list after a notification event', async () => {
+    let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller;
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } }),
+        ),
+    );
+    const existingItem = { ...unread };
+    const olderItem = {
+      ...unread,
+      notificationId: 6,
+      content: '오래된 알림',
+      readAt: '2026-10-10T12:00:00',
+    };
+    const newItem = {
+      ...unread,
+      notificationId: 8,
+      content: '새 알림 본문',
+      readAt: '2026-10-12T12:00:00',
+    };
+    let pageRequestCount = 0;
+    let unreadStatusRequestCount = 0;
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        unreadStatusRequestCount += 1;
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        pageRequestCount += 1;
+        if (path.includes('cursor=')) {
+          return {
+            message: '성공',
+            data: { notifications: [olderItem], nextCursor: null },
+          } as T;
+        }
+        if (pageRequestCount === 1) {
+          return {
+            message: '성공',
+            data: { notifications: [existingItem], nextCursor: 'older-cursor' },
+          } as T;
+        }
+        if (pageRequestCount === 2) {
+          return {
+            message: '성공',
+            data: { notifications: [existingItem], nextCursor: 'older-cursor' },
+          } as T;
+        }
+        return {
+          message: '성공',
+          data: { notifications: [newItem, existingItem], nextCursor: null },
+        } as T;
+      }
+      return { message: '성공' } as T;
+    };
+    const session: SessionContextValue = {
+      accessToken: 'access-token',
+      sessionVersion: 1,
+      isAuthenticated: true,
+      isSessionRestoring: false,
+      setAccessToken: vi.fn(),
+      clearSession: vi.fn(),
+      fetchAuthenticatedJson: request,
+      getAccessToken: () => 'access-token',
+      refreshAccessToken: vi.fn().mockResolvedValue(undefined),
+    };
+    const user = userEvent.setup();
+
+    render(
+      <SessionContext value={session}>
+        <NotificationSseProvider>
+          <MemoryRouter>
+            <NotificationList request={request} />
+          </MemoryRouter>
+        </NotificationSseProvider>
+      </SessionContext>,
+    );
+
+    await screen.findByText(existingItem.content);
+    await user.click(screen.getByRole('button', { name: '더 보기' }));
+    await screen.findByText(olderItem.content);
+    await waitFor(() => expect(unreadStatusRequestCount).toBeGreaterThanOrEqual(2));
+    await act(async () => {
+      streamController?.enqueue(
+        new TextEncoder().encode('event: notification-created\ndata: {"notificationId":8}\n\n'),
+      );
+    });
+
+    expect(await screen.findByText(newItem.content)).toBeInTheDocument();
+    expect(screen.getByText(existingItem.content)).toBeInTheDocument();
+    expect(screen.getByText(olderItem.content)).toBeInTheDocument();
+    expect(screen.getAllByText(existingItem.content)).toHaveLength(1);
+  });
+
+  it('refreshes unread status after deleting a notification', async () => {
+    const user = userEvent.setup();
+    let unreadStatusRequestCount = 0;
+    const readItem = { ...unread, readAt: '2026-10-11T12:30:00' };
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        unreadStatusRequestCount += 1;
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        return { message: '성공', data: { notifications: [readItem], nextCursor: null } } as T;
+      }
+      return { message: '성공' } as T;
+    };
+    const session: SessionContextValue = {
+      accessToken: 'access-token',
+      sessionVersion: 1,
+      isAuthenticated: true,
+      isSessionRestoring: false,
+      setAccessToken: vi.fn(),
+      clearSession: vi.fn(),
+      fetchAuthenticatedJson: request,
+      getAccessToken: () => 'access-token',
+      refreshAccessToken: vi.fn().mockResolvedValue(undefined),
+    };
+    const stream = new ReadableStream<Uint8Array>({});
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } }),
+        ),
+    );
+
+    render(
+      <SessionContext value={session}>
+        <NotificationSseProvider>
+          <MemoryRouter>
+            <NotificationList request={request} />
+          </MemoryRouter>
+        </NotificationSseProvider>
+      </SessionContext>,
+    );
+
+    await screen.findByText(readItem.content);
+    await waitFor(() => expect(unreadStatusRequestCount).toBe(1));
+    await user.click(screen.getByRole('button', { name: '알림 삭제' }));
+    await user.click(screen.getByRole('button', { name: '삭제 확인' }));
+
+    await waitFor(() => expect(unreadStatusRequestCount).toBe(2));
+    expect(screen.getByText('아직 도착한 알림이 없어요')).toBeInTheDocument();
   });
 });
