@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCsrfToken } from '../../../shared/api/csrf';
 import {
   deleteNotification,
+  getUnreadNotificationStatus,
   getNotifications,
   hasUnreadNotifications,
   markNotificationsRead,
@@ -27,6 +28,30 @@ beforeEach(() => {
 });
 
 describe('notificationApi', () => {
+  it('reads the unread notification status without loading the notification pages', async () => {
+    const request = vi.fn().mockResolvedValue({
+      message: '미읽음 알림 여부 조회 성공',
+      data: { hasUnread: true },
+    });
+    const signal = new AbortController().signal;
+
+    await expect(getUnreadNotificationStatus(request, signal)).resolves.toEqual({
+      hasUnread: true,
+    });
+    expect(request).toHaveBeenCalledWith('/notifications/unread-status', { signal });
+  });
+
+  it('rejects an invalid unread status response', async () => {
+    const request = vi.fn().mockResolvedValue({
+      message: '미읽음 알림 여부 조회 성공',
+      data: { hasUnread: 'true' },
+    });
+
+    await expect(
+      getUnreadNotificationStatus(request, new AbortController().signal),
+    ).rejects.toThrow('미읽음 알림 상태 응답');
+  });
+
   it('finds an unread notification after a page of read notifications', async () => {
     const request = vi.fn().mockImplementation(async (path: string) => ({
       message: '성공',

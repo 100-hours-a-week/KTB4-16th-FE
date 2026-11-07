@@ -6,40 +6,13 @@ import { HomeMap, type MapCenter } from '../../../features/home-map/ui/HomeMap';
 import { HomePlaylistSheet } from '../../../features/home-playlist/ui/HomePlaylistSheet';
 import { HomeWeather } from '../../../features/home-weather/ui/HomeWeather';
 import { MainNavigation } from '../../../features/main-navigation/ui/MainNavigation';
-import { hasUnreadNotifications } from '../../../features/notification/api/notificationApi';
-import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
+import { useNotificationSse } from '../../../features/notification/model/notificationSseContext';
 import './homePage.css';
-
-/** 로그인한 사용자의 홈 진입 시 미읽음 여부를 확인해 새 알림 점을 표시한다. */
-function HomeNotificationIndicator({ request }: { request: AuthenticatedApiClient['fetchJson'] }) {
-  const [hasUnread, setHasUnread] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    // 홈 진입 시 확인하고, 머무는 동안에는 타이머나 포커스로 재조회하지 않는다.
-    void hasUnreadNotifications(request, controller.signal)
-      .then((unread) => {
-        if (active && !controller.signal.aborted) setHasUnread(unread);
-      })
-      .catch(() => {
-        // 조회 실패 시 홈 화면은 유지하고 다음 홈 진입에서 다시 확인한다.
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [request]);
-
-  return hasUnread ? (
-    <span className="home-notification-indicator" role="status" aria-label="새 알림" />
-  ) : null;
-}
 
 /** 검색·지도·추천 진입을 조립하고 추천 모달의 화면 세션과 배경 차단을 소유한다. */
 export function HomePage() {
-  const { fetchAuthenticatedJson, isAuthenticated, isSessionRestoring } = useSession();
+  const { isAuthenticated, isSessionRestoring } = useSession();
+  const { hasUnread } = useNotificationSse();
   const [currentLocation, setCurrentLocation] = useState<MapCenter | null>(null);
   const [isPlaylistRequested, setIsPlaylistRequested] = useState(false);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
@@ -147,7 +120,13 @@ export function HomePage() {
                   <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M12 2V1" />
                 </svg>
                 {isAuthenticated && !isSessionRestoring ? (
-                  <HomeNotificationIndicator request={fetchAuthenticatedJson} />
+                  hasUnread ? (
+                    <span
+                      className="home-notification-indicator"
+                      role="status"
+                      aria-label="새 알림"
+                    />
+                  ) : null
                 ) : null}
               </button>
             </div>
