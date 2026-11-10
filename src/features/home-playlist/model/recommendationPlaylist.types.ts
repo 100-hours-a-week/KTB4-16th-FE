@@ -22,9 +22,9 @@ export type RecommendationTrack = {
   externalUrl: string;
 };
 
-/** 로그인 사용자의 현재 추천 플레이리스트와 서버 정렬 순서의 트랙 목록이다. */
+/** 현재 화면 세션에서 표시할 추천 이유·평가 ID·곡 순서를 보관한다. */
 export type RecommendationPlaylist = {
-  recommendationPlaylistId: number;
+  recommendReason: string | null;
   recommendationId?: number;
   tracks: RecommendationTrack[];
 };

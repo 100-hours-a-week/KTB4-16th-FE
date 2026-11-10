@@ -313,6 +313,11 @@ export function HomePlaylistSheet({
           </div>
         ) : (
           <>
+            {playlist?.recommendReason?.trim() ? (
+              <p className="home-playlist-recommend-reason" role="note" aria-label="추천 이유">
+                {playlist.recommendReason}
+              </p>
+            ) : null}
             {playlist !== null ? (
               <ul className="home-playlist-track-list">
                 {playlist.tracks.map((track) => (

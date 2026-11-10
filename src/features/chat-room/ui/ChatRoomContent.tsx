@@ -8,17 +8,8 @@ import type {
 import { ChatSendFailure } from '../model/chatSendFailure';
 import './chatRoomContent.css';
 
-export type ChatMessage = {
-  id: string;
-  clientMessageId?: string;
-  userId?: number;
-  sender: 'me' | 'partner';
-  nickname?: string;
-  voteChoice?: 'A' | 'B' | null;
-  content: string;
-  createdAt: string;
-  deliveryState?: 'pending' | 'success' | 'failed';
-};
+import type { ChatMessage } from '../model/chatMessage.types';
+export type { ChatMessage } from '../model/chatMessage.types';
 export type ChatSystemNotice = {
   id: string;
   text: string;

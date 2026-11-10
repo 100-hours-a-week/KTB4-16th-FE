@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   fetchAuthenticatedJson: vi.fn(),
   isAuthenticated: false,
   isSessionRestoring: false,
+  hasUnread: false,
   locationState: null as null | { recordCreated: boolean },
 }));
 
@@ -54,6 +55,13 @@ vi.mock('../../../entities/session/model/useSession', () => ({
     isSessionRestoring: mocks.isSessionRestoring,
   }),
 }));
+vi.mock('../../../features/notification/model/notificationSseContext', () => ({
+  useNotificationSse: () => ({
+    hasUnread: mocks.hasUnread,
+    refreshUnreadStatus: vi.fn(),
+    subscribeToNotificationUpdates: vi.fn(() => vi.fn()),
+  }),
+}));
 import { HomePage } from './HomePage';
 
 describe('HomePage weather location handling', () => {
@@ -70,6 +78,7 @@ describe('HomePage weather location handling', () => {
     mocks.locationState = null;
     mocks.isAuthenticated = false;
     mocks.isSessionRestoring = false;
+    mocks.hasUnread = false;
     vi.stubGlobal('fetch', vi.fn());
   });
 
@@ -78,49 +87,18 @@ describe('HomePage weather location handling', () => {
     vi.useRealTimers();
   });
 
-  it('checks unread notifications on home entry and refreshes only on re-entry', async () => {
+  it('renders the shared unread notification state without starting its own request', async () => {
     mocks.isAuthenticated = true;
-    let readAt: string | null = null;
-    mocks.fetchAuthenticatedJson.mockImplementation(async () => ({
-      message: '성공',
-      data: {
-        notifications: [
-          {
-            notificationId: 7,
-            type: 'FRIEND_REQUEST',
-            targetId: 12,
-            targetType: 'FRIEND_REQUEST',
-            title: '친구 요청',
-            content: '새 친구 요청',
-            createdAt: '2026-10-12T16:00:00',
-            readAt,
-          },
-        ],
-        nextCursor: null,
-      },
-    }));
+    mocks.hasUnread = true;
 
     const home = render(<HomePage />);
-    expect(await screen.findByRole('status', { name: '새 알림' })).toBeInTheDocument();
-    expect(mocks.fetchAuthenticatedJson).toHaveBeenCalledTimes(1);
-
-    readAt = '2026-10-12T16:03:00';
-    vi.useFakeTimers();
-    await act(async () => {
-      window.dispatchEvent(new Event('focus'));
-      document.dispatchEvent(new Event('visibilitychange'));
-      await vi.advanceTimersByTimeAsync(10 * 60_000);
-    });
-    expect(mocks.fetchAuthenticatedJson).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('status', { name: '새 알림' })).toBeInTheDocument();
-    vi.useRealTimers();
+    expect(mocks.fetchAuthenticatedJson).not.toHaveBeenCalled();
 
     home.unmount();
+    mocks.hasUnread = false;
     render(<HomePage />);
-    await waitFor(() =>
-      expect(screen.queryByRole('status', { name: '새 알림' })).not.toBeInTheDocument(),
-    );
-    expect(mocks.fetchAuthenticatedJson).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('status', { name: '새 알림' })).not.toBeInTheDocument();
   });
 
   it('renders home without an onboarding dialog', async () => {

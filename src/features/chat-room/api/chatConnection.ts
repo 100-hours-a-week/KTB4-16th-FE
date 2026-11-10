@@ -35,6 +35,7 @@ export function createChatConnection(options: ChatConnectionOptions): ChatConnec
   let restarting: Promise<void> | null = null;
   let snapshot: ChatConnectionSnapshot = {
     state: 'idle',
+    connectionEpoch: 0,
     retryCount: 0,
     stopReason: null,
     isOffline: !navigator.onLine,
@@ -91,7 +92,7 @@ export function createChatConnection(options: ChatConnectionOptions): ChatConnec
     const client = new Client({
       brokerURL: createChatWebSocketUrl(window.location.origin),
       reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
-      reconnectDelay: 2000,
+      reconnectDelay: 2000 + Math.floor(Math.random() * 1000),
       maxReconnectDelay: 30000,
       connectionTimeout: 10000,
       heartbeatIncoming: 10000,
@@ -184,7 +185,12 @@ export function createChatConnection(options: ChatConnectionOptions): ChatConnec
       }
       lifetime.attempts = 0;
       lifetime.authRecovered = false;
-      report({ state: 'connected', retryCount: 0, stopReason: null });
+      report({
+        state: 'connected',
+        connectionEpoch: (snapshot.connectionEpoch ?? 0) + 1,
+        retryCount: 0,
+        stopReason: null,
+      });
     };
 
     client.onStompError = (frame) => {

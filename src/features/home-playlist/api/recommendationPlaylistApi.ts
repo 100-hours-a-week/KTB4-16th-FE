@@ -10,15 +10,6 @@ import type {
 
 const REQUIRED_RECOMMENDATION_TRACK_COUNT = 5;
 
-/** 로그인 사용자의 저장된 현재 추천 플레이리스트를 조회하고 계약을 검증한다. */
-export async function getRecommendationPlaylist(
-  fetchAuthenticatedJson: AuthenticatedApiClient['fetchJson'],
-  signal?: AbortSignal,
-): Promise<RecommendationPlaylist | null> {
-  const response = await fetchAuthenticatedJson<unknown>('/recommendations/playlists', { signal });
-  return parseRecommendationPlaylistResponse(response);
-}
-
 /** 확인된 위치와 CSRF 토큰으로 새 추천을 생성하고 반환 계약을 검증한다. */
 export async function createRecommendationPlaylist(
   request: RecommendationPlaylistRequest,
@@ -44,7 +35,7 @@ export async function createRecommendationPlaylist(
   ) {
     throw invalidResponse();
   }
-  // 기존 DB 목록을 돌려준 200 응답은 이번 세션의 새 추천으로 노출하거나 차감하지 않는다.
+  // 새 추천이 아닌 degraded 응답은 기존 화면 목록·이유를 유지하고 횟수를 차감하지 않는다.
   if (!response.data.replaced) {
     throw new ApiError(
       503,
@@ -54,44 +45,38 @@ export async function createRecommendationPlaylist(
   }
   const playlist = parseRecommendationPlaylistResponse(response);
 
-  if (playlist === null) {
-    throw invalidResponse();
-  }
-
   if (playlist.tracks.some((track) => request.excludeTrackIds.includes(track.externalTrackId))) {
     throw invalidResponse();
   }
   return playlist;
 }
 
-/** 조회·생성 API의 신뢰할 수 없는 JSON을 현재 플레이리스트 또는 null로 좁힌다. */
-function parseRecommendationPlaylistResponse(value: unknown): RecommendationPlaylist | null {
+/** 생성 응답을 현재 화면에서 사용할 곡·평가 ID·추천 이유로 검증한다. */
+function parseRecommendationPlaylistResponse(value: unknown): RecommendationPlaylist {
   if (!isRecord(value) || typeof value.message !== 'string' || !isRecord(value.data)) {
     throw invalidResponse();
   }
 
   const { playlist } = value.data;
-  if (playlist === null) {
-    return null;
-  }
   if (!isRecord(playlist)) {
     throw invalidResponse();
   }
 
   const recommendationId = parseRecommendationId(value.recommendationId);
-  return parseRecommendationPlaylist(playlist, recommendationId);
+  return parseRecommendationPlaylist(
+    playlist,
+    recommendationId,
+    parseRecommendReason(value.recommendReason),
+  );
 }
 
-/** 플레이리스트 ID와 트랙 배열이 화면 계약을 만족하는지 검증한다. */
+/** 저장용 플레이리스트 ID 없이 정확히 다섯 곡과 독립적인 평가 정보를 반환한다. */
 function parseRecommendationPlaylist(
   value: Record<string, unknown>,
   recommendationId: number | null,
+  recommendReason: string | null,
 ): RecommendationPlaylist {
-  if (
-    !isPositiveInteger(value.recommendationPlaylistId) ||
-    !Array.isArray(value.tracks) ||
-    value.tracks.length !== REQUIRED_RECOMMENDATION_TRACK_COUNT
-  ) {
+  if (!Array.isArray(value.tracks) || value.tracks.length !== REQUIRED_RECOMMENDATION_TRACK_COUNT) {
     throw invalidResponse();
   }
 
@@ -100,15 +85,23 @@ function parseRecommendationPlaylist(
     throw invalidResponse();
   }
   return {
-    recommendationPlaylistId: value.recommendationPlaylistId,
+    recommendReason,
     ...(recommendationId === null ? {} : { recommendationId }),
     tracks,
   };
 }
 
+/** 선택적인 평가 결과 ID를 검증하고 누락은 null로 처리한다. */
 function parseRecommendationId(value: unknown): number | null {
   if (value === undefined || value === null) return null;
   if (isPositiveInteger(value)) return value;
+  throw invalidResponse();
+}
+
+/** AI 문구를 가공하지 않고 보존하며 누락만 null로 통일한다. */
+function parseRecommendReason(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string') return value;
   throw invalidResponse();
 }
 

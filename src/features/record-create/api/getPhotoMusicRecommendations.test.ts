@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCsrfToken } from '../../../shared/api/csrf';
 import { getPhotoMusicRecommendations } from './getPhotoMusicRecommendations';
 
 vi.mock('../../../shared/api/csrf', () => ({ getCsrfToken: vi.fn() }));
 
+beforeEach(() => vi.mocked(getCsrfToken).mockResolvedValue('csrf'));
 afterEach(() => vi.clearAllMocks());
 
 const response = {
@@ -20,6 +21,36 @@ const response = {
 };
 
 describe('getPhotoMusicRecommendations', () => {
+  it('사진 추천 이유를 가공 없이 반환한다', async () => {
+    vi.mocked(getCsrfToken).mockResolvedValue('csrf');
+    const reason = '  사진 속 저녁 🌄\n차분하게 들어요.  ';
+    const request = vi.fn().mockResolvedValue({ ...response, recommendReason: reason });
+    await expect(getPhotoMusicRecommendations(77, request)).resolves.toEqual({
+      recommendationId: 19,
+      recommendReason: reason,
+      tracks: response.data,
+    });
+  });
+
+  it.each([undefined, null, '', '   '])(
+    '이유가 %j여도 곡 목록과 평가 ID를 유지한다',
+    async (reason) => {
+      const request = vi.fn().mockResolvedValue({ ...response, recommendReason: reason });
+      await expect(getPhotoMusicRecommendations(77, request)).resolves.toEqual({
+        recommendationId: 19,
+        recommendReason: reason ?? null,
+        tracks: response.data,
+      });
+    },
+  );
+
+  it.each([1, false, {}, []])('문자열이 아닌 추천 이유 %j는 거부한다', async (reason) => {
+    const request = vi.fn().mockResolvedValue({ ...response, recommendReason: reason });
+    await expect(getPhotoMusicRecommendations(77, request)).rejects.toThrow(
+      '음악 추천 응답 형식이 올바르지 않습니다.',
+    );
+  });
+
   it('posts the upload ID through the authenticated client with CSRF', async () => {
     vi.mocked(getCsrfToken).mockResolvedValue('csrf');
     const fetchAuthenticatedJson = vi.fn().mockResolvedValue(response);
@@ -27,7 +58,7 @@ describe('getPhotoMusicRecommendations', () => {
 
     await expect(
       getPhotoMusicRecommendations(77, fetchAuthenticatedJson, controller.signal),
-    ).resolves.toEqual({ recommendationId: 19, tracks: response.data });
+    ).resolves.toEqual({ recommendationId: 19, recommendReason: null, tracks: response.data });
 
     expect(fetchAuthenticatedJson).toHaveBeenCalledWith('/recommendations/photo', {
       method: 'POST',
@@ -46,6 +77,7 @@ describe('getPhotoMusicRecommendations', () => {
 
     await expect(getPhotoMusicRecommendations(77, fetchAuthenticatedJson)).resolves.toEqual({
       recommendationId: null,
+      recommendReason: null,
       tracks: response.data,
     });
   });

@@ -141,6 +141,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
   const [isUploading, setIsUploading] = useState(false);
   const [recommendations, setRecommendations] = useState<PhotoMusicRecommendation[]>([]);
   const [recommendationId, setRecommendationId] = useState<number | null>(null);
+  const [recommendReason, setRecommendReason] = useState<string | null>(null);
   const [recommendationLoadState, setRecommendationLoadState] = useState<
     'loading' | 'ready' | 'error'
   >('ready');
@@ -362,6 +363,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     const selectionId = photoSelectionIdRef.current;
     setRecommendations([]);
     setRecommendationId(null);
+    setRecommendReason(null);
     setHasSubmittedRecommendationFeedback(false);
     setIsRecommendationOpen(false);
     setIsRecommending(false);
@@ -414,6 +416,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     recommendationRequestIdRef.current += 1;
     photoSelectionIdRef.current += 1;
     setRecommendationId(null);
+    setRecommendReason(null);
     restoredLocationRef.current = draftToRestore.location;
     setLocation(draftToRestore.location);
     setDraftLocation(null);
@@ -488,6 +491,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     setPhotoError(null);
     setRecommendations([]);
     setRecommendationId(null);
+    setRecommendReason(null);
     setRecommendationLoadState('ready');
     setRecommendationError(null);
     setIsRecommendationOpen(false);
@@ -698,6 +702,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
     setRecommendationError(null);
     setRecommendations([]);
     setRecommendationId(null);
+    setRecommendReason(null);
     setHasSubmittedRecommendationFeedback(false);
 
     try {
@@ -709,6 +714,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         return;
       }
       setRecommendationId(result.recommendationId);
+      setRecommendReason(result.recommendReason);
       setRecommendations(result.tracks);
       setRecommendationLoadState('ready');
     } catch (error) {
@@ -1117,6 +1123,7 @@ export function RecordCreateForm({ onCoordinatesChange, onCreated, weather }: Pr
         isOpen={isRecommendationOpen}
         loadState={recommendationLoadState}
         recommendationId={recommendationId}
+        recommendReason={recommendReason}
         isFeedbackRequired={isPhotoRecommendationFeedbackRequired}
         hasSubmittedFeedback={hasSubmittedRecommendationFeedback}
         onFeedbackSubmitted={() => setHasSubmittedRecommendationFeedback(true)}

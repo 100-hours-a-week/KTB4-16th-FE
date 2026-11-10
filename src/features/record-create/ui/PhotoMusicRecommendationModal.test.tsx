@@ -24,6 +24,7 @@ const defaultProps = {
   loadState: 'ready' as const,
   recommendations: [recommendation],
   recommendationId: 51,
+  recommendReason: null as string | null,
   isFeedbackRequired: false,
   hasSubmittedFeedback: false,
   isFeedbackSubmitting: false,
@@ -36,6 +37,44 @@ const defaultProps = {
 };
 
 describe('PhotoMusicRecommendationModal', () => {
+  it('추천 이유 원문을 표시하고 HTML로 해석하지 않는다', () => {
+    const reason = '  차분한 사진 🌄\n<strong>함께</strong> 들어요.  ';
+    render(
+      <PhotoMusicRecommendationModal
+        {...defaultProps}
+        recommendations={Array.from({ length: 5 }, (_, index) => ({
+          ...recommendation,
+          externalTrackId: `track-${index}`,
+        }))}
+        recommendReason={reason}
+      />,
+    );
+    expect(screen.getAllByRole('note', { name: '추천 이유' })).toHaveLength(1);
+    const note = screen.getByRole('note', { name: '추천 이유' });
+    expect(note.textContent).toBe(reason);
+    expect(note.querySelector('strong')).toBeNull();
+  });
+
+  it.each([null, '', '   '])('이유가 %j이면 영역을 숨기고 추천곡은 표시한다', (reason) => {
+    render(<PhotoMusicRecommendationModal {...defaultProps} recommendReason={reason} />);
+    expect(screen.queryByRole('note', { name: '추천 이유' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /REALLY REALLY/ })).toBeInTheDocument();
+  });
+
+  it.each(['loading', 'error'] as const)(
+    '%s 중에는 이전 추천 이유를 표시하지 않는다',
+    (loadState) => {
+      render(
+        <PhotoMusicRecommendationModal
+          {...defaultProps}
+          loadState={loadState}
+          recommendReason="이전 사진 이유"
+        />,
+      );
+      expect(screen.queryByRole('note', { name: '추천 이유' })).not.toBeInTheDocument();
+    },
+  );
+
   it('renders an album cover and sends the selected recommendation through the existing selection path', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

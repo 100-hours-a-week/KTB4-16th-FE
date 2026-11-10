@@ -119,7 +119,7 @@
   max-height: min(260px, 45vh);
   max-height: min(260px, 45dvh);
   min-height: 0;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   margin: 0;
   overflow: hidden auto;
   overscroll-behavior: contain;
@@ -190,4 +190,21 @@
   gap: 10px;
   flex: 1;
   min-width: 0;
+}
+
+.home-playlist-recommend-reason {
+  /* 원문의 개행·긴 단어를 보존하면서 좁은 화면 안에서 줄바꿈한다. */
+  min-width: 0;
+  margin: 0 0 12px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--mulo-line-strong);
+  border-radius: 0 10px 10px 0;
+  background: #f8f4fd;
+  color: var(--mulo-ink-900);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

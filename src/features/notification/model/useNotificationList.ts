@@ -7,9 +7,11 @@ import {
   markNotificationsRead,
   type NotificationItem,
 } from '../api/notificationApi';
+import { useNotificationSse } from './notificationSseContext';
 
 /** 알림 cursor 조회와 페이지별 읽음 처리를 관리하고 실패한 읽음은 목록과 독립적으로 재시도한다. */
 export function useNotificationList(request: AuthenticatedApiClient['fetchJson']) {
+  const { refreshUnreadStatus, subscribeToNotificationUpdates } = useNotificationSse();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -22,6 +24,7 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
   const controllerRef = useRef<AbortController | null>(null);
   const pendingReadIds = useRef(new Set<number>());
   const deleteInFlight = useRef(false);
+  const refreshQueuedRef = useRef(false);
 
   /** 서버에는 즉시 읽음을 저장하되 이번 방문에서 본 새 알림의 강조는 화면을 떠날 때까지 유지한다. */
   const saveRead = useCallback(
@@ -33,12 +36,49 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
         if (signal.aborted) return;
         ids.forEach((id) => pendingReadIds.current.delete(id));
         setReadError('');
+        refreshUnreadStatus();
       } catch {
         if (!signal.aborted) setReadError('읽음 상태를 저장하지 못했어요.');
       }
     },
-    [request],
+    [request, refreshUnreadStatus],
   );
+
+  const refreshLatestPage = useCallback(async () => {
+    if (controllerRef.current !== null || deleteInFlight.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setBusy(true);
+    setError('');
+    try {
+      const page = await getNotifications(null, request, controller.signal);
+      if (controller.signal.aborted) return;
+      setItems((current) => {
+        const merged = new Map(page.items.map((item) => [item.notificationId, item]));
+        current.forEach((item) => {
+          if (!merged.has(item.notificationId)) merged.set(item.notificationId, item);
+        });
+        return [...merged.values()];
+      });
+      if (status !== 'ready' || items.length === 0) setNextCursor(page.nextCursor);
+      setStatus('ready');
+      page.items
+        .filter((item) => item.readAt === null)
+        .forEach((item) => pendingReadIds.current.add(item.notificationId));
+      await saveRead(controller.signal);
+    } catch {
+      if (!controller.signal.aborted)
+        setError('알림을 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+        setBusy(false);
+      }
+    }
+  }, [items.length, request, saveRead, status]);
 
   /** 동시에 한 페이지씩 읽어 cursor 역전과 빠른 중복 클릭을 방지한다. */
   const loadPage = useCallback(
@@ -92,6 +132,26 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
     };
   }, [loadPage]);
 
+  const handleNotificationUpdate = useCallback(() => {
+    refreshQueuedRef.current = true;
+    if (!busy && deletingId === null) {
+      refreshQueuedRef.current = false;
+      void refreshLatestPage();
+    }
+  }, [busy, deletingId, refreshLatestPage]);
+
+  useEffect(
+    () => subscribeToNotificationUpdates(handleNotificationUpdate),
+    [handleNotificationUpdate, subscribeToNotificationUpdates],
+  );
+
+  useEffect(() => {
+    if (!busy && deletingId === null && refreshQueuedRef.current) {
+      refreshQueuedRef.current = false;
+      void refreshLatestPage();
+    }
+  }, [busy, deletingId, refreshLatestPage]);
+
   /** 목록을 다시 조회하지 않고 실패한 읽음 저장만 사용자의 명시적 행동으로 재시도한다. */
   async function retryRead() {
     if (controllerRef.current !== null || deleteInFlight.current) return;
@@ -128,6 +188,7 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
       pendingReadIds.current.delete(notificationId);
       setItems((current) => current.filter((item) => item.notificationId !== notificationId));
       setConfirmingId(null);
+      refreshUnreadStatus();
     } catch {
       setDeleteErrorId(notificationId);
     } finally {
