@@ -91,6 +91,24 @@ describe('notificationApi', () => {
     expect(getCsrfToken).not.toHaveBeenCalled();
   });
 
+  it('accepts a daily song notification with its job ID', async () => {
+    const dailySongNotification = {
+      ...notification,
+      type: 'DAILY_SONG_READY',
+      targetId: 42,
+      targetType: 'DAILY_SONG',
+    };
+    const request = vi.fn().mockResolvedValue({
+      message: '알림 목록 조회 성공',
+      data: { notifications: [dailySongNotification], nextCursor: null },
+    });
+
+    await expect(getNotifications(null, request, new AbortController().signal)).resolves.toEqual({
+      items: [dailySongNotification],
+      nextCursor: null,
+    });
+  });
+
   it.each([
     { ...notification, notificationId: -1 },
     { ...notification, targetId: '7' },

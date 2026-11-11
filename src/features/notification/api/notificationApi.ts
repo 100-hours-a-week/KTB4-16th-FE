@@ -2,7 +2,11 @@ import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFe
 import { getCsrfToken } from '../../../shared/api/csrf';
 
 export type NotificationType =
-  'MONTHLY_REPORT_CREATED' | 'MATCH_COMPLETED' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED';
+  | 'MONTHLY_REPORT_CREATED'
+  | 'MATCH_COMPLETED'
+  | 'FRIEND_REQUEST'
+  | 'FRIEND_ACCEPTED'
+  | 'DAILY_SONG_READY';
 
 export type NotificationItem = {
   notificationId: number;
@@ -153,13 +157,14 @@ function isTimestamp(value: unknown): value is string {
   );
 }
 
-/** 현재 백엔드가 발행하는 네 가지 알림 유형을 식별한다. */
+/** 현재 백엔드가 발행하는 알림 유형을 식별한다. */
 function isNotificationType(value: unknown): value is NotificationType {
   return (
     value === 'MONTHLY_REPORT_CREATED' ||
     value === 'MATCH_COMPLETED' ||
     value === 'FRIEND_REQUEST' ||
-    value === 'FRIEND_ACCEPTED'
+    value === 'FRIEND_ACCEPTED' ||
+    value === 'DAILY_SONG_READY'
   );
 }
 
