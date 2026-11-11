@@ -137,13 +137,14 @@ export function AppRouter() {
           element={getProtectedRouteElement(isSessionRestoring, isAuthenticated, <ChatRoomPage />)}
         />
         <Route
-          path="/locks/create"
+          path="/records/create"
           element={getProtectedRouteElement(
             isSessionRestoring,
             isAuthenticated,
             <LockCreatePage />,
           )}
         />
+        <Route path="/locks/create" element={<Navigate to="/records/create" replace />} />
         <Route
           path="/records/:recordId"
           element={getProtectedRouteElement(
