@@ -24,6 +24,16 @@ const unread = {
   createdAt: '2026-10-11T12:00:00',
   readAt: null,
 };
+const dailySong = {
+  notificationId: 21,
+  type: 'DAILY_SONG_READY',
+  targetId: 42,
+  targetType: 'DAILY_SONG',
+  title: '오늘의 노래가 도착했어요',
+  content: '오늘의 노래를 확인해보세요.',
+  createdAt: '2026-11-11T07:00:00',
+  readAt: '2026-11-11T07:01:00',
+};
 
 /** 실제 알림 UI와 API 파서를 실행하고 HTTP 경계만 대체한다. */
 function renderList(request: AuthenticatedApiClient['fetchJson']) {
@@ -40,6 +50,91 @@ beforeEach(() => {
 });
 
 describe('NotificationList', () => {
+  it('opens the song detail modal from a daily song notification and restores focus on close', async () => {
+    const user = userEvent.setup();
+    const request = vi.fn().mockImplementation(async (path: string) => {
+      if (path === '/daily-songs/42') {
+        return {
+          message: '오늘의 노래 조회 성공',
+          data: {
+            jobId: 42,
+            recommendationDate: '2026-11-11',
+            track: {
+              externalTrackId: 'track-42',
+              title: '가을의 노래',
+              artistName: '가수 이름',
+              albumImageUrl: 'https://example.com/cover.jpg',
+              externalUrl: 'https://example.com/track',
+            },
+          },
+        };
+      }
+      if (path === '/notifications/read') return { message: '읽음 처리 성공' };
+      return {
+        message: '알림 목록 조회 성공',
+        data: { notifications: [dailySong], nextCursor: null },
+      };
+    });
+    renderList(request);
+    const trigger = await screen.findByRole('button', { name: '오늘의 노래 보기' });
+
+    await user.click(trigger);
+
+    const dialog = await screen.findByRole('dialog', { name: '오늘의 노래' });
+    expect(await screen.findByRole('heading', { name: '가을의 노래' })).toBeInTheDocument();
+    expect(screen.getByText('가수 이름')).toBeInTheDocument();
+    expect(screen.getByAltText('가을의 노래 앨범 이미지')).toHaveAttribute(
+      'src',
+      'https://example.com/cover.jpg',
+    );
+    expect(dialog).not.toHaveTextContent('추천 이유');
+    expect(request).toHaveBeenCalledWith('/daily-songs/42', expect.anything());
+    expect(screen.getByRole('button', { name: '오늘의 노래 닫기' })).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: '오늘의 노래 닫기' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('allows retrying when a daily song detail request fails', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const request = vi.fn().mockImplementation(async (path: string) => {
+      if (path === '/daily-songs/42') {
+        attempts += 1;
+        if (attempts === 1) throw new Error('요청 실패');
+        return {
+          message: '오늘의 노래 조회 성공',
+          data: {
+            jobId: 42,
+            recommendationDate: '2026-11-11',
+            track: {
+              externalTrackId: 'track-42',
+              title: '재시도 성공',
+              artistName: '가수 이름',
+              albumImageUrl: '',
+              externalUrl: 'https://example.com/track',
+            },
+          },
+        };
+      }
+      if (path === '/notifications/read') return { message: '읽음 처리 성공' };
+      return {
+        message: '알림 목록 조회 성공',
+        data: { notifications: [dailySong], nextCursor: null },
+      };
+    });
+    renderList(request);
+    await user.click(await screen.findByRole('button', { name: '오늘의 노래 보기' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('오늘의 노래를 불러오지 못했어요.');
+
+    await user.click(screen.getByRole('button', { name: '다시 시도' }));
+
+    expect(await screen.findByRole('heading', { name: '재시도 성공' })).toBeInTheDocument();
+    expect(attempts).toBe(2);
+  });
+
   it('keeps newly opened notifications highlighted until the page is reopened', async () => {
     let serverReadAt: string | null = null;
     const request = vi.fn().mockImplementation(async (path: string) => {
