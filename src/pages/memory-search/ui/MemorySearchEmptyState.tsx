@@ -20,7 +20,7 @@ export function MemorySearchEmptyState() {
           <br />
           기억이 쌓이면 단서로 다시 찾아드릴게요.
         </p>
-        <Link className="memory-empty-create" to="/locks/create">
+        <Link className="memory-empty-create" to="/records/create">
           첫 자물쇠 만들기 <span aria-hidden="true">→</span>
         </Link>
       </div>

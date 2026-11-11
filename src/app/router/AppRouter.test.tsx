@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ getMyProfile: vi.fn() }));
@@ -22,6 +22,22 @@ function SessionActivator() {
       테스트 로그인
     </button>
   );
+}
+
+function LegacyCreateRouteButton() {
+  const navigate = useNavigate();
+
+  return (
+    <button type="button" onClick={() => navigate('/locks/create')}>
+      이전 자물쇠 생성 경로 열기
+    </button>
+  );
+}
+
+function CurrentPathProbe() {
+  const { pathname } = useLocation();
+
+  return <span data-testid="current-path">{pathname}</span>;
 }
 
 afterEach(() => {
@@ -47,6 +63,8 @@ function renderRoute(path: string) {
     <MemoryRouter initialEntries={[path]}>
       <SessionProvider>
         <SessionActivator />
+        <LegacyCreateRouteButton />
+        <CurrentPathProbe />
         <AppRouter />
       </SessionProvider>
     </MemoryRouter>,
@@ -68,6 +86,19 @@ describe('AppRouter', () => {
       expect(await screen.findByRole('heading', { name: 'MULO' })).toBeInTheDocument();
     },
   );
+
+  it('redirects the legacy lock creation URL to the records creation URL', async () => {
+    const user = userEvent.setup();
+    renderRoute('/');
+
+    await user.click(screen.getByRole('button', { name: '테스트 로그인' }));
+    await user.click(screen.getByRole('button', { name: '이전 자물쇠 생성 경로 열기' }));
+
+    expect(
+      await screen.findByRole('heading', { name: '이곳에 추억의 자물쇠 걸기' }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/records/create');
+  });
 
   it('does not expose the removed group route', async () => {
     renderRoute('/group');

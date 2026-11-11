@@ -67,7 +67,7 @@ function renderPage(initialPath = '/memory-search') {
           <Routes>
             <Route path="/memory-search" element={<MemorySearchPage />} />
             <Route path="/records/:recordId" element={<DetailProbe />} />
-            <Route path="/locks/create" element={<div>자물쇠 작성 화면</div>} />
+            <Route path="/records/create" element={<div>자물쇠 작성 화면</div>} />
             <Route path="/" element={<div>홈</div>} />
           </Routes>
         </MemorySearchConversationProvider>
