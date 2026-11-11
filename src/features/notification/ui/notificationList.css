@@ -210,10 +210,14 @@
   display: block;
   width: fit-content;
   margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #7655ae;
   font-size: 11px;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .notification-empty {

@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
 import type { AuthenticatedApiClient } from '../../../shared/api/authenticatedFetchJson';
 import { notificationDate, type NotificationItem } from '../api/notificationApi';
 import { useNotificationList } from '../model/useNotificationList';
+import { DailySongDetailDialog } from './DailySongDetailDialog';
 import './notificationList.css';
 
 /** 도착한 알림과 빈 목록·오류·추가 페이지 상태를 표시한다. */
@@ -28,6 +29,10 @@ export function NotificationList({ request }: { request: AuthenticatedApiClient[
   const deleteTriggerRef = useRef<HTMLButtonElement>(null);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLElement>(null);
+  const [dailySongSelection, setDailySongSelection] = useState<{
+    jobId: number;
+    trigger: HTMLButtonElement;
+  } | null>(null);
 
   /** 확인 창을 열면 취소 버튼으로 초점을 옮기고 닫힌 뒤 원래 위치로 돌린다. */
   useEffect(() => {
@@ -78,6 +83,7 @@ export function NotificationList({ request }: { request: AuthenticatedApiClient[
         <div className="notification-panel">
           {items.map((item) => {
             const destination = notificationDestination(item);
+            const dailySongJobId = item.type === 'DAILY_SONG_READY' ? item.targetId : null;
             return (
               <article
                 className={`notification-card${item.readAt === null ? ' is-unread' : ''}`}
@@ -101,7 +107,21 @@ export function NotificationList({ request }: { request: AuthenticatedApiClient[
                       minute: '2-digit',
                     }).format(notificationDate(item.createdAt))}
                   </time>
-                  {destination ? (
+                  {dailySongJobId !== null ? (
+                    <button
+                      className="notification-destination notification-daily-song-trigger"
+                      type="button"
+                      onClick={(event) =>
+                        setDailySongSelection({
+                          jobId: dailySongJobId,
+                          trigger: event.currentTarget,
+                        })
+                      }
+                    >
+                      오늘의 노래 보기
+                      <span aria-hidden="true"> →</span>
+                    </button>
+                  ) : destination ? (
                     <Link className="notification-destination" to={destination.to}>
                       {destination.label}
                       <span aria-hidden="true"> →</span>
@@ -204,6 +224,14 @@ export function NotificationList({ request }: { request: AuthenticatedApiClient[
             document.body,
           )
         : null}
+      {dailySongSelection ? (
+        <DailySongDetailDialog
+          jobId={dailySongSelection.jobId}
+          request={request}
+          returnFocusTo={dailySongSelection.trigger}
+          onClose={() => setDailySongSelection(null)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -224,6 +252,7 @@ function notificationDestination(item: NotificationItem): { to: string; label: s
     return { to: '/friends?tab=received', label: '받은 요청 보기' };
   if (item.type === 'FRIEND_ACCEPTED') return { to: '/friends', label: '친구 목록 보기' };
   if (item.type === 'MONTHLY_REPORT_CREATED') return { to: '/report', label: '리포트 목록 보기' };
+  if (item.type === 'DAILY_SONG_READY') return null;
   // 채팅 라우트가 아직 없으므로 MATCH_COMPLETED는 내용만 표시한다.
   return null;
 }
