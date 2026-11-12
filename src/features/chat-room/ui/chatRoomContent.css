@@ -241,6 +241,21 @@
   word-break: break-word;
 }
 
+.chat-room-message-content.is-sticker,
+.chat-room-message.is-me .chat-room-message-content.is-sticker {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 0;
+}
+
+.chat-room-message-content.is-sticker img {
+  display: block;
+  width: min(80px, 100%);
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
 .chat-room-message.is-me p {
   border-radius: 15px 15px 4px;
   background: #a78bde;
@@ -326,6 +341,101 @@
   opacity: 0.45;
 }
 
+.chat-room-compose .chat-room-sticker-toggle {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #dccbf0;
+  background: #faf6ff;
+  color: #6c539e;
+  font-size: 20px;
+}
+
+.chat-room-sticker-picker {
+  position: absolute;
+  z-index: 5;
+  right: 10px;
+  bottom: calc(100% + 8px);
+  left: 10px;
+  max-width: 560px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 10px;
+  border: 1px solid #e4d9f0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(64 56 86 / 16%);
+}
+
+.chat-room-sticker-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: #625875;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chat-room-sticker-picker-header p {
+  margin: 0;
+}
+
+.chat-room-compose .chat-room-sticker-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #81749c;
+  font-size: 20px;
+}
+
+.chat-room-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(3px, 1vw, 8px);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chat-room-compose .chat-room-sticker-option {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1;
+  place-items: center;
+  padding: 2px;
+  border: 1px solid #eee8f5;
+  border-radius: 8px;
+  background: #faf8fd;
+}
+
+.chat-room-sticker-option img {
+  display: block;
+  width: min(100%, 64px);
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.chat-room-sticker-option:disabled {
+  cursor: progress;
+}
+
+.chat-room-compose .chat-room-sticker-toggle:focus-visible,
+.chat-room-compose .chat-room-sticker-close:focus-visible,
+.chat-room-compose .chat-room-sticker-option:focus-visible {
+  outline: 2px solid #7a5cbe;
+  outline-offset: 2px;
+}
+
 .chat-room-compose textarea:disabled {
   cursor: not-allowed;
   color: #9288a5;
@@ -333,11 +443,31 @@
 
 .chat-room-character-count {
   position: absolute;
-  right: 74px;
+  right: 122px;
   bottom: 1px;
   color: #a59bb6;
   font-size: 8px;
   pointer-events: none;
+}
+
+@media (max-width: 400px) {
+  .chat-room-sticker-picker {
+    right: 4px;
+    left: 4px;
+    padding: 8px;
+  }
+
+  .chat-room-sticker-grid {
+    gap: 3px;
+  }
+
+  .chat-room-sticker-option img {
+    width: min(100%, 48px);
+  }
+
+  .chat-room-character-count {
+    right: 110px;
+  }
 }
 
 .chat-room-send-notice {
