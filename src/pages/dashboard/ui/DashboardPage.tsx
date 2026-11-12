@@ -14,7 +14,6 @@ export function DashboardPage() {
         <header className="static-page-header">
           <h1 className="static-page-title">내 대시보드</h1>
           <div className="dashboard-actions">
-            <span className="static-page-chip">나만 볼 수 있음</span>
             <button
               className="dashboard-create"
               type="button"
