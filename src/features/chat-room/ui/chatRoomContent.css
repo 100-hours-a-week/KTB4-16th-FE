@@ -188,23 +188,44 @@
 
 .chat-room-message-list > li {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 
 .chat-room-message {
   display: flex;
+  justify-self: start;
+  width: fit-content;
   max-width: 88%;
   align-items: flex-end;
   gap: 5px;
 }
 
 .chat-room-message.is-me {
-  margin-left: auto;
+  justify-self: end;
+  flex-direction: row-reverse;
+}
+
+.chat-room-message.is-sticker-message {
+  display: flex;
+  justify-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  justify-content: flex-start;
+}
+
+.chat-room-message.is-me.is-sticker-message {
   flex-direction: row-reverse;
 }
 
 .chat-room-message-body {
   min-width: 0;
+  max-width: 100%;
+}
+
+.chat-room-message.is-sticker-message .chat-room-message-body {
+  flex: 0 0 auto;
+  width: max-content;
   max-width: 100%;
 }
 
@@ -243,6 +264,8 @@
 
 .chat-room-message-content.is-sticker,
 .chat-room-message.is-me .chat-room-message-content.is-sticker {
+  width: 80px;
+  max-width: 100%;
   padding: 0;
   background: transparent;
   box-shadow: none;
@@ -305,12 +328,20 @@
   background: #fff;
 }
 
+.chat-room-compose-field {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 5px;
+}
+
 .chat-room-compose textarea {
   display: block;
   min-height: 40px;
   max-height: 112px;
   min-width: 0;
-  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   border: 1px solid #dccbf0;
   border-radius: 12px;
@@ -322,6 +353,38 @@
   resize: none;
   overflow-y: auto;
   overflow-wrap: anywhere;
+}
+
+.chat-room-sticker-draft {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px;
+  border: 1px solid #e4d9f0;
+  border-radius: 10px;
+  background: #faf8fd;
+}
+
+.chat-room-sticker-draft img {
+  display: block;
+  width: 48px;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.chat-room-compose .chat-room-sticker-draft button {
+  display: grid;
+  width: 24px;
+  min-height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #eee8f5;
+  color: #756b8d;
+  font-size: 16px;
 }
 
 .chat-room-compose button {
