@@ -272,7 +272,7 @@ describe('ChatRoomContent', () => {
         {
           id: 'unknown-sticker',
           sender: 'partner',
-          content: '[mulo-sticker:sticker-27]',
+          content: '[mulo-sticker:sticker-31]',
           createdAt: '2026-10-14T06:23:00Z',
         },
         {
@@ -289,7 +289,7 @@ describe('ChatRoomContent', () => {
       'src',
       '/stickers/sticker-01.png',
     );
-    expect(screen.getByText('[mulo-sticker:sticker-27]')).toBeInTheDocument();
+    expect(screen.getByText('[mulo-sticker:sticker-31]')).toBeInTheDocument();
     expect(screen.getByText('내 닉네임')).toBeInTheDocument();
     expect(screen.getByAltText('이모티콘 sticker-02').closest('article')).toHaveClass(
       'is-me',
@@ -316,13 +316,13 @@ describe('ChatRoomContent', () => {
 
       const picker = screen.getByRole('dialog', { name: '이모티콘 선택창' });
       expect(within(picker).getAllByRole('button', { name: /sticker-\d+ 이모티콘/ })).toHaveLength(
-        25,
+        30,
       );
       expect(
-        within(picker).getByRole('button', { name: 'sticker-25 이모티콘' }),
+        within(picker).getByRole('button', { name: 'sticker-30 이모티콘' }),
       ).toBeInTheDocument();
       expect(
-        within(picker).queryByRole('button', { name: 'sticker-26 이모티콘' }),
+        within(picker).queryByRole('button', { name: 'sticker-31 이모티콘' }),
       ).not.toBeInTheDocument();
 
       await user.click(within(picker).getByRole('button', { name: 'sticker-01 이모티콘' }));
