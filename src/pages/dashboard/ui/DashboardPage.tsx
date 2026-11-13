@@ -14,12 +14,11 @@ export function DashboardPage() {
         <header className="static-page-header">
           <h1 className="static-page-title">내 대시보드</h1>
           <div className="dashboard-actions">
-            <span className="static-page-chip">나만 볼 수 있음</span>
             <button
               className="dashboard-create"
               type="button"
               aria-label="자물쇠 만들기"
-              onClick={() => navigate('/locks/create')}
+              onClick={() => navigate('/records/create')}
             >
               {/* 글꼴의 기준선 대신 대칭 SVG 좌표로 십자 중심을 맞춘다. */}
               <svg className="dashboard-create-icon" viewBox="0 0 24 24" aria-hidden="true">

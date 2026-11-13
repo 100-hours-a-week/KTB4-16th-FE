@@ -189,7 +189,7 @@ export function HomePage() {
             }
             primaryAction={
               <div className="home-create-action">
-                <button type="button" onClick={() => navigate('/locks/create')}>
+                <button type="button" onClick={() => navigate('/records/create')}>
                   🔒 추억 자물쇠 만들기
                 </button>
               </div>

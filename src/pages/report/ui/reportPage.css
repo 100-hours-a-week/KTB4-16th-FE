@@ -151,17 +151,24 @@
   width: 44px;
   height: 44px;
 }
-.report-recap span,
 .report-stat-grid small {
   font-size: 9.5px;
   letter-spacing: 0.1em;
 }
 .report-recap h2 {
-  margin: 8px 0 0;
+  margin: 0;
   font-family: inherit;
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.report-recap p {
+  margin: 10px 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  /* 원문의 줄바꿈과 어절을 유지하고 카드 너비보다 긴 어절만 나눈다. */
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .report-stat-grid {
   display: grid;
@@ -234,7 +241,6 @@
   min-width: 0;
 }
 .report-stat-grid strong,
-.report-recap h2,
 .report-photo {
   overflow-wrap: anywhere;
 }

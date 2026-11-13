@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -258,6 +258,126 @@ describe('ChatRoomContent', () => {
       senderName?.querySelector('.chat-room-vote-dot + .chat-room-sender-label'),
     ).toHaveTextContent('참가자');
     expect(screen.getByLabelText('A 선택')).toBeInTheDocument();
+  });
+
+  it('renders registered sticker content as an image and leaves unknown tokens as text', () => {
+    renderContent({
+      messages: [
+        {
+          id: 'sticker',
+          sender: 'partner',
+          content: '[mulo-sticker:sticker-01]',
+          createdAt: '2026-10-14T06:22:00Z',
+        },
+        {
+          id: 'unknown-sticker',
+          sender: 'partner',
+          content: '[mulo-sticker:sticker-31]',
+          createdAt: '2026-10-14T06:23:00Z',
+        },
+        {
+          id: 'my-sticker',
+          sender: 'me',
+          nickname: '내 닉네임',
+          content: '[mulo-sticker:sticker-02]',
+          createdAt: '2026-10-14T06:24:00Z',
+        },
+      ],
+    });
+
+    expect(screen.getByAltText('이모티콘 sticker-01')).toHaveAttribute(
+      'src',
+      '/stickers/sticker-01.png',
+    );
+    expect(screen.getByText('[mulo-sticker:sticker-31]')).toBeInTheDocument();
+    expect(screen.getByText('내 닉네임')).toBeInTheDocument();
+    expect(screen.getByAltText('이모티콘 sticker-02').closest('article')).toHaveClass(
+      'is-me',
+      'is-sticker-message',
+    );
+  });
+
+  it.each(['DIRECT', 'GROUP'] as const)(
+    'previews a selected sticker and sends it only after the send button in a %s room',
+    async (roomType) => {
+      const onSendMessage = vi.fn().mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      renderContent({
+        connectionState: 'connected',
+        messages: [],
+        onSendMessage,
+        roomType,
+        activeParticipantCount: roomType === 'GROUP' ? 2 : undefined,
+      });
+
+      const input = screen.getByRole('textbox', { name: '메시지' });
+      await user.type(input, '작성 중인 초안');
+      await user.click(screen.getByRole('button', { name: '이모티콘 선택' }));
+
+      const picker = screen.getByRole('dialog', { name: '이모티콘 선택창' });
+      expect(within(picker).getAllByRole('button', { name: /sticker-\d+ 이모티콘/ })).toHaveLength(
+        30,
+      );
+      expect(
+        within(picker).getByRole('button', { name: 'sticker-30 이모티콘' }),
+      ).toBeInTheDocument();
+      expect(
+        within(picker).queryByRole('button', { name: 'sticker-31 이모티콘' }),
+      ).not.toBeInTheDocument();
+
+      await user.click(within(picker).getByRole('button', { name: 'sticker-01 이모티콘' }));
+
+      expect(onSendMessage).not.toHaveBeenCalled();
+      expect(screen.getByAltText('선택한 이모티콘 sticker-01')).toHaveAttribute(
+        'src',
+        '/stickers/sticker-01.png',
+      );
+      expect(screen.queryByRole('dialog', { name: '이모티콘 선택창' })).not.toBeInTheDocument();
+      expect(input).toHaveValue('작성 중인 초안');
+
+      await user.click(screen.getByRole('button', { name: '전송' }));
+      await waitFor(() => expect(onSendMessage).toHaveBeenCalledWith('[mulo-sticker:sticker-01]'));
+      expect(screen.queryByAltText('선택한 이모티콘 sticker-01')).not.toBeInTheDocument();
+      expect(input).toHaveValue('작성 중인 초안');
+    },
+  );
+
+  it('sends a selected sticker with Enter after previewing it', async () => {
+    const onSendMessage = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderContent({ connectionState: 'connected', onSendMessage });
+
+    await user.click(screen.getByRole('button', { name: '이모티콘 선택' }));
+    await user.click(screen.getByRole('button', { name: 'sticker-01 이모티콘' }));
+
+    expect(onSendMessage).not.toHaveBeenCalled();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledWith('[mulo-sticker:sticker-01]'));
+    expect(screen.queryByAltText('선택한 이모티콘 sticker-01')).not.toBeInTheDocument();
+  });
+
+  it('preserves a failed sticker send for retry without duplicate requests', async () => {
+    const token = '[mulo-sticker:sticker-25]';
+    const onSendMessage = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    renderContent({ connectionState: 'connected', onSendMessage });
+
+    await user.click(screen.getByRole('button', { name: '이모티콘 선택' }));
+    await user.click(screen.getByRole('button', { name: 'sticker-25 이모티콘' }));
+
+    expect(onSendMessage).not.toHaveBeenCalled();
+    expect(screen.getByAltText('선택한 이모티콘 sticker-25')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '전송' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('메시지를 보내지 못했어요.');
+    await user.click(screen.getByRole('button', { name: '다시 보내기' }));
+
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(2));
+    expect(onSendMessage).toHaveBeenNthCalledWith(1, token);
+    expect(onSendMessage).toHaveBeenNthCalledWith(2, token);
   });
 
   it('shows the empty state and does not enable sending without a handler', async () => {

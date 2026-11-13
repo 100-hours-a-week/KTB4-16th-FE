@@ -7,7 +7,7 @@ import { MainNavigation } from './MainNavigation';
 describe('MainNavigation', () => {
   it('announces the explicit dashboard destination while creating a lock', () => {
     render(
-      <MemoryRouter initialEntries={['/locks/create']}>
+      <MemoryRouter initialEntries={['/records/create']}>
         <MainNavigation activeItem="dashboard" />
       </MemoryRouter>,
     );

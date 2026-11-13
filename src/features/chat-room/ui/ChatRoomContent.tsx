@@ -5,6 +5,7 @@ import type {
   ChatConnectionState as LiveChatConnectionState,
   ChatConnectionStopReason,
 } from '../model/chatConnection.types';
+import { CHAT_STICKERS, parseChatStickerContent, type ChatSticker } from '../model/chatSticker';
 import { ChatSendFailure } from '../model/chatSendFailure';
 import './chatRoomContent.css';
 
@@ -146,10 +147,14 @@ export function ChatRoomContent({
   const [historyLoadError, setHistoryLoadError] = useState(false);
   const [sendError, setSendError] = useState(false);
   const [sendNotice, setSendNotice] = useState('');
+  const [isStickerPickerOpen, setIsStickerPickerOpen] = useState(false);
+  const [stickerDraft, setStickerDraft] = useState<ChatSticker | null>(null);
+  const [retryContent, setRetryContent] = useState<string | null>(null);
   const isComposing = useRef(false);
   const isSendingRef = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sendButtonRef = useRef<HTMLButtonElement>(null);
+  const stickerToggleRef = useRef<HTMLButtonElement>(null);
   const shouldRestoreInputFocus = useRef(false);
   const messagesRegionRef = useRef<HTMLElement>(null);
   const historySentinelRef = useRef<HTMLLIElement>(null);
@@ -201,7 +206,9 @@ export function ChatRoomContent({
     onSendMessage !== undefined;
   const trimmedDraft = draft.trim();
   const canSend =
-    canCompose && trimmedDraft.length > 0 && draft.length <= MAX_MESSAGE_LENGTH && !isSending;
+    canCompose &&
+    (stickerDraft !== null || (trimmedDraft.length > 0 && draft.length <= MAX_MESSAGE_LENGTH)) &&
+    !isSending;
 
   useEffect(() => {
     if (isSending || !shouldRestoreInputFocus.current) return;
@@ -211,7 +218,8 @@ export function ChatRoomContent({
     if (
       activeElement === document.body ||
       activeElement === inputRef.current ||
-      activeElement === sendButtonRef.current
+      activeElement === sendButtonRef.current ||
+      activeElement === stickerToggleRef.current
     ) {
       inputRef.current?.focus();
     }
@@ -258,21 +266,31 @@ export function ChatRoomContent({
   }, [chatRoomId, sortedMessages]);
 
   /** 핸들러가 연결된 경우에만 전송을 시도하며 성공 메시지를 낙관적으로 목록에 추가하지 않는다. */
-  async function sendDraft(restoreInputFocus = false) {
-    if (!canSend || !onSendMessage || isSendingRef.current) {
+  async function sendContent(
+    content: string,
+    options: { clearDraft: boolean; clearSticker?: boolean; restoreInputFocus: boolean },
+  ) {
+    if (
+      !canCompose ||
+      !onSendMessage ||
+      isSendingRef.current ||
+      content.trim().length === 0 ||
+      content.length > MAX_MESSAGE_LENGTH
+    ) {
       return;
     }
 
-    shouldRestoreInputFocus.current = restoreInputFocus;
-    const content = trimmedDraft;
+    shouldRestoreInputFocus.current = options.restoreInputFocus;
     isSendingRef.current = true;
     setIsSending(true);
     setSendError(false);
     setSendNotice('');
+    setRetryContent(null);
 
     try {
       await onSendMessage(content);
-      setDraft('');
+      if (options.clearDraft) setDraft('');
+      if (options.clearSticker) setStickerDraft(null);
       setSendNotice('메시지를 전송했어요.');
     } catch (error: unknown) {
       if (error instanceof ChatSendFailure && !error.showInlineNotice) {
@@ -280,6 +298,7 @@ export function ChatRoomContent({
         setSendNotice('');
       } else {
         setSendError(true);
+        setRetryContent(content);
         setSendNotice(
           error instanceof ChatSendFailure
             ? error.message
@@ -290,6 +309,28 @@ export function ChatRoomContent({
       isSendingRef.current = false;
       setIsSending(false);
     }
+  }
+
+  async function sendDraft(restoreInputFocus = false) {
+    if (!canSend) return;
+    if (stickerDraft) {
+      await sendContent(stickerDraft.token, {
+        clearDraft: false,
+        clearSticker: true,
+        restoreInputFocus,
+      });
+      return;
+    }
+    await sendContent(trimmedDraft, { clearDraft: true, restoreInputFocus });
+  }
+
+  function chooseSticker(sticker: ChatSticker) {
+    setStickerDraft(sticker);
+    setIsStickerPickerOpen(false);
+    setSendError(false);
+    setSendNotice('');
+    setRetryContent(null);
+    inputRef.current?.focus();
   }
 
   /** 과거 메시지 요청 직전의 스크롤 좌표를 기억해 prepend 뒤 화면 위치를 유지한다. */
@@ -481,6 +522,8 @@ export function ChatRoomContent({
               ) : null}
               {timelineItems.map((item, index) => {
                 const formattedTime = formatMessageDateTime(item.createdAt);
+                const sticker =
+                  item.type === 'message' ? parseChatStickerContent(item.message.content) : null;
                 const previousItem = timelineItems[index - 1];
                 const previousDate = previousItem
                   ? formatMessageDateTime(previousItem.createdAt).dateLabel
@@ -503,10 +546,11 @@ export function ChatRoomContent({
                         <time dateTime={item.notice.createdAt}>{formattedTime.timeLabel}</time>
                       </p>
                     ) : (
-                      <article className={`chat-room-message is-${item.message.sender}`}>
+                      <article
+                        className={`chat-room-message is-${item.message.sender}${sticker ? ' is-sticker-message' : ''}`}
+                      >
                         <div className="chat-room-message-body">
-                          {(roomType === 'GROUP' || item.message.sender === 'partner') &&
-                          item.message.nickname ? (
+                          {item.message.nickname ? (
                             <p className="chat-room-sender-name" title={item.message.nickname}>
                               {roomType === 'GROUP' && item.message.voteChoice ? (
                                 <span
@@ -519,7 +563,13 @@ export function ChatRoomContent({
                               </span>
                             </p>
                           ) : null}
-                          <p className="chat-room-message-content">{item.message.content}</p>
+                          <p className={`chat-room-message-content${sticker ? ' is-sticker' : ''}`}>
+                            {sticker ? (
+                              <img alt={`이모티콘 ${sticker.id}`} src={sticker.src} />
+                            ) : (
+                              item.message.content
+                            )}
+                          </p>
                           {item.message.deliveryState === 'pending' ? (
                             <span className="chat-room-message-delivery is-pending">전송 중</span>
                           ) : null}
@@ -541,6 +591,12 @@ export function ChatRoomContent({
       <form
         aria-label="메시지 작성"
         className="chat-room-compose"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && isStickerPickerOpen) {
+            event.preventDefault();
+            setIsStickerPickerOpen(false);
+          }
+        }}
         onSubmit={(event) => {
           event.preventDefault();
           void sendDraft(true);
@@ -549,57 +605,123 @@ export function ChatRoomContent({
         <label className="chat-room-visually-hidden" htmlFor="chat-message">
           메시지
         </label>
-        <textarea
-          autoComplete="off"
-          disabled={inputDisabled}
-          id="chat-message"
-          maxLength={MAX_MESSAGE_LENGTH}
-          ref={inputRef}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            setSendError(false);
-            setSendNotice('');
-          }}
-          onCompositionEnd={() => {
-            isComposing.current = false;
-          }}
-          onCompositionStart={() => {
-            isComposing.current = true;
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' || event.shiftKey) {
-              return;
+        <div className="chat-room-compose-field">
+          {stickerDraft ? (
+            <div className="chat-room-sticker-draft" aria-label="전송할 이모티콘 미리보기">
+              <img alt={`선택한 이모티콘 ${stickerDraft.id}`} src={stickerDraft.src} />
+              <button
+                aria-label="선택한 이모티콘 삭제"
+                onClick={() => {
+                  setStickerDraft(null);
+                  setSendError(false);
+                  setSendNotice('');
+                  setRetryContent(null);
+                }}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+          <textarea
+            autoComplete="off"
+            disabled={inputDisabled}
+            id="chat-message"
+            maxLength={MAX_MESSAGE_LENGTH}
+            ref={inputRef}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setSendError(false);
+              setSendNotice('');
+              setRetryContent(null);
+            }}
+            onCompositionEnd={() => {
+              isComposing.current = false;
+            }}
+            onCompositionStart={() => {
+              isComposing.current = true;
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.shiftKey) {
+                return;
+              }
+              if (isComposing.current || event.nativeEvent.isComposing) {
+                return;
+              }
+              event.preventDefault();
+              void sendDraft(true);
+            }}
+            placeholder={
+              roomType === 'GROUP'
+                ? visibleRoomStatus === 'expired'
+                  ? '종료된 채팅방입니다'
+                  : visibleRoomStatus === 'self-left'
+                    ? '이미 퇴장한 채팅방입니다'
+                    : visibleRoomStatus === 'peer-waiting'
+                      ? '다른 참여자를 기다리고 있어요'
+                      : inputDisabled
+                        ? '채팅 기능 연동 후 입력할 수 있어요'
+                        : '메시지를 입력하세요'
+                : inputDisabled
+                  ? '채팅 기능 연동 후 입력할 수 있어요'
+                  : '메시지를 입력하세요'
             }
-            if (isComposing.current || event.nativeEvent.isComposing) {
-              return;
-            }
-            event.preventDefault();
-            void sendDraft(true);
-          }}
-          placeholder={
-            roomType === 'GROUP'
-              ? visibleRoomStatus === 'expired'
-                ? '종료된 채팅방입니다'
-                : visibleRoomStatus === 'self-left'
-                  ? '이미 퇴장한 채팅방입니다'
-                  : visibleRoomStatus === 'peer-waiting'
-                    ? '다른 참여자를 기다리고 있어요'
-                    : inputDisabled
-                      ? '채팅 기능 연동 후 입력할 수 있어요'
-                      : '메시지를 입력하세요'
-              : inputDisabled
-                ? '채팅 기능 연동 후 입력할 수 있어요'
-                : '메시지를 입력하세요'
-          }
-          rows={1}
-          value={draft}
-        />
+            rows={1}
+            value={draft}
+          />
+        </div>
+        <button
+          aria-controls={`chat-sticker-picker-${chatRoomId}`}
+          aria-expanded={isStickerPickerOpen}
+          aria-label="이모티콘 선택"
+          className="chat-room-sticker-toggle"
+          disabled={!canCompose || isSending}
+          onClick={() => setIsStickerPickerOpen((open) => !open)}
+          ref={stickerToggleRef}
+          type="button"
+        >
+          ☺
+        </button>
         <button disabled={!canSend} ref={sendButtonRef} type="submit">
           {isSending ? '전송 중' : '전송'}
         </button>
         <span className="chat-room-character-count" aria-live="polite">
           {draft.length}/{MAX_MESSAGE_LENGTH}
         </span>
+        {isStickerPickerOpen ? (
+          <section
+            aria-label="이모티콘 선택창"
+            className="chat-room-sticker-picker"
+            id={`chat-sticker-picker-${chatRoomId}`}
+            role="dialog"
+          >
+            <div className="chat-room-sticker-picker-header">
+              <p>이모티콘 선택</p>
+              <button
+                aria-label="이모티콘 선택창 닫기"
+                className="chat-room-sticker-close"
+                onClick={() => setIsStickerPickerOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="chat-room-sticker-grid">
+              {CHAT_STICKERS.map((sticker) => (
+                <button
+                  aria-label={`${sticker.id} 이모티콘`}
+                  className="chat-room-sticker-option"
+                  disabled={isSending}
+                  key={sticker.id}
+                  onClick={() => chooseSticker(sticker)}
+                  type="button"
+                >
+                  <img alt={sticker.id} src={sticker.src} />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </form>
       {sendNotice ? (
         <p
@@ -607,8 +729,17 @@ export function ChatRoomContent({
           role={sendError ? 'alert' : 'status'}
         >
           {sendNotice}
-          {sendError && canCompose ? (
-            <button onClick={() => void sendDraft()} type="button">
+          {sendError && canCompose && retryContent ? (
+            <button
+              onClick={() =>
+                void sendContent(retryContent, {
+                  clearDraft: retryContent === trimmedDraft,
+                  clearSticker: parseChatStickerContent(retryContent) !== null,
+                  restoreInputFocus: false,
+                })
+              }
+              type="button"
+            >
               다시 보내기
             </button>
           ) : null}
