@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -43,7 +43,14 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('ReportDetailPage', () => {
   it('유효한 목록 state로 상세 통계와 완료된 AI 회고를 표시한다', async () => {
-    vi.mocked(getMonthlyReportDetail).mockResolvedValue(report);
+    const lastLine = '\n다음 달에도 음악으로 일상을 기록해 보세요.';
+    const recap =
+      '이번 달에는 산책하며 들은 음악을 기록했어요. '.repeat(20).slice(0, 300 - lastLine.length) +
+      lastLine;
+    vi.mocked(getMonthlyReportDetail).mockResolvedValue({
+      ...report,
+      aiRecap: { status: 'COMPLETED', text: recap },
+    });
 
     renderReportDetail({ monthlyReportId: 50 });
 
@@ -54,7 +61,9 @@ describe('ReportDetailPage', () => {
     expect(screen.getByRole('img', { name: '평균 기분' })).toHaveTextContent('😊');
     expect(screen.queryByText('24.3점')).not.toBeInTheDocument();
     expect(screen.getByText('야경 3개 · 60%')).toBeInTheDocument();
-    expect(screen.getByText('이번 달의 기록입니다.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'AI 회고' })).toBeInTheDocument();
+    const recapRegion = screen.getByRole('region', { name: 'AI 회고' });
+    expect(within(recapRegion).getByRole('paragraph').textContent).toBe(recap);
   });
 
   it('선택 통계와 AI 회고가 아직 없으면 가짜 값을 표시하지 않는다', async () => {
