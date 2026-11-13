@@ -22,9 +22,9 @@ export function MonthlyReportDetail({ report }: MonthlyReportDetailProps) {
 
   return (
     <article className="report-detail-content">
-      <section className="report-recap" aria-label="AI 회고">
-        <span>AI 회고</span>
-        <h2>{getAiRecapText(report)}</h2>
+      <section className="report-recap" aria-labelledby="report-recap-title">
+        <h2 id="report-recap-title">AI 회고</h2>
+        <p>{getAiRecapText(report)}</p>
       </section>
       <section className="report-stat-grid" aria-label="월별 기록 통계">
         <article>
