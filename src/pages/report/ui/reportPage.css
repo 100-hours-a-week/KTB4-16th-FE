@@ -122,15 +122,9 @@
 .report-recap {
   margin-bottom: 14px;
   padding: 20px 18px;
-  border: 1px solid var(--mulo-line-strong);
   border-radius: 20px;
-  background: linear-gradient(
-    150deg,
-    var(--mulo-lilac-100),
-    var(--mulo-panel) 58%,
-    var(--mulo-mint-100)
-  );
-  color: var(--mulo-ink-900);
+  background: linear-gradient(150deg, #a78bde, #7a5cbe 60%, #5fc4a6);
+  color: #fff;
 }
 .report-detail-header {
   display: grid;
