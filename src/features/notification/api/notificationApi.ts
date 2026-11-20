@@ -6,6 +6,7 @@ export type NotificationType =
   | 'MATCH_COMPLETED'
   | 'FRIEND_REQUEST'
   | 'FRIEND_ACCEPTED'
+  | 'FRIEND_NICKNAME_CHANGED'
   | 'DAILY_SONG_READY';
 
 export type NotificationItem = {
@@ -131,6 +132,9 @@ function parseNotification(value: unknown): NotificationItem {
     !(value.readAt === null || isTimestamp(value.readAt))
   )
     throw new Error('알림 항목 형식이 올바르지 않습니다.');
+  if (value.type === 'FRIEND_NICKNAME_CHANGED' && value.targetType !== 'USER') {
+    throw new Error('친구 닉네임 변경 알림 대상 형식이 올바르지 않습니다.');
+  }
   return {
     notificationId: value.notificationId,
     type: value.type,
@@ -164,6 +168,7 @@ function isNotificationType(value: unknown): value is NotificationType {
     value === 'MATCH_COMPLETED' ||
     value === 'FRIEND_REQUEST' ||
     value === 'FRIEND_ACCEPTED' ||
+    value === 'FRIEND_NICKNAME_CHANGED' ||
     value === 'DAILY_SONG_READY'
   );
 }

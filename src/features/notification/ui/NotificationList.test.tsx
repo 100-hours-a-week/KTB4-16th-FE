@@ -135,6 +135,30 @@ describe('NotificationList', () => {
     expect(attempts).toBe(2);
   });
 
+  it('renders a friend nickname change with its new nickname and no navigation link', async () => {
+    const friendNicknameChanged = {
+      ...unread,
+      type: 'FRIEND_NICKNAME_CHANGED',
+      targetId: 42,
+      targetType: 'USER',
+      title: '친구 닉네임 변경',
+      content: '친구의 닉네임이 토리로 변경되었어요.',
+    };
+    const request = vi.fn().mockImplementation(async (path: string) => {
+      if (path === '/notifications/read') return { message: '읽음 처리 성공' };
+      return {
+        message: '알림 목록 조회 성공',
+        data: { notifications: [friendNicknameChanged], nextCursor: null },
+      };
+    });
+
+    renderList(request);
+
+    expect(await screen.findByRole('heading', { name: '친구 닉네임 변경' })).toBeInTheDocument();
+    expect(screen.getByText('친구의 닉네임이 토리로 변경되었어요.')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
   it('keeps newly opened notifications highlighted until the page is reopened', async () => {
     let serverReadAt: string | null = null;
     const request = vi.fn().mockImplementation(async (path: string) => {

@@ -109,10 +109,54 @@ describe('notificationApi', () => {
     });
   });
 
+  it('accepts a friend nickname change notification addressed to the changing user', async () => {
+    const friendNicknameChangedNotification = {
+      ...notification,
+      type: 'FRIEND_NICKNAME_CHANGED',
+      targetId: 42,
+      targetType: 'USER',
+      title: '친구 닉네임 변경',
+      content: '친구의 닉네임이 토리로 변경되었어요.',
+    };
+    const request = vi.fn().mockResolvedValue({
+      message: '알림 목록 조회 성공',
+      data: { notifications: [friendNicknameChangedNotification], nextCursor: null },
+    });
+
+    await expect(getNotifications(null, request, new AbortController().signal)).resolves.toEqual({
+      items: [friendNicknameChangedNotification],
+      nextCursor: null,
+    });
+  });
+
+  it('accepts a friend nickname change notification after its target user was deleted', async () => {
+    const deletedTargetNotification = {
+      ...notification,
+      type: 'FRIEND_NICKNAME_CHANGED',
+      targetId: null,
+      targetType: 'USER',
+    };
+    const request = vi.fn().mockResolvedValue({
+      message: '알림 목록 조회 성공',
+      data: { notifications: [deletedTargetNotification], nextCursor: null },
+    });
+
+    await expect(getNotifications(null, request, new AbortController().signal)).resolves.toEqual({
+      items: [deletedTargetNotification],
+      nextCursor: null,
+    });
+  });
+
   it.each([
     { ...notification, notificationId: -1 },
     { ...notification, targetId: '7' },
     { ...notification, type: 'AI_PLAYLIST' },
+    {
+      ...notification,
+      type: 'FRIEND_NICKNAME_CHANGED',
+      targetId: 42,
+      targetType: 'FRIEND_REQUEST',
+    },
     { ...notification, createdAt: 'invalid' },
     { ...notification, readAt: false },
   ])('rejects malformed notification fields before rendering', async (item) => {
