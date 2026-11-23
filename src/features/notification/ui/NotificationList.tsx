@@ -245,8 +245,10 @@ function NotificationIcon() {
   );
 }
 
-/** 현재 존재하는 화면만 연결하며 관계 ID를 사용자 ID로 오인하지 않는다. */
+/** 목적지가 있는 알림만 화면으로 연결하고 나머지는 전달된 내용만 표시한다. */
 function notificationDestination(item: NotificationItem): { to: string; label: string } | null {
+  // 이 알림의 대상은 변경된 사용자의 ID지만 이동 없이 닉네임 변경 내용만 알린다.
+  if (item.type === 'FRIEND_NICKNAME_CHANGED') return null;
   if (item.targetId === null) return null;
   if (item.type === 'FRIEND_REQUEST')
     return { to: '/friends?tab=received', label: '받은 요청 보기' };
