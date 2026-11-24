@@ -20,7 +20,7 @@ on:
 env:
   SERVICE: frontend
   KUBE_REPO: 100-hours-a-week/16-mulo-kube
-  VALUES_FILE: mulo/general/frontend/chart/values.yaml
+  VALUES_FILE: general/frontend/chart/values.yaml
 
 jobs:
   # ============================================================
