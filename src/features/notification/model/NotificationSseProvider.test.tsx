@@ -7,6 +7,7 @@ import {
   SessionContext,
   type SessionContextValue,
 } from '../../../entities/session/model/sessionContext';
+import { ApiError } from '../../../shared/api/apiError';
 import { NotificationSseProvider } from './NotificationSseProvider';
 import { useNotificationSse } from './notificationSseContext';
 
@@ -66,6 +67,10 @@ function createOpenStream() {
   };
 }
 
+function createJwtToken(expiresAt: number) {
+  return `header.${btoa(JSON.stringify({ exp: expiresAt }))}.signature`;
+}
+
 function renderProvider(session: SessionContextValue, strict = false) {
   const tree = (
     <SessionContext value={session}>
@@ -114,9 +119,40 @@ describe('NotificationSseProvider', () => {
       );
     });
     await waitFor(() => expect(screen.getByTestId('notification-revision')).toHaveTextContent('1'));
-    await waitFor(() => expect(requestCalls).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(requestCalls).toHaveBeenCalledTimes(2));
     expect(requestCalls).toHaveBeenLastCalledWith(
       '/notifications/unread-status',
+      expect.anything(),
+    );
+  });
+
+  it('does not request notification pages when the list is not mounted on the first connection', async () => {
+    const stream = createOpenStream();
+    const requestCalls = vi.fn();
+    const request: SessionContextValue['fetchAuthenticatedJson'] = async <T,>(
+      path: string,
+      init?: RequestInit,
+    ) => {
+      requestCalls(path, init);
+      if (path === '/notifications/unread-status') {
+        return {
+          message: '미읽음 알림 여부 조회 성공',
+          data: { hasUnread: false },
+        } as T;
+      }
+      throw new Error(`예상하지 못한 요청: ${path}`);
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+
+    renderProvider(createSession({ fetchAuthenticatedJson: request }));
+    await waitFor(() =>
+      expect(requestCalls).toHaveBeenCalledWith('/notifications/unread-status', expect.anything()),
+    );
+    await act(async () => stream.emit('event: connected\ndata: {}\n\n'));
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 180));
+
+    expect(requestCalls).not.toHaveBeenCalledWith(
+      expect.stringMatching(/^\/notifications\?/),
       expect.anything(),
     );
   });
@@ -282,24 +318,179 @@ describe('NotificationSseProvider', () => {
     });
   });
 
-  it('stops reconnecting after a refreshed token is rejected again', async () => {
+  it('allows one reconnect when refresh succeeds with the same unexpired token', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
+    const stream = createOpenStream();
+    const validToken = createJwtToken(Math.floor(Date.now() / 1000) + 3_600);
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
-      .mockResolvedValueOnce(new Response(null, { status: 401 }));
+      .mockResolvedValue(stream.response);
     vi.stubGlobal('fetch', fetchMock);
     const refreshAccessToken = vi.fn().mockResolvedValue(undefined);
     const session = createSession({
-      getAccessToken: () => 'same-token',
+      accessToken: validToken,
+      getAccessToken: () => validToken,
       refreshAccessToken,
     });
 
     renderProvider(session);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledOnce());
-    await new Promise((resolve) => globalThis.setTimeout(resolve, 20));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      headers: { Authorization: `Bearer ${validToken}` },
+    });
+  });
+
+  it('retries refresh twice but never reconnects with the same expired token', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const expiredToken = createJwtToken(Math.floor(Date.now() / 1000) - 3_600);
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const refreshAccessToken = vi.fn().mockResolvedValue(undefined);
+
+    renderProvider(
+      createSession({
+        accessToken: expiredToken,
+        getAccessToken: () => expiredToken,
+        refreshAccessToken,
+      }),
+    );
+
+    await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 50));
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('stops after a repeated authentication failure with the unchanged token', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const validToken = createJwtToken(Math.floor(Date.now() / 1000) + 3_600);
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const refreshAccessToken = vi.fn().mockResolvedValue(undefined);
+
+    renderProvider(
+      createSession({
+        accessToken: validToken,
+        getAccessToken: () => validToken,
+        refreshAccessToken,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 50));
+    expect(refreshAccessToken).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('retries a transient refresh failure with backoff before reconnecting the stream', async () => {
+    const stream = createOpenStream();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValue(stream.response);
+    vi.stubGlobal('fetch', fetchMock);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    let currentToken = 'expired-token';
+    const refreshAccessToken = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockImplementationOnce(async () => {
+        currentToken = 'refreshed-token';
+      });
+
+    renderProvider(
+      createSession({
+        accessToken: 'expired-token',
+        getAccessToken: () => currentToken,
+        refreshAccessToken,
+      }),
+    );
+
+    await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledOnce());
+    expect(fetchMock).toHaveBeenCalledOnce();
+    await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      headers: { Authorization: 'Bearer refreshed-token' },
+    });
+  });
+
+  it('stops reconnecting when refresh is rejected with an authentication error', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const refreshAccessToken = vi
+      .fn()
+      .mockRejectedValue(new ApiError(401, '인증이 만료되었습니다.'));
+
+    renderProvider(createSession({ refreshAccessToken }));
+
+    await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledOnce());
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 300));
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it.each(['logout', 'account change', 'unmount'] as const)(
+    'cancels a pending refresh retry on %s',
+    async (change) => {
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      const stream = createOpenStream();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response(null, { status: 401 }))
+        .mockResolvedValue(stream.response);
+      vi.stubGlobal('fetch', fetchMock);
+      const refreshAccessToken = vi.fn().mockRejectedValue(new TypeError('offline'));
+      const view = renderProvider(
+        createSession({
+          accessToken: 'expired-token',
+          getAccessToken: () => 'expired-token',
+          refreshAccessToken,
+        }),
+      );
+
+      await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledOnce());
+      if (change === 'logout') {
+        view.rerender(
+          <SessionContext
+            value={createSession({
+              accessToken: null,
+              isAuthenticated: false,
+              sessionVersion: 2,
+              getAccessToken: () => null,
+            })}
+          >
+            <NotificationSseProvider>
+              <StatusProbe />
+            </NotificationSseProvider>
+          </SessionContext>,
+        );
+      } else if (change === 'account change') {
+        view.rerender(
+          <SessionContext
+            value={createSession({
+              accessToken: 'next-account-token',
+              sessionVersion: 2,
+              getAccessToken: () => 'next-account-token',
+            })}
+          >
+            <NotificationSseProvider>
+              <StatusProbe />
+            </NotificationSseProvider>
+          </SessionContext>,
+        );
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+        expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+          headers: { Authorization: 'Bearer next-account-token' },
+        });
+      } else {
+        view.unmount();
+      }
+
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 300));
+      expect(refreshAccessToken).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledTimes(change === 'account change' ? 2 : 1);
+    },
+  );
 });

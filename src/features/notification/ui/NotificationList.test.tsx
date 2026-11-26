@@ -35,6 +35,57 @@ const dailySong = {
   readAt: '2026-11-11T07:01:00',
 };
 
+function createNotification(notificationId: number) {
+  return {
+    ...unread,
+    notificationId,
+    content: `알림 ${notificationId}`,
+    createdAt: '2026-10-11T12:00:00',
+    readAt: '2026-10-11T12:01:00',
+  };
+}
+
+function createNotificationStream() {
+  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+  const response = new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller;
+      },
+    }),
+    { headers: { 'Content-Type': 'text/event-stream' } },
+  );
+  return {
+    response,
+    emit(event: 'connected' | 'notification-created') {
+      streamController?.enqueue(new TextEncoder().encode(`event: ${event}\ndata: {}\n\n`));
+    },
+  };
+}
+
+function renderConnectedList(request: AuthenticatedApiClient['fetchJson']) {
+  const session: SessionContextValue = {
+    accessToken: 'access-token',
+    sessionVersion: 1,
+    isAuthenticated: true,
+    isSessionRestoring: false,
+    setAccessToken: vi.fn(),
+    clearSession: vi.fn(),
+    fetchAuthenticatedJson: request,
+    getAccessToken: () => 'access-token',
+    refreshAccessToken: vi.fn().mockResolvedValue(undefined),
+  };
+  return render(
+    <SessionContext value={session}>
+      <NotificationSseProvider>
+        <MemoryRouter>
+          <NotificationList request={request} />
+        </MemoryRouter>
+      </NotificationSseProvider>
+    </SessionContext>,
+  );
+}
+
 /** 실제 알림 UI와 API 파서를 실행하고 HTTP 경계만 대체한다. */
 function renderList(request: AuthenticatedApiClient['fetchJson']) {
   return render(
@@ -460,6 +511,489 @@ describe('NotificationList', () => {
     expect(screen.getByText(existingItem.content)).toBeInTheDocument();
     expect(screen.getByText(olderItem.content)).toBeInTheDocument();
     expect(screen.getAllByText(existingItem.content)).toHaveLength(1);
+  });
+
+  it.each([1, 20, 21, 35])(
+    'bridges %s new notifications on the first connected event and keeps pagination continuous',
+    async (newNotificationCount) => {
+      const stream = createNotificationStream();
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+      const existingItems = Array.from({ length: 100 }, (_, index) =>
+        createNotification(100 - index),
+      );
+      let serverItems = [...existingItems];
+      const pageCalls: string[] = [];
+      const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+        if (path === '/notifications/unread-status') {
+          return { message: '성공', data: { hasUnread: false } } as T;
+        }
+        if (path.startsWith('/notifications?')) {
+          pageCalls.push(path);
+          const url = new URL(path, 'http://localhost');
+          const cursor = url.searchParams.get('cursor');
+          const start =
+            cursor === null
+              ? 0
+              : serverItems.findIndex((item) => item.notificationId === Number(cursor)) + 1;
+          const items = serverItems.slice(start, start + 20);
+          const nextCursor =
+            start + items.length < serverItems.length ? String(items.at(-1)?.notificationId) : null;
+          return {
+            message: '성공',
+            data: { notifications: items, nextCursor },
+          } as T;
+        }
+        return { message: '성공' } as T;
+      };
+      const user = userEvent.setup();
+
+      renderConnectedList(request);
+      await screen.findByText('알림 100');
+      await user.click(screen.getByRole('button', { name: '더 보기' }));
+      await screen.findByText('알림 81');
+      await user.click(screen.getByRole('button', { name: '더 보기' }));
+      await screen.findByText('알림 61');
+      expect(pageCalls).toHaveLength(3);
+
+      const newItems = Array.from({ length: newNotificationCount }, (_, index) =>
+        createNotification(101 + newNotificationCount - index - 1),
+      );
+      serverItems = [...newItems, ...existingItems];
+      const bridgePageCount = Math.floor(newNotificationCount / 20) + 1;
+      await act(async () => stream.emit('connected'));
+
+      await waitFor(() => expect(pageCalls).toHaveLength(3 + bridgePageCount));
+      for (const item of newItems) {
+        expect(screen.getByText(item.content)).toBeInTheDocument();
+      }
+      expect(screen.getByText('알림 41')).toBeInTheDocument();
+      expect(screen.getAllByText('알림 100')).toHaveLength(1);
+
+      await user.click(screen.getByRole('button', { name: '더 보기' }));
+      await screen.findByText('알림 40');
+      expect(pageCalls.at(-1)).toContain('cursor=41');
+      expect(screen.getAllByText('알림 100')).toHaveLength(1);
+    },
+  );
+
+  it('queues the connected refresh while load more is in flight and applies it afterward', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    const existingItems = Array.from({ length: 100 }, (_, index) =>
+      createNotification(100 - index),
+    );
+    let serverItems = [...existingItems];
+    const pageCalls: string[] = [];
+    const olderPageResolver: { current: ((value: unknown) => void) | null } = { current: null };
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        pageCalls.push(path);
+        const url = new URL(path, 'http://localhost');
+        const cursor = url.searchParams.get('cursor');
+        if (cursor !== null && pageCalls.length === 2) {
+          return (await new Promise<unknown>((resolve) => {
+            olderPageResolver.current = resolve;
+          })) as T;
+        }
+        const start =
+          cursor === null
+            ? 0
+            : serverItems.findIndex((item) => item.notificationId === Number(cursor)) + 1;
+        const items = serverItems.slice(start, start + 20);
+        const nextCursor =
+          start + items.length < serverItems.length ? String(items.at(-1)?.notificationId) : null;
+        return {
+          message: '성공',
+          data: { notifications: items, nextCursor },
+        } as T;
+      }
+      return { message: '성공' } as T;
+    };
+    const user = userEvent.setup();
+
+    renderConnectedList(request);
+    await screen.findByText('알림 100');
+    await user.click(screen.getByRole('button', { name: '더 보기' }));
+    await waitFor(() => expect(pageCalls).toHaveLength(2));
+
+    const newItems = [createNotification(102), createNotification(101)];
+    serverItems = [...newItems, ...existingItems];
+    await act(async () => stream.emit('connected'));
+    await act(async () => new Promise((resolve) => globalThis.setTimeout(resolve, 180)));
+    expect(pageCalls).toHaveLength(2);
+
+    olderPageResolver.current?.({
+      message: '성공',
+      data: { notifications: existingItems.slice(20, 40), nextCursor: '61' },
+    });
+    await waitFor(() => expect(pageCalls).toHaveLength(3));
+    expect(await screen.findByText('알림 102')).toBeInTheDocument();
+    expect(screen.getByText('알림 101')).toBeInTheDocument();
+    expect(screen.getByText('알림 81')).toBeInTheDocument();
+    expect(screen.getAllByText('알림 100')).toHaveLength(1);
+  });
+
+  it('removes server-deleted items from the scanned range and retains only older loaded items', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    const existingItems = Array.from({ length: 100 }, (_, index) =>
+      createNotification(100 - index),
+    );
+    const newItem = createNotification(101);
+    let serverItems = [...existingItems];
+    let refreshing = false;
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        const cursor = new URL(path, 'http://localhost').searchParams.get('cursor');
+        if (refreshing && cursor === null) serverItems = [newItem, ...existingItems.slice(3)];
+        const start =
+          cursor === null
+            ? 0
+            : serverItems.findIndex((item) => item.notificationId === Number(cursor)) + 1;
+        const items = serverItems.slice(start, start + 20);
+        const nextCursor =
+          start + items.length < serverItems.length ? String(items.at(-1)?.notificationId) : null;
+        return { message: '성공', data: { notifications: items, nextCursor } } as T;
+      }
+      return { message: '성공' } as T;
+    };
+    const user = userEvent.setup();
+
+    renderConnectedList(request);
+    await screen.findByText('알림 100');
+    await user.click(screen.getByRole('button', { name: '더 보기' }));
+    await screen.findByText('알림 81');
+    refreshing = true;
+    await act(async () => stream.emit('connected'));
+
+    expect(await screen.findByText('알림 101')).toBeInTheDocument();
+    expect(screen.queryByText('알림 100')).not.toBeInTheDocument();
+    expect(screen.queryByText('알림 99')).not.toBeInTheDocument();
+    expect(screen.queryByText('알림 98')).not.toBeInTheDocument();
+    expect(screen.getByText('알림 61')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '더 보기' }));
+    await screen.findByText('알림 60');
+  });
+
+  it('replaces the list with server results when no overlap remains and the last page is reached', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    const existingItems = Array.from({ length: 60 }, (_, index) => createNotification(100 - index));
+    const latestItems = [createNotification(202), createNotification(201), createNotification(200)];
+    let refreshStarted = false;
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        if (refreshStarted) {
+          return {
+            message: '성공',
+            data: { notifications: latestItems, nextCursor: null },
+          } as T;
+        }
+        const cursor = new URL(path, 'http://localhost').searchParams.get('cursor');
+        const start =
+          cursor === null
+            ? 0
+            : existingItems.findIndex((item) => item.notificationId === Number(cursor)) + 1;
+        const items = existingItems.slice(start, start + 20);
+        const nextCursor =
+          start + items.length < existingItems.length ? String(items.at(-1)?.notificationId) : null;
+        return { message: '성공', data: { notifications: items, nextCursor } } as T;
+      }
+      return { message: '성공' } as T;
+    };
+    const user = userEvent.setup();
+
+    renderConnectedList(request);
+    await screen.findByText('알림 100');
+    await user.click(screen.getByRole('button', { name: '더 보기' }));
+    await screen.findByText('알림 81');
+    refreshStarted = true;
+    await act(async () => stream.emit('connected'));
+
+    expect(await screen.findByText('알림 202')).toBeInTheDocument();
+    expect(screen.queryByText('알림 100')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
+  });
+
+  it('refreshes an initially empty list after the first connected event', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    let pageCallCount = 0;
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        pageCallCount += 1;
+        return {
+          message: '성공',
+          data: {
+            notifications: pageCallCount === 1 ? [] : [createNotification(201)],
+            nextCursor: null,
+          },
+        } as T;
+      }
+      return { message: '성공' } as T;
+    };
+
+    renderConnectedList(request);
+    expect(await screen.findByText('아직 도착한 알림이 없어요')).toBeInTheDocument();
+    await act(async () => stream.emit('connected'));
+
+    expect(await screen.findByText('알림 201')).toBeInTheDocument();
+    expect(pageCallCount).toBe(2);
+  });
+
+  it('falls back to the cached first page after reaching the five-page refresh limit', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    const existingItems = Array.from({ length: 60 }, (_, index) => createNotification(100 - index));
+    let refreshStarted = false;
+    const refreshCursors: (string | null)[] = [];
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        const cursor = new URL(path, 'http://localhost').searchParams.get('cursor');
+        if (refreshStarted) {
+          refreshCursors.push(cursor);
+          const pageNumber = cursor === null ? 1 : Number(cursor.replace('page-', '')) + 1;
+          const items = Array.from({ length: 20 }, (_, index) =>
+            createNotification(200 - (pageNumber - 1) * 20 - index),
+          );
+          return {
+            message: '성공',
+            data: { notifications: items, nextCursor: `page-${pageNumber}` },
+          } as T;
+        }
+        const start =
+          cursor === null
+            ? 0
+            : existingItems.findIndex((item) => item.notificationId === Number(cursor)) + 1;
+        const items = existingItems.slice(start, start + 20);
+        const nextCursor =
+          start + items.length < existingItems.length ? String(items.at(-1)?.notificationId) : null;
+        return { message: '성공', data: { notifications: items, nextCursor } } as T;
+      }
+      return { message: '성공' } as T;
+    };
+    const user = userEvent.setup();
+
+    renderConnectedList(request);
+    await screen.findByText('알림 100');
+    await user.click(screen.getByRole('button', { name: '더 보기' }));
+    await screen.findByText('알림 81');
+    refreshStarted = true;
+    await act(async () => stream.emit('connected'));
+
+    await waitFor(() => expect(refreshCursors).toHaveLength(5));
+    expect(refreshCursors).toEqual([null, 'page-1', 'page-2', 'page-3', 'page-4']);
+    expect(screen.getByText('알림 200')).toBeInTheDocument();
+    expect(screen.queryByText('알림 100')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '더 보기' }));
+    await waitFor(() => expect(refreshCursors).toHaveLength(6));
+    expect(refreshCursors[5]).toBe('page-1');
+  });
+
+  it('falls back to the first page when the server repeats a cursor', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    const existingItems = Array.from({ length: 40 }, (_, index) => createNotification(100 - index));
+    let refreshStarted = false;
+    const refreshCursors: (string | null)[] = [];
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        const cursor = new URL(path, 'http://localhost').searchParams.get('cursor');
+        if (refreshStarted) {
+          refreshCursors.push(cursor);
+          return {
+            message: '성공',
+            data: {
+              notifications: [createNotification(cursor === null ? 200 : 180)],
+              nextCursor: 'repeat',
+            },
+          } as T;
+        }
+        const start =
+          cursor === null
+            ? 0
+            : existingItems.findIndex((item) => item.notificationId === Number(cursor)) + 1;
+        const items = existingItems.slice(start, start + 20);
+        const nextCursor =
+          start + items.length < existingItems.length ? String(items.at(-1)?.notificationId) : null;
+        return { message: '성공', data: { notifications: items, nextCursor } } as T;
+      }
+      return { message: '성공' } as T;
+    };
+
+    renderConnectedList(request);
+    await screen.findByText('알림 100');
+    refreshStarted = true;
+    await act(async () => stream.emit('connected'));
+
+    await waitFor(() => expect(refreshCursors).toHaveLength(2));
+    expect(refreshCursors).toEqual([null, 'repeat']);
+    expect(screen.getByText('알림 200')).toBeInTheDocument();
+    expect(screen.queryByText('알림 100')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the existing list when a later refresh page fails', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    const existingItems = Array.from({ length: 60 }, (_, index) => createNotification(100 - index));
+    let refreshStarted = false;
+    let refreshPageCount = 0;
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        if (refreshStarted) {
+          refreshPageCount += 1;
+          if (refreshPageCount === 1) {
+            return {
+              message: '성공',
+              data: { notifications: [createNotification(200)], nextCursor: 'next' },
+            } as T;
+          }
+          throw new Error('일시적인 페이지 조회 실패');
+        }
+        const cursor = new URL(path, 'http://localhost').searchParams.get('cursor');
+        const start =
+          cursor === null
+            ? 0
+            : existingItems.findIndex((item) => item.notificationId === Number(cursor)) + 1;
+        const items = existingItems.slice(start, start + 20);
+        const nextCursor =
+          start + items.length < existingItems.length ? String(items.at(-1)?.notificationId) : null;
+        return { message: '성공', data: { notifications: items, nextCursor } } as T;
+      }
+      return { message: '성공' } as T;
+    };
+
+    renderConnectedList(request);
+    await screen.findByText('알림 100');
+    await screen.findByText('알림 81');
+    refreshStarted = true;
+    await act(async () => stream.emit('connected'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('알림을 불러오지 못했어요.');
+    expect(screen.getByText('알림 100')).toBeInTheDocument();
+    expect(screen.queryByText('알림 200')).not.toBeInTheDocument();
+    expect(refreshPageCount).toBe(2);
+  });
+
+  it('aborts a pending refresh when the notification list unmounts', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    let refreshStarted = false;
+    const refreshRequest: {
+      resolve: ((value: unknown) => void) | null;
+      signal: AbortSignal | null;
+    } = { resolve: null, signal: null };
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(
+      path: string,
+      init?: RequestInit,
+    ) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        if (refreshStarted) {
+          refreshRequest.signal = init?.signal as AbortSignal;
+          return (await new Promise<unknown>((resolve) => {
+            refreshRequest.resolve = resolve;
+          })) as T;
+        }
+        return {
+          message: '성공',
+          data: { notifications: [createNotification(100)], nextCursor: null },
+        } as T;
+      }
+      return { message: '성공' } as T;
+    };
+    const view = renderConnectedList(request);
+
+    await screen.findByText('알림 100');
+    refreshStarted = true;
+    await act(async () => stream.emit('connected'));
+    await waitFor(() => expect(refreshRequest.resolve).not.toBeNull());
+    view.unmount();
+
+    expect(refreshRequest.signal?.aborted).toBe(true);
+    refreshRequest.resolve?.({
+      message: '성공',
+      data: { notifications: [createNotification(101)], nextCursor: null },
+    });
+  });
+
+  it('coalesces notification events received during a refresh into one follow-up request', async () => {
+    const stream = createNotificationStream();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stream.response));
+    let refreshStarted = false;
+    let refreshPageCount = 0;
+    const pendingRefresh: { resolve: ((value: unknown) => void) | null } = { resolve: null };
+    const request: AuthenticatedApiClient['fetchJson'] = async <T,>(path: string) => {
+      if (path === '/notifications/unread-status') {
+        return { message: '성공', data: { hasUnread: false } } as T;
+      }
+      if (path.startsWith('/notifications?')) {
+        if (refreshStarted) {
+          refreshPageCount += 1;
+          if (refreshPageCount === 1) {
+            return (await new Promise<unknown>((resolve) => {
+              pendingRefresh.resolve = resolve;
+            })) as T;
+          }
+          return {
+            message: '성공',
+            data: {
+              notifications: [createNotification(102), createNotification(101)],
+              nextCursor: null,
+            },
+          } as T;
+        }
+        return {
+          message: '성공',
+          data: { notifications: [createNotification(100)], nextCursor: null },
+        } as T;
+      }
+      return { message: '성공' } as T;
+    };
+
+    renderConnectedList(request);
+    await screen.findByText('알림 100');
+    refreshStarted = true;
+    await act(async () => stream.emit('connected'));
+    await waitFor(() => expect(pendingRefresh.resolve).not.toBeNull());
+    await act(async () => {
+      stream.emit('notification-created');
+      stream.emit('notification-created');
+    });
+    await act(async () => new Promise((resolve) => globalThis.setTimeout(resolve, 180)));
+    expect(refreshPageCount).toBe(1);
+
+    pendingRefresh.resolve?.({
+      message: '성공',
+      data: { notifications: [createNotification(101), createNotification(100)], nextCursor: null },
+    });
+    await waitFor(() => expect(refreshPageCount).toBe(2));
+    expect(await screen.findByText('알림 102')).toBeInTheDocument();
   });
 
   it('refreshes unread status after deleting a notification', async () => {

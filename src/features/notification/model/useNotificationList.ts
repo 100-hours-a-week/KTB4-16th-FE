@@ -9,6 +9,8 @@ import {
 } from '../api/notificationApi';
 import { useNotificationSse } from './notificationSseContext';
 
+const MAX_REFRESH_PAGES = 5;
+
 /** 알림 cursor 조회와 페이지별 읽음 처리를 관리하고 실패한 읽음은 목록과 독립적으로 재시도한다. */
 export function useNotificationList(request: AuthenticatedApiClient['fetchJson']) {
   const { refreshUnreadStatus, subscribeToNotificationUpdates } = useNotificationSse();
@@ -54,18 +56,80 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
     setBusy(true);
     setError('');
     try {
-      const page = await getNotifications(null, request, controller.signal);
-      if (controller.signal.aborted) return;
-      setItems((current) => {
-        const merged = new Map(page.items.map((item) => [item.notificationId, item]));
-        current.forEach((item) => {
+      const existingIds = new Set(items.map((item) => item.notificationId));
+      const refreshedItems: NotificationItem[] = [];
+      let firstPageItems: NotificationItem[] = [];
+      const requestedCursors = new Set<string>();
+      let retainedOlderItems: NotificationItem[] = [];
+      let cursor: string | null = null;
+      let latestNextCursor: string | null = null;
+      let firstPageNextCursor: string | null = null;
+      let pagesFetched = 0;
+      let reachedExistingItems = false;
+      let useFirstPageFallback = false;
+      let repeatedCursor = false;
+
+      while (true) {
+        if (cursor !== null) {
+          if (requestedCursors.has(cursor)) {
+            useFirstPageFallback = true;
+            repeatedCursor = true;
+            break;
+          }
+          requestedCursors.add(cursor);
+        }
+        const page = await getNotifications(cursor, request, controller.signal);
+        if (controller.signal.aborted) return;
+        pagesFetched += 1;
+        refreshedItems.push(...page.items);
+        latestNextCursor = page.nextCursor;
+        if (pagesFetched === 1) {
+          firstPageItems = page.items;
+          firstPageNextCursor = page.nextCursor;
+        }
+        const matchedIds = new Set(
+          page.items
+            .filter((item) => existingIds.has(item.notificationId))
+            .map((item) => item.notificationId),
+        );
+        if (existingIds.size === 0) break;
+        if (matchedIds.size > 0) {
+          let oldestMatchIndex = -1;
+          items.forEach((item, index) => {
+            if (matchedIds.has(item.notificationId)) oldestMatchIndex = index;
+          });
+          retainedOlderItems = items.slice(oldestMatchIndex + 1);
+          reachedExistingItems = true;
+          break;
+        }
+        if (latestNextCursor === null) break;
+        if (pagesFetched >= MAX_REFRESH_PAGES) {
+          useFirstPageFallback = true;
+          break;
+        }
+        cursor = latestNextCursor;
+      }
+
+      const itemsToRefresh = useFirstPageFallback ? firstPageItems : refreshedItems;
+      setItems(() => {
+        const merged = new Map(itemsToRefresh.map((item) => [item.notificationId, item]));
+        const itemsToRetain = reachedExistingItems ? retainedOlderItems : [];
+        itemsToRetain.forEach((item) => {
           if (!merged.has(item.notificationId)) merged.set(item.notificationId, item);
         });
         return [...merged.values()];
       });
-      if (status !== 'ready' || items.length === 0) setNextCursor(page.nextCursor);
+      setNextCursor(
+        reachedExistingItems
+          ? nextCursor
+          : repeatedCursor
+            ? null
+            : useFirstPageFallback
+              ? firstPageNextCursor
+              : latestNextCursor,
+      );
       setStatus('ready');
-      page.items
+      itemsToRefresh
         .filter((item) => item.readAt === null)
         .forEach((item) => pendingReadIds.current.add(item.notificationId));
       await saveRead(controller.signal);
@@ -78,7 +142,7 @@ export function useNotificationList(request: AuthenticatedApiClient['fetchJson']
         setBusy(false);
       }
     }
-  }, [items.length, request, saveRead, status]);
+  }, [items, nextCursor, request, saveRead]);
 
   /** 동시에 한 페이지씩 읽어 cursor 역전과 빠른 중복 클릭을 방지한다. */
   const loadPage = useCallback(
