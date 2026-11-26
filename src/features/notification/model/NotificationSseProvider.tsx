@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
 import { useSession } from '../../../entities/session/model/useSession';
+import { ApiError } from '../../../shared/api/apiError';
 import { getUnreadNotificationStatus } from '../api/notificationApi';
-import { connectNotificationSse } from '../api/notificationSseClient';
+import { connectNotificationSse, getJwtExpirationMs } from '../api/notificationSseClient';
 import { NotificationSseContext } from './notificationSseContext';
+
+const MAX_UNCHANGED_EXPIRED_TOKEN_REFRESHES = 2;
 
 export function NotificationSseProvider({ children }: PropsWithChildren) {
   const {
@@ -33,7 +36,6 @@ export function NotificationSseProvider({ children }: PropsWithChildren) {
     let unreadSyncPending = false;
     let unreadSyncRunning = false;
     let unreadSyncRevision = 0;
-    let hasConnected = false;
     let consecutiveAuthFailures = 0;
     let pendingListRefresh = false;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -102,9 +104,7 @@ export function NotificationSseProvider({ children }: PropsWithChildren) {
             if (!isActive || controller.signal.aborted) return;
             if (event === 'connected') {
               consecutiveAuthFailures = 0;
-              syncUnreadStatus();
-              if (hasConnected) scheduleSync(true);
-              hasConnected = true;
+              scheduleSync(true);
             }
             if (event === 'notification-created') scheduleSync(true);
           });
@@ -116,20 +116,32 @@ export function NotificationSseProvider({ children }: PropsWithChildren) {
           ) {
             consecutiveAuthFailures += 1;
             if (consecutiveAuthFailures > 1) return;
-            try {
-              await refreshAccessToken();
-            } catch {
-              if (controller.signal.aborted) return;
-              retryAttempt += 1;
-              await waitForReconnect(retryDelay(retryAttempt), controller.signal);
-              continue;
+            let unchangedExpiredTokenRefreshes = 0;
+            while (!controller.signal.aborted) {
+              try {
+                await refreshAccessToken();
+                const refreshedToken = getAccessToken();
+                if (refreshedToken === token) {
+                  const expiresAt = getJwtExpirationMs(token);
+                  if (expiresAt !== null && expiresAt <= Date.now()) {
+                    unchangedExpiredTokenRefreshes += 1;
+                    if (unchangedExpiredTokenRefreshes >= MAX_UNCHANGED_EXPIRED_TOKEN_REFRESHES) {
+                      return;
+                    }
+                    retryAttempt += 1;
+                    await waitForReconnect(retryDelay(retryAttempt), controller.signal);
+                    continue;
+                  }
+                }
+                break;
+              } catch (error: unknown) {
+                if (controller.signal.aborted || isTerminalRefreshFailure(error)) return;
+                retryAttempt += 1;
+                await waitForReconnect(retryDelay(retryAttempt), controller.signal);
+              }
             }
-            if (getAccessToken() === token) {
-              retryAttempt += 1;
-              await waitForReconnect(retryDelay(retryAttempt), controller.signal);
-            } else {
-              retryAttempt = 0;
-            }
+            if (controller.signal.aborted) return;
+            retryAttempt = 0;
             continue;
           }
           retryAttempt += 1;
@@ -173,6 +185,14 @@ export function NotificationSseProvider({ children }: PropsWithChildren) {
   );
 
   return <NotificationSseContext value={value}>{children}</NotificationSseContext>;
+}
+
+function isTerminalRefreshFailure(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    ((error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429) ||
+      error.code === 'SESSION_CHANGED')
+  );
 }
 
 function retryDelay(attempt: number): number {
